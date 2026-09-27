@@ -1,0 +1,73 @@
+.editableDropdownContainer {
+  position: relative;
+  display: inline-block;
+}
+
+.editableField {
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s ease;
+}
+
+.editableField:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.editDropdownIcon {
+  opacity: 0.6;
+  transition: transform 0.2s ease;
+}
+
+.editableField:hover .editDropdownIcon {
+  opacity: 1;
+}
+
+.editDropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  min-width: 150px;
+}
+
+.editDropdownOption {
+  padding: 8px 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background-color 0.2s ease;
+}
+
+.editDropdownOption:hover {
+  background-color: #f8fafc;
+}
+
+.editDropdownSelected {
+  background-color: #e2e8f0;
+}
+
+.editDropdownDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .editableField {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}

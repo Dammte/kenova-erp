@@ -1,0 +1,27 @@
+.navbar {
+    display: flex;
+    align-items: end;
+    flex-direction: column;
+    padding: 10px;
+    background-color: #f0f0f0;
+}
+
+.navList {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+}
+
+.navItem {
+    color: #333;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+    border-radius: 50%;
+    transition: background-color 0.3s ease;
+}
+
+.navItem:hover {
+    background-color: rgba(0, 0, 0, 0.1);
+}

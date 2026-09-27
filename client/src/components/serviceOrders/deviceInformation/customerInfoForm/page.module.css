@@ -1,0 +1,352 @@
+/* Contenedor principal del formulario */
+.formContainer {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 1.5rem;
+  background-color: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+/* Encabezado con estilo mejorado */
+.backButtonHeader {
+  display: flex;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.titleHeader {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    padding: 1rem 1.5rem;
+    background-color: #ffffff;
+    border-radius: 0.75rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #1e293b;
+    box-shadow: 0 6px 6px rgba(0, 0, 0, 0.05);
+    position: relative;
+    overflow: hidden;
+    border-bottom: linear-gradient(to right, #13171d, #000000);
+}
+
+.backButtonHeader h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+/* Secciones del formulario */
+.formSection {
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+}
+
+.sectionTitle {
+  font-size: 1.2rem;
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #eff6ff;
+}
+
+/* Cuadrícula de campos del formulario */
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.25rem;
+}
+
+.fullWidth {
+  grid-column: span 2;
+}
+
+/* Estilos para los campos del formulario */
+.formField {
+  margin-bottom: 0.5rem;
+}
+
+.formFieldGroup {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  gap: 0.75rem;
+  grid-column: span 2;
+}
+
+.formLabel {
+  display: flex;
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #4b5563;
+}
+
+.requiredMark {
+  color: #ef4444;
+  margin-left: 2px;
+}
+
+/* Estilos para todos los inputs */
+.formInput,
+.formSelect,
+.formTextarea,
+.searchInput {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  background-color: #fff;
+}
+
+.formInput:focus,
+.formSelect:focus,
+.formTextarea:focus,
+.searchInput:focus {
+  outline: none;
+  border-color: #727477;
+}
+
+.formTextarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
+.fieldHelper {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.formActionsContainer {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 1rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.backButton,
+.continueButton,
+.searchButton,
+.resetButton,
+.closeButton {
+  padding: 0.75rem 1.5rem;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.backButton {
+  background-color: #f9fafb;
+  color: #4b5563;
+  border: 1px solid #d1d5db;
+}
+
+.backButton:hover {
+  background-color: #f3f4f6;
+}
+
+.continueButton {
+  background-color: #1e2432;
+  color: white;
+  border: none;
+}
+
+.continueButton:hover {
+  background-color: rgb(49, 51, 54);
+}
+
+/* Sección de búsqueda */
+.searchContainer {
+  margin-bottom: 2rem;
+  padding: 1rem;
+  background-color: #f9fafb;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+.searchInputGroup {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.searchInput {
+  flex-grow: 1;
+}
+
+.searchButton {
+  background-color: #1e2432;
+  color: white;
+  border: none;
+  white-space: nowrap;
+}
+
+.searchButton:hover {
+  background-color: #374151;
+}
+
+.searchButton:disabled {
+  background-color: #727477;
+  cursor: not-allowed;
+}
+
+.clientExistsAlert {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background-color: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  border-radius: 6px;
+  color: #065f46;
+}
+
+.checkIcon {
+  display: inline-block;
+  margin-right: 0.5rem;
+  font-weight: bold;
+}
+
+.resetButton {
+  background-color: #f3f4f6;
+  color: #4b5563;
+  border: 1px solid #d1d5db;
+  font-size: 0.875rem;
+}
+
+.resetButton:hover {
+  background-color: #e5e7eb;
+}
+
+/* Resultados de búsqueda */
+.searchResults {
+  margin-top: 1rem;
+  padding: 1rem;
+  background-color: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+}
+
+.searchResults h3 {
+  margin-top: 0;
+  margin-bottom: 0.75rem;
+  font-size: 1rem;
+  color: #111827;
+}
+
+.resultsList {
+  max-height: 300px;
+  overflow-y: auto;
+  margin-bottom: 1rem;
+}
+
+.resultItem {
+  padding: 0.75rem;
+  border-bottom: 1px solid #f3f4f6;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.resultItem:hover {
+  background-color: #f9fafb;
+}
+
+.resultName {
+  font-weight: 500;
+  color: #111827;
+}
+
+.resultDetails {
+  display: flex;
+  gap: 1rem;
+  margin-top: 0.25rem;
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.closeButton {
+  background-color: #f3f4f6;
+  color: #4b5563;
+  border: 1px solid #d1d5db;
+  font-size: 0.875rem;
+  width: 100%;
+}
+
+.closeButton:hover {
+  background-color: #e5e7eb;
+}
+
+.noResults {
+  padding: 1rem;
+  text-align: center;
+  color: #6b7280;
+  background-color: #f9fafb;
+  border-radius: 6px;
+}
+
+/* DNI validation states */
+.inputValid {
+  border-color: #10b981 !important;
+  background-color: #f0fdf4;
+}
+
+.inputInvalid {
+  border-color: #ef4444 !important;
+  background-color: #fef2f2;
+}
+
+.inputLoading {
+  background-color: #f9fafb;
+  color: #9ca3af;
+}
+
+.dniValid {
+  color: #059669;
+  font-weight: 500;
+}
+
+.dniInvalid {
+  color: #dc2626;
+  font-weight: 500;
+}
+
+/* Postal code feedback */
+.postalCodeLoading {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.postalCodeError {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  color: #dc2626;
+}
+
+/* Estilos responsivos */
+@media (max-width: 768px) {
+  .formGrid {
+    grid-template-columns: 1fr;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .formFieldGroup {
+    grid-template-columns: 1fr;
+  }
+}

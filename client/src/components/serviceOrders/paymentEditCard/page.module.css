@@ -1,0 +1,482 @@
+/* ============================================
+   PAYMENT EDIT CARD - DISEÑO PROFESIONAL MINIMALISTA
+   ============================================ */
+
+/* Overlay sutil */
+.paymentCardOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.15s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Card principal - diseño limpio */
+.paymentCard {
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.12);
+  width: 90%;
+  max-width: 560px;
+  max-height: 90vh;
+  overflow: hidden;
+  animation: slideUp 0.2s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Header elegante */
+.paymentCardHeader {
+  background: #1e293b;
+  padding: 20px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #334155;
+}
+
+.paymentCardHeader h3 {
+  margin: 0;
+  color: #f8fafc;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+}
+
+.closeButton {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 24px;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  line-height: 1;
+  padding: 0;
+}
+
+.closeButton:hover {
+  background: rgba(148, 163, 184, 0.1);
+  color: #f8fafc;
+}
+
+/* Contenido */
+.paymentCardContent {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* Estado de Pago Badge - diseño sutil */
+.statusBadgeContainer {
+  background: #f8fafc;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+  border: 1px solid #e2e8f0;
+}
+
+.statusLabel {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.statusBadgeWrapper {
+  display: flex;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.15s ease;
+}
+
+.badgeIcon {
+  display: flex;
+  align-items: center;
+}
+
+.paymentBadge.paymentPaid {
+  background: #d1fae5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.paymentBadge.paymentPartial {
+  background: #fed7aa;
+  color: #92400e;
+  border: 1px solid #fbbf24;
+}
+
+.paymentBadge.paymentPending {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fca5a5;
+}
+
+.paymentBadge.paymentOverdue {
+  background: #450a0a;
+  color: #fecaca;
+  border: 1px solid #991b1b;
+}
+
+.statusHelp {
+  display: block;
+  font-size: 11px;
+  color: #94a3b8;
+  font-style: normal;
+}
+
+/* Form Groups */
+.formGroup {
+  margin-bottom: 16px;
+}
+
+.formGroup label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 6px;
+}
+
+.formSelect,
+.formInput {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  transition: all 0.15s ease;
+  background: #ffffff;
+  color: #1e293b;
+}
+
+.formSelect:focus,
+.formInput:focus {
+  outline: none;
+  border-color: #475569;
+  box-shadow: 0 0 0 3px rgba(71, 85, 105, 0.05);
+}
+
+.formSelect:hover,
+.formInput:hover {
+  border-color: #94a3b8;
+}
+
+/* Sección Financiera */
+.financialSection {
+  background: #fafafa;
+  border-radius: 8px;
+  padding: 16px;
+  margin: 20px 0;
+  border: 1px solid #e5e7eb;
+}
+
+/* Quick Pay Section */
+.quickPaySection {
+  margin: 16px 0;
+}
+
+.quickPaySection label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 10px;
+}
+
+.quickPayButtons {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+  gap: 8px;
+}
+
+.quickPayButton {
+  background: #1e293b;
+  color: #ffffff;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.quickPayButton:hover {
+  background: #334155;
+  transform: translateY(-1px);
+}
+
+.quickPayButton:active {
+  transform: translateY(0);
+}
+
+.payFullButton {
+  background: #0f766e;
+}
+
+.payFullButton:hover {
+  background: #115e59;
+}
+
+/* Clear Button */
+.clearButton {
+  width: 100%;
+  background: transparent;
+  color: #64748b;
+  border: 1px solid #cbd5e1;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  margin-top: 10px;
+}
+
+.clearButton:hover {
+  background: #fef2f2;
+  border-color: #fca5a5;
+  color: #dc2626;
+}
+
+/* Validation Error */
+.validationError {
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  border-radius: 6px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #991b1b;
+  font-size: 13px;
+  font-weight: 500;
+  margin: 16px 0;
+}
+
+.validationError svg {
+  flex-shrink: 0;
+  color: #dc2626;
+}
+
+/* Payment Summary - diseño limpio */
+.paymentSummary {
+  background: #ffffff;
+  border-radius: 8px;
+  padding: 18px;
+  margin-top: 20px;
+  border: 1px solid #e2e8f0;
+}
+
+.summaryTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 14px 0;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.summaryRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+}
+
+.balanceRow {
+  padding-top: 10px;
+  margin-top: 6px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.summaryLabel {
+  font-size: 13px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.summaryValue {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.paidAmount {
+  color: #0891b2;
+}
+
+.pendingAmount {
+  color: #dc2626;
+  font-size: 18px;
+}
+
+.completedAmount {
+  color: #059669;
+  font-size: 18px;
+}
+
+/* Progress Container */
+.progressContainer {
+  margin-top: 12px;
+}
+
+.progressBar {
+  width: 100%;
+  height: 8px;
+  background: #e2e8f0;
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.progressFill {
+  height: 100%;
+  background: #1e293b;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.progressText {
+  display: block;
+  text-align: center;
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+/* Actions */
+.paymentCardActions {
+  padding: 16px 24px;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.cancelButton,
+.saveButton {
+  padding: 10px 24px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: none;
+}
+
+.cancelButton {
+  background: #ffffff;
+  color: #64748b;
+  border: 1px solid #cbd5e1;
+}
+
+.cancelButton:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+  color: #475569;
+}
+
+.saveButton {
+  background: #1e293b;
+  color: #ffffff;
+}
+
+.saveButton:hover:not(:disabled) {
+  background: #334155;
+}
+
+.saveButton:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.saveButton:disabled {
+  background: #cbd5e1;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .paymentCard {
+    width: 95%;
+    max-height: 95vh;
+  }
+
+  .paymentCardHeader {
+    padding: 16px 20px;
+  }
+
+  .paymentCardHeader h3 {
+    font-size: 16px;
+  }
+
+  .paymentCardContent {
+    padding: 20px;
+  }
+
+  .quickPayButtons {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .paymentCardActions {
+    padding: 14px 20px;
+    flex-direction: column-reverse;
+  }
+
+  .cancelButton,
+  .saveButton {
+    width: 100%;
+    justify-content: center;
+  }
+}

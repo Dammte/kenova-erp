@@ -1,0 +1,653 @@
+.container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  padding: 0;
+}
+
+.searchSection {
+  padding: 24px;
+  background: white;
+  border-bottom: 1px solid #e2e8f0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+}
+
+.searchWrapper {
+  position: relative;
+  margin-bottom: 16px;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #64748b;
+  z-index: 1;
+}
+
+.searchInput {
+  width: 100%;
+  height: 52px;
+  padding: 0 52px 0 48px;
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 500;
+  color: #1e293b;
+  background: #ffffff;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.searchInput:focus {
+  border-color: #1e2432;
+  box-shadow: 0 0 0 3px rgba(30, 36, 50, 0.1);
+}
+
+.searchInput::placeholder {
+  color: #94a3b8;
+  font-weight: 400;
+}
+
+.clearButton {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: #f1f5f9;
+  border: none;
+  border-radius: 8px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.clearButton:hover {
+  background: #e2e8f0;
+  color: #475569;
+}
+
+.addButton {
+  width: 100%;
+  height: 48px;
+  background: linear-gradient(135deg, #1e2432 0%, #161b26 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 14px rgba(30, 36, 50, 0.2);
+}
+
+.addButton:hover {
+  transform: translateY(-1px);
+  background: linear-gradient(135deg, #161b26 0%, #0f141a 100%);
+  box-shadow: 0 6px 22px rgba(30, 36, 50, 0.3);
+}
+
+.addButton:active {
+  transform: translateY(0);
+}
+
+.addButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: 0 4px 14px rgba(30, 36, 50, 0.2);
+}
+
+.formSection {
+  padding: 0 24px 24px;
+  background: white;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.formCard {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.formTitle {
+  margin: 0 0 16px;
+  font-size: 18px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.formContent {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.formInput {
+  height: 48px;
+  padding: 0 16px;
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 500;
+  color: #1e293b;
+  background: white;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.formInput:focus {
+  border-color: #1e2432;
+  box-shadow: 0 0 0 3px rgba(30, 36, 50, 0.1);
+}
+
+.formActions {
+  display: flex;
+  gap: 12px;
+}
+
+.cancelButton,
+.submitButton {
+  flex: 1;
+  height: 44px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+}
+
+.cancelButton {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.cancelButton:hover {
+  background: #e2e8f0;
+  color: #475569;
+}
+
+.submitButton {
+  background: linear-gradient(135deg, #1e2432 0%, #161b26 100%);
+  color: white;
+  box-shadow: 0 2px 10px rgba(30, 36, 50, 0.2);
+}
+
+.submitButton:hover {
+  transform: translateY(-1px);
+  background: linear-gradient(135deg, #161b26 0%, #0f141a 100%);
+  box-shadow: 0 4px 18px rgba(30, 36, 50, 0.3);
+}
+
+.submitButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.errorMessage {
+  margin-top: 12px;
+  padding: 12px 16px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  color: #dc2626;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.brandsSection {
+  padding: 24px;
+  flex: 1;
+}
+
+.searchResults {
+  margin-bottom: 20px;
+  padding: 12px 16px;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #64748b;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+}
+
+.brandsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.brandCard {
+  background: white;
+  border: 2px solid #f1f5f9;
+  border-radius: 16px;
+  padding: 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.brandCard::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #1e2432, #2a3441, #364050);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.brandCard:hover {
+  transform: translateY(-4px);
+  border-color: #1e2432;
+  box-shadow: 0 12px 32px rgba(30, 36, 50, 0.15);
+}
+
+.brandCard:hover::before {
+  opacity: 1;
+}
+
+.brandCard:active {
+  transform: translateY(-2px);
+}
+
+.brandContent {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.brandName {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1e293b;
+  letter-spacing: -0.02em;
+  flex: 1;
+}
+
+.deviceBadge {
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  transition: all 0.3s ease;
+}
+
+.brandCard:hover .deviceBadge {
+  background: linear-gradient(135deg, #1e2432 0%, #161b26 100%);
+  color: white;
+  transform: scale(1.1);
+}
+
+.deviceIcon {
+  width: 20px;
+  height: 20px;
+}
+
+.loadingState,
+.errorState,
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+}
+
+.loadingState {
+  color: #64748b;
+}
+
+.loadingState p {
+  margin: 16px 0 0;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+.deleteButton {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(255, 255, 255, 0.95);
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.2s ease;
+  z-index: 2;
+  color: #666;
+  backdrop-filter: blur(4px);
+}
+
+.deleteButton:hover {
+  background-color: #ff4444;
+  border-color: #ff4444;
+  color: white;
+  transform: scale(1.15);
+  box-shadow: 0 2px 8px rgba(255, 68, 68, 0.3);
+}
+
+.deleteButton:active {
+  transform: scale(1.05);
+}
+
+.deleteButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.brandCard {
+  position: relative;
+}
+
+.brandCard:hover .deleteButton {
+  opacity: 1;
+}
+
+.brandCardDeleting {
+  opacity: 0.5;
+  pointer-events: none;
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 0.3; }
+}
+
+.confirmOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.2s ease;
+  padding: 20px;
+}
+
+@keyframes fadeIn {
+  from { 
+    opacity: 0;
+    backdrop-filter: blur(0px);
+  }
+  to { 
+    opacity: 1;
+    backdrop-filter: blur(2px);
+  }
+}
+
+.confirmDialog {
+  background: white;
+  border-radius: 16px;
+  padding: 32px;
+  max-width: 480px;
+  width: 100%;
+  box-shadow: 
+    0 20px 60px rgba(0, 0, 0, 0.3),
+    0 0 0 1px rgba(0, 0, 0, 0.05);
+  animation: slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  position: relative;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+.confirmTitle {
+  margin: 0 0 16px 0;
+  font-size: 24px;
+  font-weight: 700;
+  color: #1a1a1a;
+  text-align: center;
+  letter-spacing: -0.5px;
+}
+
+.confirmMessage {
+  margin: 0 0 32px 0;
+  font-size: 16px;
+  color: #555;
+  line-height: 1.6;
+  text-align: center;
+  padding: 0 8px;
+}
+
+.confirmMessage strong {
+  color: #ff4444;
+  font-weight: 700;
+  font-size: 17px;
+}
+
+.confirmActions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.confirmCancelButton,
+.confirmDeleteButton {
+  padding: 14px 28px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 140px;
+  justify-content: center;
+  flex: 1;
+  max-width: 180px;
+}
+
+.confirmCancelButton {
+  background-color: #f5f5f5;
+  color: #666;
+  border: 2px solid #e0e0e0;
+}
+
+.confirmCancelButton:hover:not(:disabled) {
+  background-color: #e8e8e8;
+  border-color: #c0c0c0;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.confirmDeleteButton {
+  background: linear-gradient(135deg, #ff4444 0%, #cc0000 100%);
+  color: white;
+  border: 2px solid transparent;
+  box-shadow: 0 4px 12px rgba(255, 68, 68, 0.3);
+}
+
+.confirmDeleteButton:hover:not(:disabled) {
+  background: linear-gradient(135deg, #ff3333 0%, #bb0000 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255, 68, 68, 0.4);
+}
+
+.confirmDeleteButton:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(255, 68, 68, 0.3);
+}
+
+.confirmCancelButton:disabled,
+.confirmDeleteButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.brandContent {
+  cursor: pointer;
+  flex: 1;
+}
+
+@media (max-width: 500px) {
+  .confirmDialog {
+    padding: 24px;
+    max-width: 95%;
+  }
+  
+  .confirmTitle {
+    font-size: 20px;
+  }
+  
+  .confirmMessage {
+    font-size: 15px;
+  }
+  
+  .confirmActions {
+    flex-direction: column;
+  }
+  
+  .confirmCancelButton,
+  .confirmDeleteButton {
+    max-width: 100%;
+    width: 100%;
+  }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.errorState {
+  color: #dc2626;
+}
+
+.errorText {
+  margin: 0 0 16px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.retryButton {
+  padding: 12px 24px;
+  background: #dc2626;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.retryButton:hover {
+  background: #b91c1c;
+  transform: translateY(-1px);
+}
+
+.emptyState {
+  color: #64748b;
+}
+
+.emptyState p {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.emptySubtext {
+  margin: 8px 0 0 !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  color: #94a3b8 !important;
+}
+
+@media (max-width: 768px) {
+  .brandsGrid {
+    grid-template-columns: 1fr;
+  }
+  
+  .searchSection,
+  .brandsSection {
+    padding: 16px;
+  }
+  
+  .formSection {
+    padding: 0 16px 16px;
+  }
+  
+  .brandCard {
+    padding: 16px;
+  }
+  
+  .brandName {
+    font-size: 16px;
+  }
+  
+  .deviceBadge {
+    width: 36px;
+    height: 36px;
+  }
+}
+
+@media (max-width: 480px) {
+  .formActions {
+    flex-direction: column;
+  }
+  
+  .cancelButton,
+  .submitButton {
+    flex: none;
+  }
+}

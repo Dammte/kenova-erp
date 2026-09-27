@@ -1,0 +1,434 @@
+.formContainer {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 2rem;
+    background-color: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  }
+  
+  .backButtonHeader {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  
+  .backButton {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: transparent;
+    border: none;
+    padding: 0.5rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: #555;
+    margin-right: 0.75rem;
+  }
+  
+  .backButton:hover {
+    background-color: #f5f5f5;
+    color: #2563eb;
+  }
+  
+  .backButtonIcon {
+    width: 20px;
+    height: 20px;
+  }
+  
+  .sectionTitle {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #1e293b;
+    margin: 0;
+  }
+  
+  .selectionSummary {
+    background-color: #f8fafc;
+    border-radius: 10px;
+    padding: 1.25rem;
+    margin-bottom: 1.5rem;
+    border-left: 4px solid #2563eb;
+  }
+  
+  .summaryTitle {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #1e293b;
+    margin: 0 0 0.5rem 0;
+  }
+  
+  .selectionSummary p {
+    color: #64748b;
+    margin: 0;
+    line-height: 1.5;
+  }
+  
+  .formSection {
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    margin-bottom: 1.25rem;
+    overflow: hidden;
+    transition: all 0.3s ease;
+  }
+  
+  .formSection.expanded {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  }
+  
+  .sectionHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.25rem;
+    cursor: pointer;
+    background-color: #f8fafc;
+    transition: background-color 0.2s ease;
+  }
+  
+  .formSection.expanded .sectionHeader {
+    background-color: #f1f5f9;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  
+  .sectionHeader:hover {
+    background-color: #f1f5f9;
+  }
+  
+  .formSectionLabel {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #334155;
+    margin: 0;
+    display: flex;
+    align-items: center;
+  }
+  
+  .sectionIcon {
+    margin-right: 0.75rem;
+    font-size: 1.125rem;
+  }
+  
+  .requiredMark {
+    color: #ef4444;
+    margin-left: 0.375rem;
+    font-size: 0.875rem;
+  }
+  
+  .expandIcon {
+    font-size: 1.25rem;
+    color: #64748b;
+    font-weight: 500;
+  }
+  
+  .sectionContent {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease, padding 0.3s ease;
+    opacity: 0;
+  }
+  
+  .sectionContent.visible {
+    max-height: 1000px;
+    padding: 1.25rem;
+    opacity: 1;
+  }
+  
+  .formTextarea {
+    width: 100%;
+    padding: 0.875rem 1rem;
+    font-size: 0.9375rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    resize: vertical;
+    min-height: 100px;
+    transition: border-color 0.2s ease;
+    background-color: #f8fafc;
+    color: #334155;
+  }
+  
+  .formTextarea:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    background-color: #ffffff;
+  }
+  
+  .fieldTip {
+    color: #64748b;
+    font-size: 0.875rem;
+    margin: 0.5rem 0 0 0;
+    font-style: italic;
+  }
+  
+  .serviceCardContainer {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 1rem;
+  }
+  
+  .serviceCard {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1.25rem 0.75rem;
+    background-color: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+  }
+  
+  .serviceCard:hover {
+    background-color: #f1f5f9;
+    transform: translateY(-2px);
+  }
+  
+  .serviceCardSelected {
+    background-color: #ebf5ff;
+    border-color: #3b82f6;
+  }
+  
+  .serviceIcon {
+    font-size: 1.75rem;
+    margin-bottom: 0.75rem;
+  }
+  
+  .serviceName {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #334155;
+  }
+  
+  .hiddenCheckbox {
+    position: absolute;
+    opacity: 0;
+    height: 0;
+    width: 0;
+  }
+  
+  .checkmark {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    height: 1.25rem;
+    width: 1.25rem;
+    border-radius: 50%;
+    border: 2px solid #cbd5e1;
+    background-color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .serviceCardSelected .checkmark {
+    background-color: #3b82f6;
+    border-color: #3b82f6;
+  }
+  
+  .serviceCardSelected .checkmark:after {
+    content: '';
+    position: absolute;
+    width: 0.375rem;
+    height: 0.75rem;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg) translate(-1px, -1px);
+  }
+  
+  .priorityContainer {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  
+  .priorityCard {
+    position: relative;
+    display: flex;
+    align-items: center;
+    padding: 1rem 1.25rem;
+    background-color: var(--priority-bg, #f8fafc);
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  
+  .priorityCard:hover {
+    background-color: rgba(var(--priority-color, rgb(241, 245, 249)), 0.15);
+    transform: translateX(2px);
+  }
+  
+  .priorityCardSelected {
+    border-color: var(--priority-color, #3b82f6);
+    background-color: var(--priority-bg, #ebf5ff);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  }
+  
+  .priorityContent {
+    flex: 1;
+  }
+  
+  .priorityLabel {
+    font-weight: 500;
+    color: #334155;
+    display: block;
+  }
+  
+  .extraCost {
+    display: inline-block;
+    font-size: 0.75rem;
+    color: #ef4444;
+    background-color: #fee2e2;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    margin-top: 0.375rem;
+  }
+  
+  .hiddenRadio {
+    position: absolute;
+    opacity: 0;
+    height: 0;
+    width: 0;
+  }
+  
+  .priorityCheckmark {
+    height: 1.25rem;
+    width: 1.25rem;
+    border-radius: 50%;
+    border: 2px solid #cbd5e1;
+    background-color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 1rem;
+  }
+  
+  .priorityCardSelected .priorityCheckmark {
+    background-color: var(--priority-color, #3b82f6);
+    border-color: var(--priority-color, #3b82f6);
+  }
+  
+  .priorityCardSelected .priorityCheckmark:after {
+    content: '';
+    position: absolute;
+    width: 0.375rem;
+    height: 0.75rem;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg) translate(-1px, -1px);
+  }
+  
+  .budgetField {
+    width: 100%;
+    max-width: 300px;
+  }
+  
+  .inputWithPrefix {
+    display: flex;
+    align-items: center;
+    position: relative;
+  }
+  
+  .inputPrefix {
+    position: absolute;
+    left: 1rem;
+    color: #64748b;
+    font-weight: 500;
+  }
+  
+  .formInputWithPrefix {
+    width: 100%;
+    padding: 0.875rem 1rem 0.875rem 2rem;
+    font-size: 0.9375rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    transition: border-color 0.2s ease;
+    background-color: #f8fafc;
+    color: #334155;
+  }
+  
+  .formInputWithPrefix:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    background-color: #ffffff;
+  }
+  
+  .formHelpText {
+    color: #64748b;
+    font-size: 0.875rem;
+    margin: 0.5rem 0 0 0;
+  }
+  
+  .formActionsContainer {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid #f0f0f0;
+  }
+  
+  .backButton {
+    padding: 0.75rem 1.5rem;
+    background-color: white;
+    color: #64748b;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  
+  .backButton:hover {
+    background-color: #f8fafc;
+    color: #334155;
+  }
+  
+  .continueButton {
+    padding: 0.75rem 1.5rem;
+    background-color: #2563eb;
+    color: white;
+    border: 1px solid #2563eb;
+    border-radius: 8px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  
+  .continueButton:hover {
+    background-color: #1d4ed8;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
+  }
+  
+  @media (max-width: 768px) {
+    .formContainer {
+      padding: 1.5rem;
+    }
+    
+    .serviceCardContainer {
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .serviceCardContainer {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .formActionsContainer {
+      flex-direction: column-reverse;
+      gap: 1rem;
+    }
+    
+    .backButton, .continueButton {
+      width: 100%;
+    }
+  }

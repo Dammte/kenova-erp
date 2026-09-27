@@ -1,0 +1,46 @@
+.contact {
+  display: flex;
+  flex-direction: column;
+  padding: 1em;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+
+.contact h1 {
+  font-size: xx-large;
+}
+
+.contactContent {
+  background-color: indigo;
+  color: #fff;
+  display: flex;
+  flex-direction: row;
+  margin: 2em;
+  flex: 1;
+  align-items: center;
+  border: 1px solid #000;
+  border-radius: 1em;
+}
+
+.contactMedia {
+  margin: 2em;
+}
+
+.contactMedia h2 {
+  font-size: x-large;
+}
+
+.contactMedia p {
+  font-size: larger;
+}
+
+.contactMedia h2 {
+  padding: 0.5em;
+}
+
+.contactMap {
+  margin: 1em;
+  padding: 1em;
+  margin-left: 5em;
+}

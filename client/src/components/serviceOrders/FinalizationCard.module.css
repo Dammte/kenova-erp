@@ -1,0 +1,530 @@
+.finalizationCardOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(2px);
+}
+
+.finalizationCard {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  max-width: 800px;
+  max-height: 90vh;
+  overflow-y: auto;
+  width: 90vw;
+}
+
+.finalizationCardHeader {
+  padding: 20px 24px;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f8fafc;
+  border-radius: 12px 12px 0 0;
+}
+
+.finalizationCardHeader h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.closeButton {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: #6b7280;
+  padding: 4px 8px;
+  border-radius: 4px;
+  line-height: 1;
+  transition: all 0.2s;
+}
+
+.closeButton:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.finalizationCardContent {
+  padding: 24px;
+}
+
+/* ── Secciones plegables ────────────────────────────────────────────────── */
+.collapsibleSection {
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+
+.collapsibleHeader {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: #f8fafc;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+
+.collapsibleHeader:hover {
+  background: #f1f5f9;
+}
+
+.collapsibleTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.sectionIcon {
+  color: #4f6ef7;
+  flex-shrink: 0;
+}
+
+.chevron {
+  color: #94a3b8;
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}
+
+.sectionBadge {
+  font-size: 12px;
+  font-weight: 400;
+  color: #64748b;
+  background: #e2e8f0;
+  border-radius: 6px;
+  padding: 2px 7px;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.partsBadge {
+  font-size: 12px;
+  font-weight: 600;
+  color: #059669;
+  background: #d1fae5;
+  border-radius: 6px;
+  padding: 2px 7px;
+}
+
+.collapsibleBody {
+  padding: 14px 16px;
+  border-top: 1px solid #e2e8f0;
+  background: #fff;
+}
+
+.notesTextarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  color: #1e293b;
+  background: #f8fafc;
+  resize: vertical;
+  min-height: 80px;
+  line-height: 1.6;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.notesTextarea::placeholder {
+  color: #94a3b8;
+}
+
+.notesTextarea:focus {
+  outline: none;
+  border-color: #4f6ef7;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(79, 110, 247, 0.08);
+}
+
+.notesCounter {
+  text-align: right;
+  font-size: 11px;
+  color: #94a3b8;
+  margin-top: 4px;
+}
+
+/* ── Compatibilidad con clases antiguas ─────────────────────────────────── */
+.notesSection { display: none; }
+.partsSection { padding-top: 0; }
+.sectionTitle {
+  margin: 0 0 12px 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #1f2937;
+  display: flex;
+  align-items: center;
+}
+
+.sectionTitle {
+  margin: 0 0 12px 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #1f2937;
+  display: flex;
+  align-items: center;
+}
+
+.subsectionTitle {
+  margin: 20px 0 12px 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: #6b7280;
+}
+
+.selectedParts {
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 24px;
+}
+
+.selectedPart {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.selectedPart:last-child {
+  border-bottom: none;
+}
+
+.partInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.partName {
+  display: block;
+  font-weight: 500;
+  color: #1f2937;
+  font-size: 14px;
+}
+
+.partPrice {
+  display: block;
+  color: #6b7280;
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.partControls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.quantityButton {
+  width: 32px;
+  height: 32px;
+  border: 1px solid #d1d5db;
+  background: white;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.quantityButton:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.quantity {
+  min-width: 24px;
+  text-align: center;
+  font-weight: 500;
+  color: #1f2937;
+}
+
+.removePartButton {
+  background: #fee2e2;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  padding: 8px;
+  cursor: pointer;
+  color: #dc2626;
+  transition: all 0.2s;
+}
+
+.removePartButton:hover {
+  background: #fecaca;
+  border-color: #f87171;
+}
+
+.partTotal {
+  font-weight: 600;
+  color: #059669;
+  font-size: 14px;
+  min-width: 80px;
+  text-align: right;
+}
+
+.partsTotal {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #d1d5db;
+  text-align: right;
+  font-size: 16px;
+  color: #1f2937;
+}
+
+.searchSection {
+  margin-bottom: 16px;
+}
+
+.searchContainer {
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+.searchInput {
+  width: 100%;
+  padding: 10px 36px 10px 14px;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  font-size: 14px;
+  background: #ffffff;
+  transition: all 0.2s ease;
+  color: #212529;
+}
+
+.searchInput::placeholder {
+  color: #adb5bd;
+}
+
+.searchInput:focus {
+  outline: none;
+  border-color: #6c757d;
+  box-shadow: 0 0 0 3px rgba(108, 117, 125, 0.1);
+}
+
+.clearSearchButton {
+  position: absolute;
+  right: 8px;
+  background: #f8f9fa;
+  border: none;
+  font-size: 14px;
+  cursor: pointer;
+  color: #6c757d;
+  padding: 4px 6px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.clearSearchButton:hover {
+  background: #e9ecef;
+  color: #495057;
+}
+
+.availableParts {
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.loadingInventory {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px;
+  color: #6b7280;
+}
+
+.loadingSpinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid #f3f4f6;
+  border-top: 2px solid #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.partsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.inventoryItem {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.inventoryItem:hover {
+  border-color: #3b82f6;
+  background: #f8fafc;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.itemInfo {
+  margin-bottom: 8px;
+}
+
+.itemName {
+  display: block;
+  font-weight: 500;
+  color: #1f2937;
+  font-size: 13px;
+  margin-bottom: 2px;
+}
+
+.itemPrice {
+  display: block;
+  color: #059669;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.itemStock {
+  color: #6b7280;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.noInventoryItems {
+  text-align: center;
+  color: #9ca3af;
+  padding: 40px 20px;
+  font-style: italic;
+}
+
+.finalizationCardActions {
+  padding: 20px 24px;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  background: #f8fafc;
+  border-radius: 0 0 12px 12px;
+}
+
+.cancelButton {
+  padding: 10px 20px;
+  border: 1px solid #d1d5db;
+  background: white;
+  color: #6b7280;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.cancelButton:hover {
+  background: #f9fafb;
+  border-color: #9ca3af;
+  color: #374151;
+}
+
+.finalizeButton {
+  padding: 10px 20px;
+  background: #059669;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.finalizeButton:hover {
+  background: #047857;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(5, 150, 105, 0.25);
+}
+
+.confirmText {
+  font-size: 0.875rem;
+  color: #b45309;
+  font-weight: 500;
+  margin-right: auto;
+}
+
+@media (max-width: 768px) {
+  .finalizationCard {
+    width: 95vw;
+    max-height: 85vh;
+    border-radius: 8px;
+  }
+
+  .finalizationCardHeader {
+    padding: 16px;
+  }
+
+  .finalizationCardHeader h3 {
+    font-size: 16px;
+  }
+
+  .finalizationCardContent {
+    padding: 16px;
+  }
+
+  .partsGrid {
+    grid-template-columns: 1fr;
+    max-height: 150px;
+  }
+
+  .finalizationCardActions {
+    padding: 16px;
+    gap: 8px;
+  }
+
+  .cancelButton,
+  .finalizeButton {
+    flex: 1;
+    padding: 12px 16px;
+  }
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .quantityButton {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}

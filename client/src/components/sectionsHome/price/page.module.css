@@ -1,0 +1,31 @@
+.prices {
+  margin-top: 2em;
+  padding: 1em;
+  text-align: center;
+}
+
+.prices h1 {
+  font-size: xx-large;
+}
+
+.cardPrices {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  padding: 1em;
+}
+
+.cardContent {
+  background-color: indigo;
+  color: #fff;
+  border: 1px solid #000;
+  border-radius: 1rem;
+  padding: 2em;
+  margin: 2em;
+  flex: 1;
+}
+
+.cardContent h2 {
+  margin-bottom: 1em;
+  font-size: x-large;
+}

@@ -1,0 +1,61 @@
+.repair{
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 1em;
+    margin-top: 10vh;
+    text-align: center;
+}
+
+.repairText{
+    padding: 1em;
+}
+
+.repairText h1{
+    font-size: xx-large;
+}
+
+.repairText h2{
+    font-size: x-large;
+}
+
+.table{
+    margin: 5px;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    border: 1px solid #000;
+    border-radius: 1em;
+    padding: 3em;
+    font-size: larger;
+}
+
+.tableOptions{
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.tableOptions button {
+    color: #fff;
+    padding: 2em;
+    cursor: pointer;
+    border: 1px solid indigo;
+    background-color: indigo;
+    border-radius: 5px;
+    margin: 0.2em;
+    transition: background-color 0.3s ease-in;
+}
+
+.tableOptions button:hover {
+    background-color: rgb(99, 57, 129); 
+}
+
+.tableContent{
+    /* border: 1px solid #000; */
+    border-radius: 5px;
+    padding: 10em;
+    padding-top: 1em;
+    background-color: #f0f0f0;
+}
