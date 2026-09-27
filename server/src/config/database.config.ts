@@ -8,6 +8,18 @@ import { DataSourceOptions } from 'typeorm';
  * DATABASE_URL takes precedence over DB_* (TypeORM ignores DB_* when `url` is set).
  */
 export function buildDatabaseOptions(): DataSourceOptions {
+  if (
+    process.env.NODE_ENV === 'production' &&
+    !process.env.DATABASE_URL &&
+    !process.env.DB_HOST
+  ) {
+    // Without this the driver silently tries localhost:5432 and fails with an
+    // unhelpful ECONNREFUSED.
+    throw new Error(
+      'DATABASE_URL is not set: add it to the environment variables of this service',
+    );
+  }
+
   const ssl =
     process.env.DB_SSL === 'false'
       ? false
