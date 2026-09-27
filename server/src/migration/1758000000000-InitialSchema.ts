@@ -1,4 +1,5 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
+import { uuidFunction } from '../common/db/uuid-function';
 
 /**
  * Base schema for an empty database (new deployments such as Kenova).
@@ -16,7 +17,8 @@ export class InitialSchema1758000000000 implements MigrationInterface {
       `SELECT to_regclass('public.users') IS NOT NULL AS "exists"`,
     );
     if (exists) return;
-    await q.query(SCHEMA);
+    const uuid = await uuidFunction(q);
+    await q.query(SCHEMA.split('public.uuid_generate_v4()').join(uuid));
   }
 
   public async down(q: QueryRunner): Promise<void> {
@@ -33,8 +35,6 @@ export class InitialSchema1758000000000 implements MigrationInterface {
 }
 
 const SCHEMA = `
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA public;
-
 CREATE TYPE public.client_dnitype_enum AS ENUM (
     'NIF',
     'NIE',

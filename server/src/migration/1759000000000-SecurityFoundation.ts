@@ -1,5 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 import { SecretCipher } from '../common/crypto/secret-cipher';
+import { uuidFunction } from '../common/db/uuid-function';
 
 /**
  * Security foundation (audit findings SEC-001/002/003, PRIV-001, DATA-001).
@@ -67,10 +68,12 @@ export class SecurityFoundation1759000000000 implements MigrationInterface {
     );
     await q.query(`DROP TYPE IF EXISTS "users_role_enum"`);
 
+    const uuid = await uuidFunction(q);
+
     // ── sessions ──────────────────────────────────────────────────────────────
     await q.query(`
       CREATE TABLE IF NOT EXISTS "sessions" (
-        "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+        "id" uuid NOT NULL DEFAULT ${uuid},
         "tokenHash" char(64) NOT NULL,
         "userId" uuid NOT NULL,
         "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
@@ -92,7 +95,7 @@ export class SecurityFoundation1759000000000 implements MigrationInterface {
     // ── audit_events (append-only) ─────────────────────────────────────────────
     await q.query(`
       CREATE TABLE IF NOT EXISTS "audit_events" (
-        "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+        "id" uuid NOT NULL DEFAULT ${uuid},
         "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
         "actorUserId" uuid,
         "action" varchar(64) NOT NULL,
