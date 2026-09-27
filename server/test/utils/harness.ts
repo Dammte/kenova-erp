@@ -73,6 +73,17 @@ export async function createLegacyDatabase(seedSql?: string): Promise<string> {
   return name;
 }
 
+/** A brand-new, empty database: what a fresh deployment (e.g. Kenova) starts from. */
+export async function createEmptyDatabase(): Promise<string> {
+  const name = `e2e_${randomBytes(6).toString('hex')}`;
+  await admin((c) => c.query(`CREATE DATABASE ${name}`));
+  return name;
+}
+
+export function databaseUrl(name: string): string {
+  return dbUrl(name);
+}
+
 export async function runMigrations(name: string): Promise<void> {
   process.env.DATABASE_URL = dbUrl(name);
   const ds = new DataSource(buildDatabaseOptions());
