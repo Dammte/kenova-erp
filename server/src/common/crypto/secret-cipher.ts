@@ -12,6 +12,10 @@ import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
  *   DEVICE_SECRET_KEY_ID   label stored with each ciphertext (default "v1")
  *   DEVICE_SECRET_OLD_KEYS optional "id:base64,id:base64" for rotation (decrypt only)
  */
+export const KEY_FORMAT_ERROR =
+  'DEVICE_SECRET_KEY must be 32 random bytes encoded in base64 (44 characters, ending in "="). ' +
+  'Generate one with: openssl rand -base64 32';
+
 export class SecretCipher {
   private readonly keys = new Map<string, Buffer>();
 
@@ -29,6 +33,20 @@ export class SecretCipher {
       this.keys.set(id, key);
     }
     this.keys.set(currentKeyId, currentKey);
+  }
+
+  /**
+   * Decodes a base64 key as pasted into a hosting panel: surrounding spaces
+   * and quotes are ignored. Returns null when it is not exactly 32 bytes.
+   */
+  static decodeKey(raw: string | undefined): Buffer | null {
+    const value = (raw ?? '')
+      .trim()
+      .replace(/^["']|["']$/g, '')
+      .trim();
+    if (!/^[A-Za-z0-9+/_-]{42,44}={0,2}$/.test(value)) return null;
+    const key = Buffer.from(value, 'base64');
+    return key.length === 32 ? key : null;
   }
 
   static fromEnv(env: NodeJS.ProcessEnv = process.env): SecretCipher {
@@ -52,11 +70,11 @@ export class SecretCipher {
         'base64',
       );
     }
-    return new SecretCipher(
-      env.DEVICE_SECRET_KEY_ID || 'v1',
-      Buffer.from(raw, 'base64'),
-      oldKeys,
-    );
+    const key = SecretCipher.decodeKey(raw);
+    if (!key) {
+      throw new Error(KEY_FORMAT_ERROR);
+    }
+    return new SecretCipher(env.DEVICE_SECRET_KEY_ID || 'v1', key, oldKeys);
   }
 
   private static assertKey(key: Buffer, id: string) {

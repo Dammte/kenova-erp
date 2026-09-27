@@ -59,4 +59,19 @@ describe('SecretCipher', () => {
     } as NodeJS.ProcessEnv);
     expect(c.activeKeyId).toBe('v1');
   });
+
+  it('accepts a key pasted with spaces or quotes, and rejects hex or short keys', () => {
+    const b64 = randomBytes(32).toString('base64');
+    expect(SecretCipher.decodeKey(` "${b64}" \n`)).toHaveLength(32);
+    expect(SecretCipher.decodeKey(randomBytes(32).toString('hex'))).toBeNull();
+    expect(
+      SecretCipher.decodeKey(randomBytes(16).toString('base64')),
+    ).toBeNull();
+    expect(SecretCipher.decodeKey('una-clave-inventada')).toBeNull();
+    expect(() =>
+      SecretCipher.fromEnv({
+        DEVICE_SECRET_KEY: randomBytes(32).toString('hex'),
+      }),
+    ).toThrow(/44 characters/);
+  });
 });

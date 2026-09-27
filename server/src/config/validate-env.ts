@@ -1,3 +1,5 @@
+import { KEY_FORMAT_ERROR, SecretCipher } from '../common/crypto/secret-cipher';
+
 /**
  * Lists every production setting that is missing, so a misconfigured deploy
  * fails once with the full list instead of one variable per attempt (or, for
@@ -20,6 +22,11 @@ export function productionEnvProblems(env: NodeJS.ProcessEnv): string[] {
   if (!env.DEVICE_SECRET_KEY) {
     problems.push(
       'DEVICE_SECRET_KEY is not set (32 random bytes in base64: openssl rand -base64 32)',
+    );
+  } else if (!SecretCipher.decodeKey(env.DEVICE_SECRET_KEY)) {
+    // Never echo the value: only its length helps diagnose the mistake.
+    problems.push(
+      `${KEY_FORMAT_ERROR} (the current value has ${env.DEVICE_SECRET_KEY.trim().length} characters)`,
     );
   }
   if (!env.CORS_ORIGIN) {
