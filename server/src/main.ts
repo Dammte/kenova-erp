@@ -3,6 +3,7 @@ import { NestFactory } from '@nestjs/core';
 import { DataSource } from 'typeorm';
 import { AppModule } from './app.module';
 import { setupApp } from './common/setup-app';
+import { ensureInitialAdmin } from './auth/initial-admin';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -20,6 +21,8 @@ async function bootstrap() {
     await app.close();
     process.exit(1);
   }
+
+  await ensureInitialAdmin(app);
 
   await app.listen(process.env.PORT ?? 4000);
 }

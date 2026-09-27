@@ -46,13 +46,30 @@ CI (`.github/workflows/ci.yml`) levanta su propio PostgreSQL.
 
 | Variable | Obligatoria | Valor |
 |---|---|---|
-| `DATABASE_URL` | sí | cadena de conexión de Render |
+| `DATABASE_URL` | sí | cadena de conexión de PostgreSQL (en Supabase, la del *Session pooler*) |
 | `NODE_ENV` | sí | `production` (activa SSL a BD y cookie `Secure`) |
 | `DEVICE_SECRET_KEY` | sí | 32 bytes aleatorios en base64. **Guárdala en un gestor de contraseñas**: sin ella los PIN guardados no se pueden leer |
 | `CORS_ORIGIN` | sí | origen exacto del frontend, p. ej. `https://2-in-side-client.vercel.app` |
 | `TRUST_PROXY_HOPS` | recomendada | `2` detrás del rewrite de Vercel + proxy de Render (IP real del cliente para el rate limit) |
 | `DEVICE_SECRET_RETENTION_DAYS` | no | por defecto 7 |
 | `GEMINI_API_KEY` | no | importador de facturas con IA |
+| `INITIAL_ADMIN_EMAIL`, `INITIAL_ADMIN_USERNAME`, `INITIAL_ADMIN_NAME`, `INITIAL_ADMIN_PASSWORD` | no | primer SUPER_ADMIN en hosts sin consola (plan gratuito de Render); ver abajo |
+
+### Primer SUPER_ADMIN sin consola
+
+Si las cuatro variables `INITIAL_ADMIN_*` están definidas y la base **no tiene ningún
+SUPER_ADMIN activo**, la app lo crea al arrancar con esa contraseña como **temporal**
+(12+ caracteres; hay que cambiarla al entrar). Si ya existe un SUPER_ADMIN, las ignora,
+así que no pueden usarse para tomar o restablecer una cuenta. Después del primer acceso,
+borra las cuatro variables en Render.
+
+### Despliegue desde una base vacía
+
+La migración `1758000000000-InitialSchema` crea las tablas base si la base está vacía
+(y no hace nada si ya existen); después `SecurityFoundation` las completa. El mismo
+*Start Command* (`npm run migration:run:prod && npm run start:prod`) sirve para ambos casos.
+Con `NODE_ENV=production` definido también en el build, usa como *Build Command*
+`npm ci --include=dev && npm run build` (Nest CLI es dependencia de desarrollo).
 
 ## Despliegue de la migración de seguridad (orden obligatorio)
 
