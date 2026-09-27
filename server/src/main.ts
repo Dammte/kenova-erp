@@ -4,8 +4,11 @@ import { DataSource } from 'typeorm';
 import { AppModule } from './app.module';
 import { setupApp } from './common/setup-app';
 import { ensureInitialAdmin } from './auth/initial-admin';
+import { assertProductionEnv } from './config/validate-env';
 
 async function bootstrap() {
+  assertProductionEnv();
+
   const app = await NestFactory.create(AppModule, {
     logger: ['error', 'warn', 'log'],
   });
