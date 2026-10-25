@@ -6,7 +6,7 @@ import { NextResponse, type NextRequest } from "next/server";
  * on every request; this only avoids rendering the app shell to anonymous users.
  */
 const SESSION_COOKIES = ["__Host-sid", "sid"];
-const PUBLIC_PAGES = ["/login"];
+const PUBLIC_PAGES = ["/login", "/recuperar-contrasena", "/restablecer-contrasena"];
 
 export function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl;

@@ -47,7 +47,11 @@ const nextConfig: NextConfig = {
     return [{ source: "/api/:path*", destination: `${apiOrigin.replace(/\/$/, "")}/api/:path*` }];
   },
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      // Defence in depth for the reset link (its token is already in the fragment).
+      { source: "/restablecer-contrasena", headers: [{ key: "Referrer-Policy", value: "no-referrer" }] },
+    ];
   },
 };
 

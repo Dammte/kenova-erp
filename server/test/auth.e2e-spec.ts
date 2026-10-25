@@ -14,7 +14,7 @@ describe('Authentication and sessions', () => {
   });
   afterAll(() => t.close());
 
-  it('protects every route except login and health (deny by default)', async () => {
+  it('protects every route except login, health and password reset (deny by default)', async () => {
     const router =
       t.app.getHttpAdapter().getInstance()._router ??
       t.app.getHttpAdapter().getInstance().router;
@@ -27,7 +27,14 @@ describe('Authentication and sessions', () => {
     }
     expect(routes.length).toBeGreaterThan(50);
 
-    const publicRoutes = new Set(['post /api/auth/login', 'get /api/health']);
+    const publicRoutes = new Set([
+      'post /api/auth/login',
+      'get /api/health',
+      // Password reset: the person is not logged in by definition.
+      'get /api/auth/password-reset/available',
+      'post /api/auth/password-reset/request',
+      'post /api/auth/password-reset/confirm',
+    ]);
     const uuid = '00000000-0000-4000-8000-000000000000';
     for (const r of routes) {
       const key = `${r.method} ${r.path}`;

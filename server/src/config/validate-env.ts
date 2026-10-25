@@ -34,6 +34,34 @@ export function productionEnvProblems(env: NodeJS.ProcessEnv): string[] {
       'CORS_ORIGIN is not set (exact frontend URL, e.g. https://my-app.vercel.app)',
     );
   }
+  problems.push(...emailProblems(env));
+  return problems;
+}
+
+/** Email is optional; when enabled it must be complete. */
+function emailProblems(env: NodeJS.ProcessEnv): string[] {
+  const provider = env.EMAIL_PROVIDER;
+  if (!provider) return [];
+  if (provider === 'log') {
+    return [
+      'EMAIL_PROVIDER=log only works locally: it prints reset links to the logs',
+    ];
+  }
+  if (provider !== 'resend') {
+    return [`EMAIL_PROVIDER "${provider}" is not supported (use "resend")`];
+  }
+  const problems: string[] = [];
+  if (!env.RESEND_API_KEY) problems.push('RESEND_API_KEY is not set');
+  if (!env.EMAIL_FROM) {
+    problems.push(
+      'EMAIL_FROM is not set (e.g. "Kenova <no-reply@your-domain.com>", on a domain verified in Resend)',
+    );
+  }
+  if (!env.APP_URL || !/^https:\/\/[^/\s]+/.test(env.APP_URL)) {
+    problems.push(
+      'APP_URL must be the https URL of the frontend (used in reset links)',
+    );
+  }
   return problems;
 }
 

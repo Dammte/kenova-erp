@@ -110,7 +110,15 @@ describe('Security foundation migration over legacy data', () => {
   it('can be reverted (rollback path) restoring the unlock codes', async () => {
     const ds = new DataSource(buildDatabaseOptions());
     await ds.initialize();
-    await ds.undoLastMigration({ transaction: 'all' });
+    // Revert the later migrations first, then SecurityFoundation itself.
+    let last: string | undefined;
+    do {
+      await ds.undoLastMigration({ transaction: 'all' });
+      const [row] = await ds.query(
+        `SELECT name FROM migrations ORDER BY id DESC LIMIT 1`,
+      );
+      last = row?.name;
+    } while (last && last !== 'InitialSchema1758000000000');
     const rows = await ds.query(
       `SELECT code, pattern FROM devices ORDER BY id`,
     );

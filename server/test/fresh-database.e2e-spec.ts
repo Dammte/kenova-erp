@@ -30,17 +30,19 @@ describe('Migrations on an empty database', () => {
     expect(pending.upQueries.map((q) => q.query)).toEqual([]);
   });
 
-  it('records both migrations', async () => {
+  it('records every migration', async () => {
     const rows = await db.query(`SELECT name FROM migrations ORDER BY id`);
     expect(rows.map((r: any) => r.name)).toEqual([
       'InitialSchema1758000000000',
       'SecurityFoundation1759000000000',
+      'PasswordResetTokens1761400000000',
     ]);
   });
 
   it('reverts cleanly back to an empty database', async () => {
-    await db.undoLastMigration({ transaction: 'all' });
-    await db.undoLastMigration({ transaction: 'all' });
+    for (let i = 0; i < 3; i++) {
+      await db.undoLastMigration({ transaction: 'all' });
+    }
     const tables = await db.query(
       `SELECT table_name FROM information_schema.tables
         WHERE table_schema = 'public' AND table_name <> 'migrations'`,
