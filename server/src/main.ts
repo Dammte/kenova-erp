@@ -4,6 +4,7 @@ import { DataSource } from 'typeorm';
 import { AppModule } from './app.module';
 import { setupApp } from './common/setup-app';
 import { ensureInitialAdmin } from './auth/initial-admin';
+import { applyAdminReset } from './auth/admin-reset';
 import { assertProductionEnv } from './config/validate-env';
 
 async function bootstrap() {
@@ -26,6 +27,7 @@ async function bootstrap() {
   }
 
   await ensureInitialAdmin(app);
+  await applyAdminReset(app);
 
   await app.listen(process.env.PORT ?? 4000);
 }

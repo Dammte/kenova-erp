@@ -54,6 +54,7 @@ CI (`.github/workflows/ci.yml`) levanta su propio PostgreSQL.
 | `DEVICE_SECRET_RETENTION_DAYS` | no | por defecto 7 |
 | `GEMINI_API_KEY` | no | importador de facturas con IA |
 | `INITIAL_ADMIN_EMAIL`, `INITIAL_ADMIN_USERNAME`, `INITIAL_ADMIN_NAME`, `INITIAL_ADMIN_PASSWORD` | no | primer SUPER_ADMIN en hosts sin consola (plan gratuito de Render); ver abajo |
+| `ADMIN_RESET_EMAIL`, `ADMIN_RESET_PASSWORD` | no | recuperar el acceso de un SUPER_ADMIN; ver abajo |
 
 ### Primer SUPER_ADMIN sin consola
 
@@ -62,6 +63,20 @@ SUPER_ADMIN activo**, la app lo crea al arrancar con esa contraseña como **temp
 (12+ caracteres; hay que cambiarla al entrar). Si ya existe un SUPER_ADMIN, las ignora,
 así que no pueden usarse para tomar o restablecer una cuenta. Después del primer acceso,
 borra las cuatro variables en Render.
+
+### Recuperar el acceso de un SUPER_ADMIN
+
+Las cuentas de tienda se restablecen desde **Usuarios → Restablecer contraseña**.
+Si quien olvidó la contraseña es el SUPER_ADMIN (y no hay otro que pueda restablecerla):
+
+1. En Render, añade `ADMIN_RESET_EMAIL` (su email) y `ADMIN_RESET_PASSWORD`
+   (una contraseña **temporal** de 12+ caracteres que eliges tú) y guarda.
+2. Al arrancar, la app pone esa contraseña como temporal, desbloquea y reactiva la
+   cuenta y cierra sus sesiones. Entra y crea una contraseña nueva.
+3. Borra las dos variables. Mientras sigan puestas no vuelven a actuar (cada valor
+   se aplica una sola vez y queda en la auditoría), pero no deben quedarse ahí.
+
+Solo afecta a cuentas SUPER_ADMIN. La contraseña no se guarda en la auditoría.
 
 ### Despliegue desde una base vacía
 
