@@ -55,6 +55,8 @@ CI (`.github/workflows/ci.yml`) levanta su propio PostgreSQL.
 | `GEMINI_API_KEY` | no | importador de facturas con IA |
 | `INITIAL_ADMIN_EMAIL`, `INITIAL_ADMIN_USERNAME`, `INITIAL_ADMIN_NAME`, `INITIAL_ADMIN_PASSWORD` | no | primer SUPER_ADMIN en hosts sin consola (plan gratuito de Render); ver abajo |
 | `ADMIN_RESET_EMAIL`, `ADMIN_RESET_PASSWORD` | no | recuperar el acceso de un SUPER_ADMIN; ver abajo |
+| `EMAIL_PROVIDER`, `RESEND_API_KEY`, `EMAIL_FROM`, `APP_URL` | no | "¿Olvidaste tu contraseña?" por email; ver abajo |
+| `PASSWORD_RESET_TTL_MINUTES` | no | validez del enlace, por defecto 30 |
 
 ### Primer SUPER_ADMIN sin consola
 
@@ -77,6 +79,23 @@ Si quien olvidó la contraseña es el SUPER_ADMIN (y no hay otro que pueda resta
    se aplica una sola vez y queda en la auditoría), pero no deben quedarse ahí.
 
 Solo afecta a cuentas SUPER_ADMIN. La contraseña no se guarda en la auditoría.
+
+### Recuperación de contraseña por email
+
+Sin `EMAIL_PROVIDER` la función está apagada y el login no muestra el enlace.
+El plan gratuito de Render bloquea SMTP, así que el envío va por la API HTTP de
+[Resend](https://resend.com) (3.000 emails/mes gratis):
+
+1. En Resend, verifica tu dominio (registros DNS SPF/DKIM) y crea una API key.
+   Sin dominio verificado Resend solo envía a tu propio email.
+2. En Render: `EMAIL_PROVIDER=resend`, `RESEND_API_KEY`, `EMAIL_FROM`
+   (p. ej. `Kenova <no-reply@tudominio.com>`) y `APP_URL` (URL https del frontend).
+   La app no arranca si falta alguna.
+
+Comportamiento: respuesta idéntica exista o no la cuenta; enlace de un solo uso,
+válido 30 minutos, guardado solo como hash; solo vale el último pedido; máximo 3
+por cuenta y hora; al cambiarla se cierran todas las sesiones, se desbloquea la
+cuenta y se avisa por email. Las cuentas desactivadas no reciben nada.
 
 ### Despliegue desde una base vacía
 

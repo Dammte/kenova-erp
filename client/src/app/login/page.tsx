@@ -1,6 +1,7 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Lock, Mail, Loader2, ArrowRight } from "lucide-react";
 import { API_URL } from "@/lib/api";
@@ -19,6 +20,14 @@ function LoginForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [canReset, setCanReset] = useState(false);
+
+  useEffect(() => {
+    fetch(`${API_URL}/auth/password-reset/available`)
+      .then((r) => (r.ok ? r.json() : { available: false }))
+      .then((b) => setCanReset(b.available === true))
+      .catch(() => setCanReset(false));
+  }, []);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,9 +117,15 @@ function LoginForm() {
           Entrar
         </button>
 
-        <p className="text-xs text-gray-400 text-center">
-          ¿Has olvidado la contraseña? Pide a un administrador que te la restablezca.
-        </p>
+        {canReset ? (
+          <Link href="/recuperar-contrasena" className="block text-sm text-blue-600 hover:underline text-center">
+            ¿Olvidaste tu contraseña?
+          </Link>
+        ) : (
+          <p className="text-xs text-gray-400 text-center">
+            ¿Has olvidado la contraseña? Pide a un administrador que te la restablezca.
+          </p>
+        )}
       </form>
     </div>
   );

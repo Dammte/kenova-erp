@@ -10,6 +10,7 @@ import { ClientsModule } from './clients/clients.module';
 import { OriginCheckMiddleware } from './common/security/origin-check.middleware';
 import { buildDatabaseOptions } from './config/database.config';
 import { DevicesModule } from './devices/devices.module';
+import { EmailModule } from './email/email.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { ModelsModule } from './models/models.module';
 import { ServiceHistoryModule } from './service-history/service-history.module';
@@ -37,6 +38,7 @@ import { UsersModule } from './users/users.module';
         process.env.NODE_ENV !== 'production',
     }),
     AuditModule,
+    EmailModule,
     AuthModule,
     UsersModule,
     ClientsModule,

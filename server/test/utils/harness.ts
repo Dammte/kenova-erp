@@ -10,6 +10,7 @@ import { DataSource } from 'typeorm';
 import { AppModule } from '../../src/app.module';
 import { setupApp } from '../../src/common/setup-app';
 import { buildDatabaseOptions } from '../../src/config/database.config';
+import { EmailMessage, EmailSender } from '../../src/email/email-sender';
 
 /**
  * Admin connection used only to CREATE/DROP throwaway databases.
@@ -130,14 +131,19 @@ export async function createUser(
   return { id: row.id, email: opts.email };
 }
 
-export async function createTestApp(seedSql?: string): Promise<TestContext> {
+export async function createTestApp(
+  seedSql?: string,
+  opts: { emailSender?: EmailSender } = {},
+): Promise<TestContext> {
   const name = await createLegacyDatabase(seedSql);
   await runMigrations(name);
   process.env.DATABASE_URL = dbUrl(name);
 
-  const moduleRef = await Test.createTestingModule({
-    imports: [AppModule],
-  }).compile();
+  const builder = Test.createTestingModule({ imports: [AppModule] });
+  if (opts.emailSender) {
+    builder.overrideProvider(EmailSender).useValue(opts.emailSender);
+  }
+  const moduleRef = await builder.compile();
   const app = moduleRef.createNestApplication({ logger: false });
   setupApp(app);
   await app.init();
@@ -178,4 +184,20 @@ export async function createTestApp(seedSql?: string): Promise<TestContext> {
       await dropDatabase(name);
     },
   };
+}
+
+/** Captures outgoing email instead of sending it. */
+export class MemoryEmailSender extends EmailSender {
+  readonly enabled = true;
+  readonly sent: EmailMessage[] = [];
+  async send(message: EmailMessage) {
+    this.sent.push(message);
+  }
+  /** Waits for background sends, which the API does not await. */
+  async waitFor(count: number) {
+    for (let i = 0; i < 50 && this.sent.length < count; i++) {
+      await new Promise((r) => setTimeout(r, 20));
+    }
+    return this.sent;
+  }
 }

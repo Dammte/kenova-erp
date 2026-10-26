@@ -6,7 +6,7 @@ import styles from "@/app/admin-layout.module.css";
 import { AuthProvider, useAuth } from "./AuthProvider";
 
 /** Pages that render without the sidebar and without a session. */
-const PUBLIC_PATHS = ["/login"];
+const PUBLIC_PATHS = ["/login", "/recuperar-contrasena", "/restablecer-contrasena"];
 
 function ProtectedContent({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();

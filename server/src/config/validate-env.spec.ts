@@ -43,4 +43,31 @@ describe('productionEnvProblems', () => {
     expect(problem).toMatch(/44 characters.*has 64 characters/);
     expect(problem).not.toContain(hex);
   });
+
+  it('accepts production without email, and a complete Resend setup', () => {
+    expect(
+      productionEnvProblems({
+        ...complete,
+        EMAIL_PROVIDER: 'resend',
+        RESEND_API_KEY: 're_x',
+        EMAIL_FROM: 'Kenova <no-reply@kenova.test>',
+        APP_URL: 'https://app.kenova.test',
+      }),
+    ).toEqual([]);
+  });
+
+  it('rejects an incomplete or unsafe email setup', () => {
+    expect(
+      productionEnvProblems({ ...complete, EMAIL_PROVIDER: 'log' }),
+    ).toHaveLength(1);
+    expect(
+      productionEnvProblems({ ...complete, EMAIL_PROVIDER: 'smtp' })[0],
+    ).toMatch(/not supported/);
+    const problems = productionEnvProblems({
+      ...complete,
+      EMAIL_PROVIDER: 'resend',
+      APP_URL: 'http://insecure.test',
+    });
+    expect(problems.join()).toMatch(/RESEND_API_KEY.*EMAIL_FROM.*APP_URL/);
+  });
 });
