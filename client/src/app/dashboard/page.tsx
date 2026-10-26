@@ -197,7 +197,7 @@ function normalizeCity(raw: string | null | undefined): string | null {
   return t.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-async function apiFetch(endpoint: string): Promise<unknown> {
+async function fetchJson(endpoint: string): Promise<unknown> {
   try {
     const res = await apiFetch(`${API_BASE}${endpoint}`);
     if (!res.ok) throw new Error(`HTTP ${res.status} en ${endpoint}`);
@@ -779,8 +779,8 @@ export default function Dashboard() {
     setRefreshing(true);
     setError(null);
     const [oRaw, iRaw] = await Promise.all([
-      apiFetch("/service-orders"),
-      apiFetch("/inventory"),
+      fetchJson("/service-orders"),
+      fetchJson("/inventory"),
     ]);
 
     if (oRaw === null && iRaw === null) {
