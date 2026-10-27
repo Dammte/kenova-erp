@@ -2,6 +2,7 @@
 import { useState } from "react";
 import {
   Plus,
+  Zap,
   Edit,
   Trash2,
   Download,
@@ -162,6 +163,10 @@ Equipo de Servicio Técnico`;
             <Download size={18} />
             <span>Exportar Excel</span>
           </button>
+          <Link href="/serviceOrders/intake" className={styles.exportButton}>
+            <Zap size={18} />
+            <span>Alta rápida</span>
+          </Link>
           <Link href="/serviceOrders/newServiceOrder" className={styles.newOrderButton}>
             <Plus size={18} />
             <span>Nueva Orden</span>
