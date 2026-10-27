@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { normalizeProductName } from '../common/product-name';
 import { CreateModelDto } from './dto/create-model.dto';
 import { UpdateModelDto } from './dto/update-model.dto';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -12,16 +13,9 @@ export class ModelsService {
     private readonly modelRepository: Repository<Model>,
   ) {}
 
-  private toTitleCase(str: string): string {
-    return str
-      .trim()
-      .toLowerCase()
-      .replace(/(?:^|\s|-)\S/g, (c) => c.toUpperCase());
-  }
-
   async create(createModelDto: CreateModelDto): Promise<Model> {
     const dto = { ...createModelDto };
-    if (typeof dto.name === 'string') dto.name = this.toTitleCase(dto.name);
+    if (typeof dto.name === 'string') dto.name = normalizeProductName(dto.name);
     const model = this.modelRepository.create(dto);
     return this.modelRepository.save(model);
   }
@@ -43,7 +37,7 @@ export class ModelsService {
     updateModelDto: Partial<UpdateModelDto>,
   ): Promise<void> {
     const dto = { ...updateModelDto };
-    if (typeof dto.name === 'string') dto.name = this.toTitleCase(dto.name);
+    if (typeof dto.name === 'string') dto.name = normalizeProductName(dto.name);
     await this.modelRepository.update(id, dto);
   }
 
