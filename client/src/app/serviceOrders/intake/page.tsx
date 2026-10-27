@@ -53,6 +53,8 @@ const PAYMENT_METHODS = [
 ];
 
 const eur = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" });
+/** Minúsculas y sin tildes: "batería" y "bateria" encuentran lo mismo. */
+const fold = (text: string) => text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
 // ── Tipos de la API ─────────────────────────────────────────────────────────
 interface ClientHit {
@@ -204,9 +206,9 @@ export default function IntakePage() {
   const balance = Math.max(totalNumber - paidNumber, 0);
 
   const serviceResults = useMemo(() => {
-    const term = serviceQuery.trim().toLowerCase();
+    const words = fold(serviceQuery).split(/\s+/).filter(Boolean);
     const pool = services.filter((s) => !selected.some((x) => x.id === s.id));
-    return (term ? pool.filter((s) => s.name.toLowerCase().includes(term)) : pool).slice(0, 8);
+    return pool.filter((s) => words.every((w) => fold(s.name).includes(w))).slice(0, 8);
   }, [serviceQuery, services, selected]);
 
   const addService = (s: CatalogService) => {
