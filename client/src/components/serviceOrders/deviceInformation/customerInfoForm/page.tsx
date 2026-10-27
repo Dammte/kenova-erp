@@ -308,7 +308,7 @@ export default function CustomerInfoForm({ formState, onChange, onSubmit }) {
           />
           <button
             type="button"
-            onClick={handleSearch}
+            onClick={() => handleSearch()}
             className={styles.searchButton}
             disabled={loading || !searchTerm.trim()}
           >

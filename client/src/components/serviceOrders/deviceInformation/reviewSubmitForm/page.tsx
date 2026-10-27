@@ -2,6 +2,13 @@
 
 import React, { useState } from 'react';
 import { ChevronLeft, Check, User, Smartphone, Wrench, AlertCircle, Phone, Mail, MapPin, XCircle } from 'lucide-react';
+import {
+  CONTACT_METHOD_LABELS,
+  DEVICE_CONDITION_LABELS,
+  DEVICE_TYPE_LABELS,
+  PAYMENT_STATUS_LABELS,
+  PRIORITY_LABELS,
+} from '@/app/serviceOrders/constants';
 
 interface ReviewSubmitFormProps {
   formState: {
@@ -224,7 +231,7 @@ const ReviewSubmitForm: React.FC<ReviewSubmitFormProps> = ({ formState, onSubmit
 
             <div className="bg-white rounded-md p-3">
               <p className="text-sm font-medium text-gray-700">Contacto preferido:</p>
-              <p className="text-sm text-gray-600 capitalize">{cliente?.preferredContact.toLowerCase()}</p>
+              <p className="text-sm text-gray-600">{CONTACT_METHOD_LABELS[cliente?.preferredContact] ?? cliente?.preferredContact}</p>
             </div>
 
             {cliente?.observations && (
@@ -250,7 +257,7 @@ const ReviewSubmitForm: React.FC<ReviewSubmitFormProps> = ({ formState, onSubmit
               <h3 className="text-lg font-medium text-gray-900">
                 {dispositivo?.brand.name} {dispositivo?.model}
               </h3>
-              <p className="text-gray-600">{dispositivo.type}</p>
+              <p className="text-gray-600">{DEVICE_TYPE_LABELS[dispositivo.type] ?? dispositivo.type}</p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -283,7 +290,7 @@ const ReviewSubmitForm: React.FC<ReviewSubmitFormProps> = ({ formState, onSubmit
             {dispositivo?.status && (
               <div className="bg-white rounded-md p-3">
                 <p className="text-sm font-medium text-gray-700">Estado:</p>
-                <p className="text-sm text-gray-600 capitalize">{dispositivo.status}</p>
+                <p className="text-sm text-gray-600">{DEVICE_CONDITION_LABELS[dispositivo.status] ?? dispositivo.status}</p>
               </div>
             )}
 
@@ -359,13 +366,13 @@ const ReviewSubmitForm: React.FC<ReviewSubmitFormProps> = ({ formState, onSubmit
             <div className="space-y-3">
               {servicio?.paymentStatus && (
                 <div className={`px-3 py-2 rounded-full text-sm font-medium ${getPaymentStatusColor(servicio.paymentStatus)}`}>
-                  Estado de Pago: {servicio.paymentStatus}
+                  Estado de Pago: {PAYMENT_STATUS_LABELS[servicio.paymentStatus.toLowerCase()] ?? servicio.paymentStatus}
                 </div>
               )}
               
               {servicio?.priority && (
                 <div className={`px-3 py-2 rounded-full text-sm font-medium ${getPriorityColor(servicio.priority)}`}>
-                  Prioridad: {servicio.priority}
+                  Prioridad: {PRIORITY_LABELS[servicio.priority.toLowerCase()] ?? servicio.priority}
                 </div>
               )}
 

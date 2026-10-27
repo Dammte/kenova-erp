@@ -473,7 +473,7 @@ export default function AddPart() {
                     Precio de venta *
                   </label>
                   <div className={styles.priceInput}>
-                    <span className={styles.currencySymbol}>$</span>
+                    <span className={styles.currencySymbol}>€</span>
                     <input
                       type="number"
                       id="salesPrice"
@@ -497,7 +497,7 @@ export default function AddPart() {
                     Precio de costo
                   </label>
                   <div className={styles.priceInput}>
-                    <span className={styles.currencySymbol}>$</span>
+                    <span className={styles.currencySymbol}>€</span>
                     <input
                       type="number"
                       id="costPrice"

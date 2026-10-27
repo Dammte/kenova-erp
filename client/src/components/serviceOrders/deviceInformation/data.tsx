@@ -1,7 +1,7 @@
 export const tiposDispositivos = [
     { id: 'movil', nombre: 'Móvil', icon: 'Phone' },
     { id: 'tablet', nombre: 'Tablet', icon: 'Tablet' },
-    { id: 'computador', nombre: 'Computador', icon: 'Laptop' }
+    { id: 'computador', nombre: 'Ordenador', icon: 'Laptop' }
 ];
 
 export const marcasPorTipo = {

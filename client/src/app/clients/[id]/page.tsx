@@ -20,6 +20,7 @@ import {
   Loader2,
 } from "lucide-react";
 import styles from "./page.module.css";
+import { CONTACT_METHOD_LABELS } from "@/app/serviceOrders/constants";
 import { showToast } from "nextjs-toast-notify";
 
 const API = API_URL;
@@ -205,7 +206,7 @@ export default function ClientDetail() {
             <label>Método preferido</label>
             <div className={styles.contactMethod}>
               {renderContactIcon(client.preferredContact)}
-              <span>{client.preferredContact}</span>
+              <span>{CONTACT_METHOD_LABELS[client.preferredContact] ?? client.preferredContact}</span>
             </div>
           </div>
         </div>

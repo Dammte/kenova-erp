@@ -7,6 +7,7 @@ import { useParams, useRouter } from "next/navigation";
 import { Edit, ArrowLeft, Camera } from "lucide-react";
 import Link from "next/link";
 import styles from "./page.module.css";
+import { formatEur } from "@/lib/format";
 
 interface PartDetails {
   id: string;
@@ -152,8 +153,8 @@ export default function ViewPart() {
         {/* Sección de Precios */}
         <div className={styles.section}>
           <h2>Precios</h2>
-          <DetailItem label="Precio de Venta" value={part.salesPrice} />
-          <DetailItem label="Precio de Costo" value={part.costPrice} />
+          <DetailItem label="Precio de Venta" value={part.salesPrice != null ? formatEur(part.salesPrice) : null} />
+          <DetailItem label="Precio de Costo" value={part.costPrice != null ? formatEur(part.costPrice) : null} />
         </div>
 
         {/* Sección de Proveedor */}
@@ -183,7 +184,7 @@ const DetailItem = ({ label, value }: DetailItemProps) => {
     if (value === null || value === undefined) return "N/A";
 
     if (typeof value === "number") {
-      return `$${value.toFixed(2)}`;
+      return formatEur(value);
     }
 
     return value;

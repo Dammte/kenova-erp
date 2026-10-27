@@ -95,6 +95,7 @@ import { saveAs } from "file-saver";
 import * as XLSX from "xlsx";
 import { showToast } from "nextjs-toast-notify";
 import ImportModal from "./components/ImportModal";
+import { formatEur } from "@/lib/format";
 
 interface Inventory {
   id: string;
@@ -241,8 +242,8 @@ const Inventory: React.FC = () => {
       Modelo: r.modelo,
       "Stock Actual": r.stockActual,
       "Stock Mínimo": r.stockMinimo,
-      "Precio Venta": `$${r.precioVenta.toFixed(2)}`,
-      "Precio Costo": `$${r.precioCosto.toFixed(2)}`,
+      "Precio Venta": formatEur(r.precioVenta),
+      "Precio Costo": formatEur(r.precioCosto),
       Ubicación: r.ubicacion,
       Proveedor: r.proveedor,
     }));
@@ -573,7 +574,7 @@ const Inventory: React.FC = () => {
                   <div className="flex justify-between">
                     <span className="text-xs text-gray-500">Precio</span>
                     <span className="text-xs font-medium">
-                      ${repuesto.precioVenta.toFixed(2)}
+                      {formatEur(repuesto.precioVenta)}
                     </span>
                   </div>
                 </div>
