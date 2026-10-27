@@ -13,7 +13,7 @@ describe('One-screen intake (POST /service-orders/intake)', () => {
     device: { id: string };
   }
   const intake = async (body: object) => {
-    const res = await intake(body);
+    const res = await post('/api/service-orders/intake', body);
     return { status: res.status, body: res.body as IntakeBody };
   };
   const count = async (table: string) =>
