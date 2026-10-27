@@ -1,5 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ServiceOrderService } from './service-order.service';
+import { IntakeService } from './intake.service';
+import { ClientsModule } from '../clients/clients.module';
+import { DevicesModule } from '../devices/devices.module';
 import { ServiceOrderController } from './service-order.controller';
 import { ServiceOrder } from './entities/service-order.entity';
 import { Client } from '../clients/entities/client.entity';
@@ -12,8 +15,10 @@ import { ServiceHistory } from '../service-history/entities/service-history.enti
 
 @Module({
   controllers: [ServiceOrderController],
-  providers: [ServiceOrderService],
+  providers: [ServiceOrderService, IntakeService],
   imports: [
+    ClientsModule,
+    DevicesModule,
     TypeOrmModule.forFeature([
       ServiceOrder,
       Client,
