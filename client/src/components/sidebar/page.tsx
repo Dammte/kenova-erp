@@ -41,42 +41,42 @@ export default function Sidebar() {
         </div>
 
         <nav className={styles.navigation}>
-          <Link href="/dashboard" className={styles.navItem} title="Dashboard">
+          <Link href="/dashboard" className={styles.navItem} title="Panel">
             <LayoutDashboard
               size={isSidebarOpen ? 20 : 24}
               className={styles.navIcon}
             />
-            {isSidebarOpen && <span>Dashboard</span>}
+            {isSidebarOpen && <span>Panel</span>}
           </Link>
           <Link
             href="/serviceOrders"
             className={styles.navItem}
-            title="Service Orders"
+            title="Órdenes"
           >
             <ClipboardList
               size={isSidebarOpen ? 20 : 24}
               className={styles.navIcon}
             />
-            {isSidebarOpen && <span>Service Orders</span>}
+            {isSidebarOpen && <span>Órdenes</span>}
           </Link>
-          <Link href="/clients" className={styles.navItem} title="Clients">
+          <Link href="/clients" className={styles.navItem} title="Clientes">
             <Users size={isSidebarOpen ? 20 : 24} className={styles.navIcon} />
-            {isSidebarOpen && <span>Clients</span>}
+            {isSidebarOpen && <span>Clientes</span>}
           </Link>
           {/* <Link href="/devices" className={styles.navItem} title="Devices">
             <Cpu size={isSidebarOpen ? 20 : 24} className={styles.navIcon} />
             {isSidebarOpen && <span>Devices</span>}
           </Link> */}
-          <Link href="/inventory" className={styles.navItem} title="inventory">
+          <Link href="/inventory" className={styles.navItem} title="Inventario">
             <Package
               size={isSidebarOpen ? 20 : 24}
               className={styles.navIcon}
             />
-            {isSidebarOpen && <span>Inventory</span>}
+            {isSidebarOpen && <span>Inventario</span>}
           </Link>
-          <Link href="/services" className={styles.navItem} title="services">
+          <Link href="/services" className={styles.navItem} title="Servicios">
             <Wrench size={isSidebarOpen ? 20 : 24} className={styles.navIcon} />
-            {isSidebarOpen && <span>Services</span>}
+            {isSidebarOpen && <span>Servicios</span>}
           </Link>
           {/* Finanzas — oculto hasta que esté listo para producción
           <Link href="/finanzas" className={styles.navItem} title="Finanzas">

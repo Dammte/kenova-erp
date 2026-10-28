@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import styles from "./page.module.css";
+import { formatEstimatedTime } from "@/lib/format";
 import { showToast } from "nextjs-toast-notify";
 
 interface Service {
@@ -409,7 +410,7 @@ export default function Services() {
                       {service.estimatedTime ? (
                         <span className={styles.metaChip}>
                           <Clock size={12} />
-                          {service.estimatedTime}h
+                          {formatEstimatedTime(service.estimatedTime)}
                         </span>
                       ) : (
                         <span className={styles.listEmpty}>—</span>
@@ -545,7 +546,7 @@ export default function Services() {
                         {service.estimatedTime && (
                           <div className={styles.metaChip}>
                             <Clock size={12} />
-                            {service.estimatedTime}h
+                            {formatEstimatedTime(service.estimatedTime)}
                           </div>
                         )}
                       </div>

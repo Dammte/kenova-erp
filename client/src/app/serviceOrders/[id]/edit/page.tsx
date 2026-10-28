@@ -43,6 +43,7 @@ import {
   PAYMENT_METHOD_LABELS,
 } from "../../constants";
 import styles from "./page.module.css";
+import { formatEstimatedTime } from "@/lib/format";
 import PatternLock from "@/components/serviceOrders/PatternLock";
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -1143,7 +1144,7 @@ export default function ServiceOrderEdit() {
                             {svc.estimatedTime ? (
                               <span className={styles.serviceTime}>
                                 <Clock size={10} />
-                                {svc.estimatedTime}h estimadas
+                                {formatEstimatedTime(svc.estimatedTime)} estimadas
                               </span>
                             ) : null}
                           </div>

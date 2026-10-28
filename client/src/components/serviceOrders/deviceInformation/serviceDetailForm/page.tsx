@@ -1,6 +1,7 @@
 "use client";
 
 import { API_URL, apiFetch } from "@/lib/api";
+import { formatEur } from "@/lib/format";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import {
@@ -423,7 +424,7 @@ export default function ServiceDetailsForm({
                               </div>
                               <div className="flex justify-between items-center mt-3">
                                 <span className="text-sm font-semibold text-gray-900">
-                                  €{service.price}
+                                  {formatEur(service.price)}
                                 </span>
                                 <span className="text-xs bg-gray-100 text-gray-700 px-3 py-1 rounded-full">
                                   {service.estimatedTime}
@@ -528,7 +529,7 @@ export default function ServiceDetailsForm({
                                   </div>
                                   <div className="flex items-center justify-between mt-2">
                                     <span className="text-base font-bold text-gray-900">
-                                      €{parseFloat(String(service.price)).toFixed(2)}
+                                      {formatEur(service.price)}
                                     </span>
                                     {service.estimatedTime && (
                                       <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
@@ -593,7 +594,7 @@ export default function ServiceDetailsForm({
                               </p>
                               <div className="flex justify-between items-center">
                                 <span className="text-lg font-semibold text-gray-900">
-                                  €{service.price}
+                                  {formatEur(service.price)}
                                 </span>
                                 <span className="text-xs bg-gray-200 text-gray-700 px-3 py-1.5 rounded-full font-medium">
                                   {service.estimatedTime}
@@ -619,7 +620,7 @@ export default function ServiceDetailsForm({
                           Total estimado:
                         </span>
                         <span className="text-2xl font-bold text-gray-900">
-                          €{totalSelectedPrice.toFixed(2)}
+                          {formatEur(totalSelectedPrice)}
                         </span>
                       </div>
                     </div>
@@ -654,7 +655,7 @@ export default function ServiceDetailsForm({
                                 )}
                                 {service.name}
                                 <span className="text-gray-500 font-normal">
-                                  €{parseFloat(String(service.price)).toFixed(2)}
+                                  {formatEur(service.price)}
                                 </span>
                               </button>
                             );

@@ -17,6 +17,7 @@ import {
   Lock,
 } from "lucide-react";
 import PatternLock from "../../PatternLock";
+import { DEVICE_TYPE_LABELS } from "@/app/serviceOrders/constants";
 
 interface Device {
   id?: string;
@@ -206,20 +207,8 @@ export default function DeviceDetailsForm({
     }
   };
 
-  const getDeviceName = (deviceType: string) => {
-    switch (deviceType) {
-      case "mobile":
-        return "Móvil";
-      case "tablet":
-        return "Tableta";
-      case "computer":
-        return "Computadora";
-      case "other":
-        return "Otro";
-      default:
-        return deviceType;
-    }
-  };
+  const getDeviceName = (deviceType: string) =>
+    DEVICE_TYPE_LABELS[deviceType] ?? deviceType;
 
   const renderNewDeviceForm = () => (
     <>

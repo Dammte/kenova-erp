@@ -227,9 +227,7 @@ export default function NewServiceOrder() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             imei: formState.dispositivo.imei,
-            inventoryCode:
-              formState.dispositivo.inventoryCode ||
-              Math.floor(Math.random() * 1000000).toString(),
+            inventoryCode: formState.dispositivo.inventoryCode || null,
             type: formState.dispositivo.type,
             brand: formState.dispositivo.brand?.name,
             model: formState.dispositivo.model,
@@ -262,8 +260,10 @@ export default function NewServiceOrder() {
           serviceIds: formState.servicio.services.map((service) => service.id),
           inventoryIds: formState.servicio.inventoryItems.map((item) => item.id),
           paymentStatus: formState.servicio.paymentStatus.toLowerCase(),
+          // Sin pago no hay método; si se cobró algo y no se eligió, efectivo.
           paymentMethod:
-            formState.servicio.paymentMethod.toLowerCase() || "cash",
+            formState.servicio.paymentMethod.toLowerCase() ||
+            (Number(formState.servicio.amountPaid) > 0 ? "cash" : undefined),
           observations: formState.servicio.observations,
         }),
       });

@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { normalizeProductName } from '../common/product-name';
 import { CreateBrandDto } from './dto/create-brand.dto';
 import { UpdateBrandDto } from './dto/update-brand.dto';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -13,16 +14,9 @@ export class BrandsService {
     private readonly brandRepository: Repository<Brand>,
   ) {}
 
-  private toTitleCase(str: string): string {
-    return str
-      .trim()
-      .toLowerCase()
-      .replace(/(?:^|\s|-)\S/g, (c) => c.toUpperCase());
-  }
-
   async create(createBrandDto: CreateBrandDto): Promise<Brand> {
     const dto = { ...createBrandDto };
-    if (typeof dto.name === 'string') dto.name = this.toTitleCase(dto.name);
+    if (typeof dto.name === 'string') dto.name = normalizeProductName(dto.name);
     const brand = this.brandRepository.create(dto);
     return await this.brandRepository.save(brand);
   }
@@ -51,7 +45,7 @@ export class BrandsService {
     updateBrandDto: Partial<UpdateBrandDto>,
   ): Promise<void> {
     const dto = { ...updateBrandDto };
-    if (typeof dto.name === 'string') dto.name = this.toTitleCase(dto.name);
+    if (typeof dto.name === 'string') dto.name = normalizeProductName(dto.name);
     await this.brandRepository.update(id, dto);
   }
 

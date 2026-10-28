@@ -8,7 +8,7 @@ export default function DeviceTypeSelector({ onSelect, onBack }) {
   const tiposDispositivos = [
     { id: "movil", nombre: "Móvil", icon: Phone },
     { id: "tablet", nombre: "Tablet", icon: Tablet },
-    { id: "computador", nombre: "Computador", icon: Laptop },
+    { id: "computador", nombre: "Ordenador", icon: Laptop },
     { id: "otro", nombre: "Otro", icon: CircleEllipsis },
   ];
 

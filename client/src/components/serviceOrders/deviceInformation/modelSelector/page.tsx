@@ -85,7 +85,7 @@ export default function ModelSelector({
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            name: modelName.toUpperCase(),
+            name: modelName.trim(),
             brandId: brand.id,
           }),
         },
