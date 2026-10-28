@@ -17,14 +17,25 @@ import { ServiceOrderService } from './service-order.service';
 import { CreateServiceOrderDto } from './dto/create-service-order.dto';
 import { UpdateServiceOrderDto } from './dto/update-service-order.dto';
 import { ConsumePartsDto } from './dto/consume-parts.dto';
+import { CreateIntakeDto } from './dto/create-intake.dto';
+import { IntakeService } from './intake.service';
 
 @Controller('service-orders')
 export class ServiceOrderController {
-  constructor(private readonly serviceOrderService: ServiceOrderService) {}
+  constructor(
+    private readonly serviceOrderService: ServiceOrderService,
+    private readonly intakeService: IntakeService,
+  ) {}
 
   @Post()
   create(@Body() dto: CreateServiceOrderDto) {
     return this.serviceOrderService.create(dto);
+  }
+
+  /** One-screen intake: client + device + order in a single transaction. */
+  @Post('intake')
+  intake(@Body() dto: CreateIntakeDto, @CurrentUser() user: AuthUser) {
+    return this.intakeService.create(dto, user.id);
   }
 
   @Get()

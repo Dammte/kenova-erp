@@ -5,7 +5,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, IsNull, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, IsNull, Repository } from 'typeorm';
 import { AuditService } from '../audit/audit.service';
 import { Inventory } from '../inventory/entities/inventory.entity';
 import { ConsumePartsDto } from './dto/consume-parts.dto';
@@ -87,9 +87,15 @@ export class ServiceOrderService {
   }
 
   // ─── CRUD ───────────────────────────────────────────────────────────────────
+  /**
+   * With `manager`, runs inside the caller's transaction (the intake) and
+   * returns the saved row without relations; the caller reloads it after commit.
+   */
   async create(
     createServiceOrderDto: CreateServiceOrderDto,
+    manager?: EntityManager,
   ): Promise<ServiceOrder> {
+    const m = manager ?? this.dataSource.manager;
     const {
       serviceIds,
       clientId,
@@ -98,7 +104,7 @@ export class ServiceOrderService {
       ...orderData
     } = createServiceOrderDto;
 
-    const client = await this.clientRepository.findOne({
+    const client = await m.getRepository(Client).findOne({
       where: { id: clientId },
     });
     if (!client) {
@@ -107,7 +113,9 @@ export class ServiceOrderService {
 
     let device: Device | null = null;
     if (deviceId) {
-      device = await this.deviceRepository.findOne({ where: { id: deviceId } });
+      device = await m
+        .getRepository(Device)
+        .findOne({ where: { id: deviceId } });
       if (!device) {
         throw new NotFoundException(
           `Dispositivo con ID ${deviceId} no encontrado`,
@@ -122,7 +130,7 @@ export class ServiceOrderService {
 
     let services: Service[] = [];
     if (serviceIds && serviceIds.length > 0) {
-      services = await this.serviceRepository.find({
+      services = await m.getRepository(Service).find({
         where: { id: In(serviceIds) },
       });
       if (services.length !== serviceIds.length) {
@@ -145,7 +153,7 @@ export class ServiceOrderService {
     const totalPrice = orderData.totalPrice ?? calculatedTotal;
     const amountPaid = orderData.amountPaid ?? 0;
 
-    const serviceOrder = this.serviceOrderRepository.create({
+    const serviceOrder = m.getRepository(ServiceOrder).create({
       ...orderData,
       client,
       device: device ?? undefined,
@@ -155,8 +163,8 @@ export class ServiceOrderService {
       ...ServiceOrderService.derivePayment(totalPrice, amountPaid),
     });
 
-    const saved = await this.serviceOrderRepository.save(serviceOrder);
-    return this.findOne(saved.id);
+    const saved = await m.getRepository(ServiceOrder).save(serviceOrder);
+    return manager ? saved : this.findOne(saved.id);
   }
 
   async findByClientId(clientId: string): Promise<ServiceOrder[]> {

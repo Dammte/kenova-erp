@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import { Client } from '../clients/entities/client.entity';
 import { Device } from './entities/device.entity';
 import { CreateDeviceDto } from './dto/create-device.dto';
@@ -16,11 +16,19 @@ export class DevicesService {
     private readonly secrets: DeviceSecretService,
   ) {}
 
-  async create(dto: CreateDeviceDto, actorUserId: string): Promise<Device> {
+  /**
+   * With `outer`, runs inside the caller's transaction (the intake) and returns
+   * the saved, not yet committed row; otherwise opens its own transaction.
+   */
+  async create(
+    dto: CreateDeviceDto,
+    actorUserId: string,
+    outer?: EntityManager,
+  ): Promise<Device> {
     const { code, pattern, ...data } = dto;
     const secret = DeviceSecretService.pick({ code, pattern });
 
-    const id = await this.dataSource.transaction(async (manager) => {
+    const insert = async (manager: EntityManager) => {
       const client = await manager
         .getRepository(Client)
         .findOne({ where: { id: dto.clientId } });
@@ -36,9 +44,11 @@ export class DevicesService {
       );
       if (secret)
         await this.secrets.set(saved.id, secret, actorUserId, manager);
-      return saved.id;
-    });
-    return this.findOne(id);
+      return saved;
+    };
+    if (outer) return insert(outer);
+    const saved = await this.dataSource.transaction(insert);
+    return this.findOne(saved.id);
   }
 
   findAll(): Promise<Device[]> {

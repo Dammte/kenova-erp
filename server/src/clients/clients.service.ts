@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { ILike, Repository } from 'typeorm';
+import { EntityManager, ILike, Repository } from 'typeorm';
 import { AuditService } from '../audit/audit.service';
 import { Client } from './entities/client.entity';
 import { CreateClientDto } from './dto/create-client.dto';
@@ -45,11 +45,11 @@ export class ClientsService {
     return result;
   }
 
-  async create(dto: CreateClientDto): Promise<Client> {
-    const client = this.clientRepository.create(
-      this.normalizeNames(dto) as Partial<Client>,
-    );
-    return this.clientRepository.save(client);
+  /** `manager` lets the intake create the client inside its own transaction. */
+  async create(dto: CreateClientDto, manager?: EntityManager): Promise<Client> {
+    const repo = manager?.getRepository(Client) ?? this.clientRepository;
+    const client = repo.create(this.normalizeNames(dto) as Partial<Client>);
+    return repo.save(client);
   }
 
   findAll(): Promise<Client[]> {
