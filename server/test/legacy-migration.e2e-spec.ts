@@ -38,6 +38,13 @@ describe('Security foundation migration over legacy data', () => {
         ('f4444444-4444-4444-8444-444444444444', 'C4', 'Vacio', '');
       UPDATE service_orders SET status = 'entregado', "updatedAt" = '2025-03-10'
         WHERE id = '0e222222-2222-4222-8222-222222222222';
+      INSERT INTO services (id, name, description, price) VALUES
+        ('5e111111-1111-4111-8111-111111111111', 'Pantalla', 'x', 90),
+        ('5e222222-2222-4222-8222-222222222222', 'Batería', 'x', 40);
+      INSERT INTO service_order_services ("serviceOrderId", "serviceId") VALUES
+        ('0e111111-1111-4111-8111-111111111111', '5e111111-1111-4111-8111-111111111111'),
+        ('0e111111-1111-4111-8111-111111111111', '5e222222-2222-4222-8222-222222222222');
+      UPDATE service_orders SET "totalPrice" = 120 WHERE id = '0e111111-1111-4111-8111-111111111111';
       INSERT INTO service_history (action, description, "serviceOrderId", "performedBy") VALUES
         ('nota', 'hecha por admin', '0e111111-1111-4111-8111-111111111111', '11111111-1111-4111-8111-111111111111');
       INSERT INTO service_history (action, description, "serviceOrderId", "createdAt") VALUES
@@ -186,6 +193,36 @@ describe('Security foundation migration over legacy data', () => {
       `SELECT status FROM devices WHERE id = 'd2222222-2222-4222-8222-222222222222'`,
     );
     expect(device.status).toBe('pantalla y más');
+  });
+
+  it('gives each order priced lines that add up to its total', async () => {
+    const lines = await db.query(
+      `SELECT "orderId", position, kind, description, "unitPrice"
+         FROM order_lines ORDER BY "orderId", position`,
+    );
+    expect(lines).toEqual([
+      {
+        orderId: '0e111111-1111-4111-8111-111111111111',
+        position: 1,
+        kind: 'service',
+        description: 'Batería',
+        unitPrice: '40.00',
+      },
+      {
+        orderId: '0e111111-1111-4111-8111-111111111111',
+        position: 2,
+        kind: 'service',
+        description: 'Pantalla',
+        unitPrice: '90.00',
+      },
+      {
+        orderId: '0e111111-1111-4111-8111-111111111111',
+        position: 3,
+        kind: 'adjustment',
+        description: 'Ajuste',
+        unitPrice: '-10.00',
+      },
+    ]);
   });
 
   it('numbers existing orders in the main store by date of entry', async () => {

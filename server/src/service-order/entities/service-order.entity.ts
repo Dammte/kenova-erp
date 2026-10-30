@@ -19,6 +19,7 @@ import { Service } from '../../services/entities/service.entity';
 import { ServiceHistory } from '../../service-history/entities/service-history.entity';
 import { StickyNote } from '../../sticky-notes/entities/sticky-note.entity';
 import { Store } from '../../stores/entities/store.entity';
+import { OrderLine } from './order-line.entity';
 
 export enum ServiceStatus {
   EN_PROGRESO = 'en_progreso',
@@ -228,6 +229,10 @@ export class ServiceOrder {
     cascade: true,
   })
   serviceHistory: ServiceHistory[];
+
+  /** Priced lines; they add up to totalPrice. Kept in step with `services`. */
+  @OneToMany(() => OrderLine, (line) => line.order)
+  lines?: OrderLine[];
 
   @OneToMany(() => StickyNote, (note) => note.orderService)
   stickyNotes: StickyNote[];
