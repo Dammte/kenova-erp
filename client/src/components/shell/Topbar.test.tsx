@@ -9,7 +9,10 @@ const logout = vi.fn();
 vi.mock("@/components/auth/AuthProvider", () => ({
   useAuth: () => ({ user, logout }),
 }));
-vi.mock("next/navigation", () => ({ usePathname: () => "/clients" }));
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/clients",
+  useRouter: () => ({ push: vi.fn() }),
+}));
 
 const base: SessionUser = {
   id: "u1",
@@ -77,6 +80,22 @@ describe("Topbar", () => {
     fireEvent.click(userButton());
     fireEvent.click(screen.getByRole("button", { name: "Cerrar sesión" }));
     expect(logout).toHaveBeenCalledOnce();
+  });
+
+  it("opens the search with Ctrl+K, ⌘K or a click", () => {
+    render(<Topbar />);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+    expect(screen.getByRole("dialog", { name: "Buscar" })).toBeTruthy();
+    fireEvent.keyDown(screen.getByRole("combobox"), { key: "Escape" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+
+    fireEvent.keyDown(window, { key: "K", metaKey: true });
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    fireEvent.keyDown(screen.getByRole("combobox"), { key: "Escape" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Buscar" }));
+    expect(screen.getByRole("dialog")).toBeTruthy();
   });
 });
 
