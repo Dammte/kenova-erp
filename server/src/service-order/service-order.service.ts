@@ -31,6 +31,7 @@ import type { AuthUser } from '../auth/auth.types';
 import { orderScope, scopedStoreId } from '../common/store-scope';
 import { CREDIT, OrderPayment } from './entities/order-payment.entity';
 import { OrderPaymentsService } from './order-payments.service';
+import { commissionFor, NO_COMMISSION } from './commission';
 import { derivePayment } from './payment-status';
 import { UserRole } from '../users/entities/user.entity';
 
@@ -653,6 +654,14 @@ export class ServiceOrderService {
       );
     }
 
+    // The commission is frozen at delivery and dropped if the order is reopened.
+    const delivering =
+      serviceOrder.status === ServiceStatus.ENTREGADO &&
+      previousStatus !== ServiceStatus.ENTREGADO;
+    if (serviceOrder.status !== ServiceStatus.ENTREGADO) {
+      Object.assign(serviceOrder, NO_COMMISSION);
+    }
+
     // Recalcular balance y estado de pago si cambiaron campos financieros o servicios
     if (
       updateData.totalPrice !== undefined ||
@@ -665,6 +674,12 @@ export class ServiceOrderService {
     }
 
     await this.dataSource.transaction(async (m) => {
+      if (delivering) {
+        const store = await m
+          .getRepository(Store)
+          .findOneOrFail({ where: { id: serviceOrder.storeId } });
+        Object.assign(serviceOrder, commissionFor(store, serviceOrder));
+      }
       await m.getRepository(ServiceOrder).save(serviceOrder);
       if (updateData.totalPrice !== undefined || serviceIds !== undefined) {
         await this.syncLines(m, serviceOrder);

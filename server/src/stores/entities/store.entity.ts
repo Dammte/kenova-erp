@@ -8,6 +8,14 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
+/** How a partner store earns from each device it takes in. */
+export enum CommissionType {
+  /** A percentage of what the customer paid. */
+  PERCENT = 'percent',
+  /** A fixed amount per device. */
+  FIXED = 'fixed',
+}
+
 /** Legal minimum warranty of a repair in Spain (RD 58/1988). */
 export const MIN_WARRANTY_DAYS = 90;
 
@@ -25,6 +33,10 @@ export const MIN_WARRANTY_DAYS = 90;
 @Check('CHK_stores_warranty_days', `"warrantyDays" >= 90`)
 @Check('CHK_stores_cash_hours', `"cashClosesAt" > "cashOpensAt"`)
 @Check('CHK_stores_cash_float', `"cashFloat" >= 0`)
+@Check(
+  'CHK_stores_commission',
+  `("commissionType" IS NULL AND "commissionValue" IS NULL) OR ("commissionType" = 'percent' AND "commissionValue" BETWEEN 0 AND 100) OR ("commissionType" = 'fixed' AND "commissionValue" >= 0)`,
+)
 export class Store {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -68,6 +80,17 @@ export class Store {
   /** Warranty of its repairs, counted from delivery; never under the legal 90 days. */
   @Column({ type: 'int', default: MIN_WARRANTY_DAYS })
   warrantyDays: number;
+
+  /**
+   * The partner store's commission, copied onto each order when it is
+   * delivered; changing it never alters orders already delivered. None for
+   * the workshop.
+   */
+  @Column({ type: 'varchar', length: 10, nullable: true })
+  commissionType: CommissionType | null;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  commissionValue: string | null;
 
   /** Exactly one store is the workshop: it holds the stock and does repairs. */
   @Column({ default: false })

@@ -18,7 +18,7 @@ import { Device } from '../../devices/entities/device.entity';
 import { Service } from '../../services/entities/service.entity';
 import { ServiceHistory } from '../../service-history/entities/service-history.entity';
 import { StickyNote } from '../../sticky-notes/entities/sticky-note.entity';
-import { Store } from '../../stores/entities/store.entity';
+import { CommissionType, Store } from '../../stores/entities/store.entity';
 import { OrderLine } from './order-line.entity';
 import { OrderPayment } from './order-payment.entity';
 
@@ -277,6 +277,19 @@ export class ServiceOrder {
   /** Only for partner-store orders; moved by the shipments, never by hand. */
   @Column({ type: 'varchar', length: 20, nullable: true })
   location?: OrderLocation | null;
+
+  /**
+   * The store's commission as it was when the order was delivered, and what
+   * it came to; cleared if the order is reopened. None for workshop orders.
+   */
+  @Column({ type: 'varchar', length: 10, nullable: true })
+  commissionType?: CommissionType | null;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  commissionValue?: string | null;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  commissionAmount?: string | null;
 
   /** Set by the server when the order reaches "finalizado"; cleared if it is reopened. */
   @Column({ type: 'timestamptz', nullable: true })

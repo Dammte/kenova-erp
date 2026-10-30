@@ -32,6 +32,15 @@ export class StoresController {
     return this.storesService.findOne(id, actor);
   }
 
+  /** Every change of the store's commission, newest first. */
+  @Get(':id/commission-history')
+  commissionHistory(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() actor: AuthUser,
+  ) {
+    return this.storesService.commissionHistory(id, actor);
+  }
+
   @Post()
   @Roles(UserRole.SUPER_ADMIN)
   create(@Body() dto: CreateStoreDto, @CurrentUser() actor: AuthUser) {
