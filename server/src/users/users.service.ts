@@ -9,6 +9,7 @@ import { Repository } from 'typeorm';
 import { AuditService } from '../audit/audit.service';
 import { AuthService } from '../auth/auth.service';
 import { PasswordService } from '../auth/password.service';
+import { Store } from '../stores/entities/store.entity';
 import { User, UserRole } from './entities/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -22,6 +23,7 @@ export type PublicUser = Pick<
   | 'email'
   | 'role'
   | 'isActive'
+  | 'storeId'
   | 'mustChangePassword'
   | 'lastLoginAt'
   | 'createdAt'
@@ -36,6 +38,7 @@ export function toPublicUser(u: User): PublicUser {
     email: u.email,
     role: u.role,
     isActive: u.isActive,
+    storeId: u.storeId ?? null,
     mustChangePassword: u.mustChangePassword,
     lastLoginAt: u.lastLoginAt,
     createdAt: u.createdAt,
@@ -48,6 +51,8 @@ export class UsersService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(Store)
+    private readonly storeRepository: Repository<Store>,
     private readonly passwords: PasswordService,
     private readonly auth: AuthService,
     private readonly audit: AuditService,
@@ -63,11 +68,13 @@ export class UsersService {
         'Ya existe un usuario con ese email o nombre de usuario',
       );
 
+    const role = dto.role ?? UserRole.STORE_ADMIN;
     const user = this.userRepository.create({
       username: dto.username,
       fullName: dto.fullName,
       email,
-      role: dto.role ?? UserRole.STORE_ADMIN,
+      role,
+      storeId: await this.resolveStoreId(role, dto.storeId, null),
       passwordHash: await this.passwords.hash(dto.temporaryPassword),
       mustChangePassword: true,
       isActive: true,
@@ -88,6 +95,26 @@ export class UsersService {
       order: { createdAt: 'ASC' },
     });
     return users.map(toPublicUser);
+  }
+
+  /**
+   * A SUPER_ADMIN has no store. A STORE_ADMIN keeps the requested store, else
+   * its current one, else the main store; the store must exist and be active.
+   */
+  private async resolveStoreId(
+    role: UserRole,
+    requested: string | undefined,
+    current: string | null,
+  ): Promise<string | null> {
+    if (role === UserRole.SUPER_ADMIN) return null;
+    if (!requested && current) return current;
+    const store = await this.storeRepository.findOne({
+      where: requested ? { id: requested } : { isMain: true },
+    });
+    if (!store || !store.isActive) {
+      throw new BadRequestException('La tienda no existe o está desactivada');
+    }
+    return store.id;
   }
 
   private async getOrThrow(id: string): Promise<User> {
@@ -114,11 +141,21 @@ export class UsersService {
         'No puedes desactivarte ni cambiar tu propio rol',
       );
     }
+    const previousStoreId = user.storeId;
     if (dto.fullName !== undefined) user.fullName = dto.fullName;
     if (dto.role !== undefined) user.role = dto.role;
     if (dto.isActive !== undefined) user.isActive = dto.isActive;
+    user.storeId = await this.resolveStoreId(
+      user.role,
+      dto.storeId,
+      user.storeId,
+    );
     const saved = await this.userRepository.save(user);
-    if (dto.isActive === false || dto.role !== undefined) {
+    if (
+      dto.isActive === false ||
+      dto.role !== undefined ||
+      saved.storeId !== previousStoreId
+    ) {
       await this.auth.revokeAllSessions(id);
     }
     await this.audit.record({

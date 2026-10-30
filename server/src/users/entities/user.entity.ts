@@ -7,8 +7,11 @@ import {
   OneToMany,
   Index,
   Check,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
 import { ServiceHistory } from '../../service-history/entities/service-history.entity';
+import { Store } from '../../stores/entities/store.entity';
 
 export enum UserRole {
   SUPER_ADMIN = 'SUPER_ADMIN',
@@ -17,6 +20,10 @@ export enum UserRole {
 
 @Entity('users')
 @Check('CHK_users_role', `"role" IN ('SUPER_ADMIN', 'STORE_ADMIN')`)
+@Check(
+  'CHK_users_store_admin_store',
+  `"role" <> 'STORE_ADMIN' OR "storeId" IS NOT NULL`,
+)
 export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -42,6 +49,15 @@ export class User {
 
   @Column({ default: true })
   isActive: boolean;
+
+  /** Required for STORE_ADMIN; a SUPER_ADMIN works across every store. */
+  @Index('IDX_users_storeId')
+  @Column({ type: 'uuid', nullable: true })
+  storeId: string | null;
+
+  @ManyToOne(() => Store, { nullable: true, onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'storeId', foreignKeyConstraintName: 'FK_users_store' })
+  store?: Store | null;
 
   /** Set for accounts created with a temporary password. */
   @Column({ default: false })

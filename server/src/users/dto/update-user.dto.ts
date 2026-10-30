@@ -4,6 +4,7 @@ import {
   IsEnum,
   IsOptional,
   IsString,
+  IsUUID,
   Length,
 } from 'class-validator';
 import { UserRole } from '../entities/user.entity';
@@ -23,4 +24,8 @@ export class UpdateUserDto {
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
+
+  @IsUUID()
+  @IsOptional()
+  storeId?: string;
 }

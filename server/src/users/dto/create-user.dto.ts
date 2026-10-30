@@ -4,6 +4,7 @@ import {
   IsEnum,
   IsOptional,
   IsString,
+  IsUUID,
   Length,
   Matches,
   MaxLength,
@@ -45,4 +46,9 @@ export class CreateUserDto {
   @IsEnum(UserRole)
   @IsOptional()
   role?: UserRole;
+
+  /** Store of a STORE_ADMIN. Defaults to the main store; ignored for SUPER_ADMIN. */
+  @IsUUID()
+  @IsOptional()
+  storeId?: string;
 }

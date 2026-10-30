@@ -107,6 +107,8 @@ export async function createUser(
     role: 'SUPER_ADMIN' | 'STORE_ADMIN';
     mustChangePassword?: boolean;
     isActive?: boolean;
+    /** Defaults to the main store for STORE_ADMIN. */
+    storeId?: string;
   },
 ): Promise<{ id: string; email: string }> {
   const hash = await argon2.hash(PASSWORD, {
@@ -116,8 +118,12 @@ export async function createUser(
     parallelism: 1,
   });
   const [row] = await db.query(
-    `INSERT INTO users (username, "fullName", email, role, "passwordHash", "mustChangePassword", "isActive")
-     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+    `INSERT INTO users (username, "fullName", email, role, "passwordHash", "mustChangePassword", "isActive", "storeId")
+     VALUES ($1, $2, $3, $4, $5, $6, $7,
+       CASE WHEN $4::varchar = 'STORE_ADMIN'
+            THEN coalesce($8::uuid, (SELECT id FROM stores WHERE "isMain"))
+       END)
+     RETURNING id`,
     [
       opts.email.split('@')[0],
       `Usuario ${opts.role}`,
@@ -126,6 +132,7 @@ export async function createUser(
       hash,
       opts.mustChangePassword ?? false,
       opts.isActive ?? true,
+      opts.storeId ?? null,
     ],
   );
   return { id: row.id, email: opts.email };
