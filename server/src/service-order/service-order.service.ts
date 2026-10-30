@@ -10,6 +10,8 @@ import { AuditService } from '../audit/audit.service';
 import { Inventory } from '../inventory/entities/inventory.entity';
 import { ConsumePartsDto } from './dto/consume-parts.dto';
 import {
+  ORDER_FAULTS,
+  OrderFault,
   PaymentStatus,
   ServiceOrder,
   ServiceStatus,
@@ -239,8 +241,16 @@ export class ServiceOrderService {
     const totalPrice = orderData.totalPrice ?? calculatedTotal;
     const amountPaid = orderData.amountPaid ?? 0;
 
+    // The current intake screens still put the fault on the device; carry it
+    // over so the order records why the device came in this time.
+    const deviceFault = device?.status as OrderFault | undefined;
+    const reportedFaults =
+      orderData.reportedFaults ??
+      (deviceFault && ORDER_FAULTS.includes(deviceFault) ? [deviceFault] : []);
+
     const serviceOrder = m.getRepository(ServiceOrder).create({
       ...orderData,
+      reportedFaults,
       storeId,
       ...(await this.takeNumber(m, storeId)),
       client,

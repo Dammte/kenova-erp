@@ -29,6 +29,20 @@ export enum ServiceStatus {
   CANCELADO = 'cancelado',
 }
 
+/** Faults the customer reports when handing the device in (the intake chips). */
+export const ORDER_FAULTS = [
+  'broken_screen',
+  'battery',
+  'not_turning_on',
+  'liquid_damage',
+  'connectivity',
+  'slow_performance',
+  'partial',
+  'working',
+  'other',
+] as const;
+export type OrderFault = (typeof ORDER_FAULTS)[number];
+
 export enum Priority {
   LOW = 'low',
   MEDIUM = 'medium',
@@ -55,6 +69,10 @@ export enum PaymentMethod {
   `coalesce("totalPrice", 0) >= 0 AND coalesce("amountPaid", 0) >= 0`,
 )
 @Check('CHK_service_orders_number_positive', `"number" > 0`)
+@Check(
+  'CHK_service_orders_reported_faults',
+  `"reportedFaults" <@ ARRAY[${ORDER_FAULTS.map((f) => `'${f}'`).join(', ')}]::text[]`,
+)
 @Index('IDX_service_orders_store_number', ['storeId', 'number'], {
   unique: true,
 })
@@ -173,6 +191,26 @@ export class ServiceOrder {
 
   @Column({ type: 'text', nullable: true })
   observations: string;
+
+  // ─── How the device came in (belongs to this visit, not to the device) ───
+  @Column('text', { array: true, default: () => "'{}'" })
+  reportedFaults: OrderFault[];
+
+  /** Free detail of the fault ("Otro" or extra context). */
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  faultNotes?: string | null;
+
+  /** Scratches, cracks, missing screws… as found at intake. */
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  physicalCondition?: string | null;
+
+  /** What the customer left with the device (case, charger, SIM…). */
+  @Column({ type: 'varchar', length: 300, nullable: true })
+  accessories?: string | null;
+
+  /** The customer waived a written quote (RD 58/1988); prints skip "presupuesto válido". */
+  @Column({ default: false })
+  waivesQuote: boolean;
 
   /** Set by the server when the order reaches "finalizado"; cleared if it is reopened. */
   @Column({ type: 'timestamptz', nullable: true })
