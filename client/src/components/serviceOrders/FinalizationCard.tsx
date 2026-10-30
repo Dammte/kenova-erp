@@ -4,6 +4,7 @@ import { Trash2, ClipboardList, ChevronDown, Package } from "lucide-react";
 import { showToast } from "nextjs-toast-notify";
 import { ServiceOrder, InventoryItem, FinalizationData, SelectedPart } from "@/app/serviceOrders/types";
 import { formatCurrency } from "@/app/serviceOrders/utils/format";
+import { orderCode } from "@/lib/format";
 import styles from "./FinalizationCard.module.css";
 
 interface FinalizationCardProps {
@@ -103,7 +104,7 @@ export function FinalizationCard({
 
         {/* ── Header ─────────────────────────────────────────────────────── */}
         <div className={styles.finalizationCardHeader}>
-          <h3>Finalizar Orden #{order.id.substring(0, 8)}</h3>
+          <h3>Finalizar Orden {orderCode(order)}</h3>
           <button onClick={onClose} className={styles.closeButton}>×</button>
         </div>
 

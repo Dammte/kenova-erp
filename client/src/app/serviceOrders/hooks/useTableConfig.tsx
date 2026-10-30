@@ -88,6 +88,7 @@ export function useTableConfig(orders: ServiceOrder[]) {
     const matchesSearch =
       !search ||
       order.id?.toLowerCase().includes(search) ||
+      (order.code?.toLowerCase() ?? "").includes(search) ||
       `${order.client?.firstName} ${order.client?.lastName ?? ""}`
         .toLowerCase()
         .includes(search) ||

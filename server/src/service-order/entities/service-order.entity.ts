@@ -18,6 +18,7 @@ import { Device } from '../../devices/entities/device.entity';
 import { Service } from '../../services/entities/service.entity';
 import { ServiceHistory } from '../../service-history/entities/service-history.entity';
 import { StickyNote } from '../../sticky-notes/entities/sticky-note.entity';
+import { Store } from '../../stores/entities/store.entity';
 
 export enum ServiceStatus {
   EN_PROGRESO = 'en_progreso',
@@ -53,9 +54,33 @@ export enum PaymentMethod {
   'CHK_service_orders_amounts_nonnegative',
   `coalesce("totalPrice", 0) >= 0 AND coalesce("amountPaid", 0) >= 0`,
 )
+@Check('CHK_service_orders_number_positive', `"number" > 0`)
+@Index('IDX_service_orders_store_number', ['storeId', 'number'], {
+  unique: true,
+})
 export class ServiceOrder {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  /** The store that took the device in. */
+  @ManyToOne(() => Store, { onDelete: 'RESTRICT' })
+  @JoinColumn({
+    name: 'storeId',
+    foreignKeyConstraintName: 'FK_service_orders_store',
+  })
+  store?: Store;
+
+  @Column('uuid')
+  storeId: string;
+
+  /** Continuous per store, never reused. */
+  @Column('int')
+  number: number;
+
+  /** What people read and search: store prefix + number (MP-0142). */
+  @Index('IDX_service_orders_code', { unique: true })
+  @Column({ length: 12 })
+  code: string;
 
   // RESTRICT: deleting a client must never delete its orders (clients are soft-deleted).
   @ManyToOne(() => Client, (client) => client.serviceOrders, {

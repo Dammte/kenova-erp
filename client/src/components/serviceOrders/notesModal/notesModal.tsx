@@ -1,6 +1,7 @@
 "use client";
 
 import { API_URL, apiFetch } from "@/lib/api";
+import { orderCode } from "@/lib/format";
 import { useState, useEffect, useRef } from "react";
 import {
   Plus,
@@ -41,6 +42,7 @@ interface Device {
 
 interface ServiceOrder {
   id: string;
+  code?: string;
   client: Client;
   device: Device;
 }
@@ -238,7 +240,7 @@ export const NotesModal: React.FC<NotesModalProps> = ({ order, onClose }) => {
         <div className={styles.notesModalHeader}>
           <div className={styles.notesModalTitle}>
             <StickyNote size={20} />
-            <h3>Notas de Orden #{order.id.substring(0, 8)}</h3>
+            <h3>Notas de Orden {orderCode(order)}</h3>
           </div>
           <button onClick={onClose} className={styles.closeButton}>
             ×

@@ -15,6 +15,7 @@ import {
   type TemplateVariables,
 } from "./Usewhatsapptemplates";
 import styles from "./Whatsappmodal.module.css";
+import { orderCode } from "@/lib/format";
 
 /* ─── STATUS META ─────────────────────────────────────────────────────────── */
 const STATUS_META: Record<ServiceStatus, { Icon: LucideIcon; color: string; bg: string }> = {
@@ -30,6 +31,7 @@ const STATUS_META: Record<ServiceStatus, { Icon: LucideIcon; color: string; bg: 
 interface WhatsAppModalProps {
   order: {
     id: string;
+    code?: string;
     status: ServiceStatus;
     client: { firstName: string; lastName?: string; phoneNumber?: string };
     device: { model: string };
@@ -69,7 +71,7 @@ export const WhatsAppModal: React.FC<WhatsAppModalProps> = ({
   const vars: TemplateVariables = {
     nombre:      order.client.firstName,
     dispositivo: order.device.model,
-    orden:       order.id.substring(0, 8).toUpperCase(),
+    orden:       orderCode(order),
     precio:      order.totalPrice != null ? formatCurrency(order.totalPrice) : undefined,
     saldo:       order.balance && order.balance > 0 ? formatCurrency(order.balance) : undefined,
   };

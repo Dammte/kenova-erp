@@ -63,6 +63,8 @@ export interface ServiceItem {
 
 export interface ServiceOrder {
   id: string;
+  /** Readable number, store prefix included (MP-0142). */
+  code?: string;
   client: Client;
   device: Device | null;
   services?: ServiceItem[];

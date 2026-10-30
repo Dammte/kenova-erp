@@ -55,6 +55,7 @@ import { EditableDropdown } from "@/components/serviceOrders/EditableDropdown";
 import { FinalizationCard } from "@/components/serviceOrders/FinalizationCard";
 import { FilterPanel } from "@/components/serviceOrders/FilterPanel";
 import { ClientHistoryModal } from "@/components/serviceOrders/ClientHistoryModal";
+import { orderCode } from "@/lib/format";
 
 // ── Constants ──────────────────────────────────────────────────────────────
 const CITY_OPTIONS = ["Medina de Pomar", "Villarcayo"];
@@ -129,13 +130,13 @@ export default function ServiceOrder() {
       return;
     }
 
-    const subject = `Actualización de Servicio Técnico - Orden #${order.id.substring(0, 8)}`;
+    const subject = `Actualización de Servicio Técnico - Orden ${orderCode(order)}`;
     const body = `Estimado/a ${order.client.firstName},
 
 Le escribimos para informarle sobre el estado de su servicio técnico:
 
 INFORMACIÓN DEL SERVICIO:
-• Orden: #${order.id.substring(0, 8)}
+• Orden: ${orderCode(order)}
 • Dispositivo: ${order.device.brand} ${order.device.model}
 • Estado actual: ${STATUS_LABELS[order.status] ?? order.status}
 • Ciudad: ${order.client.city ?? "Sin ciudad"}
@@ -377,7 +378,7 @@ Equipo de Servicio Técnico`;
                       {tc.visibleColumns.id && (
                         <td className={styles.idColumn}>
                           <div className={styles.idContainer}>
-                            <span className={styles.idNumber}>#{order.id.substring(0, 8)}</span>
+                            <span className={styles.idNumber}>{orderCode(order)}</span>
                           </div>
                         </td>
                       )}
@@ -818,7 +819,7 @@ Equipo de Servicio Técnico`;
             <h3 className={styles.confirmTitle}>Eliminar orden</h3>
             <p className={styles.confirmText}>
               ¿Seguro que deseas eliminar la orden{" "}
-              <strong>#{pendingDeleteOrder.id.substring(0, 8)}</strong> de{" "}
+              <strong>{orderCode(pendingDeleteOrder)}</strong> de{" "}
               <strong>{pendingDeleteOrder.client.firstName} {pendingDeleteOrder.client.lastName}</strong>?
               Esta acción no se puede deshacer.
             </p>

@@ -26,6 +26,8 @@ describe('Security foundation migration over legacy data', () => {
         ('d3333333-3333-4333-8333-333333333333', 'movil', 'Marca', 'M3', NULL, NULL, 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb');
       INSERT INTO service_orders (id, "clientId", "deviceId") VALUES
         ('0e111111-1111-4111-8111-111111111111', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'd1111111-1111-4111-8111-111111111111');
+      INSERT INTO service_orders (id, "clientId", "deviceId", "createdAt") VALUES
+        ('0e222222-2222-4222-8222-222222222222', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'd2222222-2222-4222-8222-222222222222', '2025-01-15');
       INSERT INTO service_history (action, description, "serviceOrderId", "performedBy") VALUES
         ('nota', 'hecha por admin', '0e111111-1111-4111-8111-111111111111', '11111111-1111-4111-8111-111111111111');
     `);
@@ -103,8 +105,36 @@ describe('Security foundation migration over legacy data', () => {
         `DELETE FROM client WHERE id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'`,
       ),
     ).rejects.toThrow(/foreign key/);
-    const orders = await db.query(`SELECT id FROM service_orders`);
+    const orders = await db.query(
+      `SELECT id FROM service_orders WHERE "clientId" = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'`,
+    );
     expect(orders).toHaveLength(1);
+  });
+
+  it('numbers existing orders in the main store by date of entry', async () => {
+    const orders = await db.query(
+      `SELECT o.id, o.number, o.code, s.prefix
+         FROM service_orders o JOIN stores s ON s.id = o."storeId"
+        ORDER BY o.number`,
+    );
+    expect(orders).toEqual([
+      {
+        id: '0e222222-2222-4222-8222-222222222222',
+        number: 1,
+        code: 'MP-0001',
+        prefix: 'MP',
+      },
+      {
+        id: '0e111111-1111-4111-8111-111111111111',
+        number: 2,
+        code: 'MP-0002',
+        prefix: 'MP',
+      },
+    ]);
+    const [main] = await db.query(
+      `SELECT "nextOrderNumber" FROM stores WHERE "isMain"`,
+    );
+    expect(main.nextOrderNumber).toBe(3);
   });
 
   it('can be reverted (rollback path) restoring the unlock codes', async () => {

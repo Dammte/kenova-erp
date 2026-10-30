@@ -43,7 +43,7 @@ import {
   PAYMENT_METHOD_LABELS,
 } from "../../constants";
 import styles from "./page.module.css";
-import { formatEstimatedTime } from "@/lib/format";
+import { formatEstimatedTime, orderCode } from "@/lib/format";
 import PatternLock from "@/components/serviceOrders/PatternLock";
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -109,6 +109,7 @@ type PaymentMethod = "cash" | "card" | "transfer";
 
 interface ServiceOrder {
   id: string;
+  code?: string;
   client: Client;
   device: Device;
   services: Service[];
@@ -572,7 +573,9 @@ export default function ServiceOrderEdit() {
           </button>
           <div>
             <h1 className={styles.pageTitle}>Editar Orden</h1>
-            <span className={styles.orderId}>#{orderId.slice(0, 8)}</span>
+            <span className={styles.orderId}>
+              {order ? orderCode(order) : ""}
+            </span>
           </div>
         </div>
         <div className={styles.hRight}>
