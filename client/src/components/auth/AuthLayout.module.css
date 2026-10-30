@@ -29,6 +29,11 @@
   border-radius: var(--k-radius-lg);
 }
 
+.form {
+  display: grid;
+  gap: var(--k-space-4);
+}
+
 .title {
   margin: 0;
   font: var(--k-text-xl);
@@ -70,4 +75,26 @@
   text-align: center;
   font: var(--k-text-xs);
   color: var(--k-text-muted);
+}
+
+.lead {
+  margin: 0;
+  font: var(--k-text-base);
+  color: var(--k-text-muted);
+}
+
+.success {
+  margin: 0;
+  padding: var(--k-space-3);
+  font: var(--k-text-sm);
+  color: var(--k-success);
+  background: var(--k-success-subtle);
+  border: var(--k-border-w) solid var(--k-success-border);
+  border-radius: var(--k-radius-md);
+}
+
+/* The same card inside the app, for "Cambiar contraseña" from the menu. */
+.inline {
+  max-width: 440px;
+  margin: var(--k-space-6);
 }

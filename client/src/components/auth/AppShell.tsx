@@ -11,8 +11,14 @@ const PUBLIC_PATHS = ["/login", "/recuperar-contrasena", "/restablecer-contrasen
 
 function ProtectedContent({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
+  const pathname = usePathname();
   // Nothing from the app is rendered until the session is confirmed.
   if (loading || !user) return null;
+  // First access: only the "choose a new password" screen, without the app
+  // around it; any other page waits for the redirect to it.
+  if (user.mustChangePassword) {
+    return pathname === "/cuenta/contrasena" ? <>{children}</> : null;
+  }
   return (
     <div className={styles.adminContainer}>
       <Sidebar />
