@@ -52,7 +52,17 @@ export class Inventory {
   @Column({ type: 'decimal', nullable: true })
   salesPrice?: number;
 
-  @Column({ length: 50, nullable: true })
+  /** Numeric; read back as a plain decimal string ("12.5", not "12.5000"). */
+  @Column({
+    type: 'decimal',
+    precision: 12,
+    scale: 4,
+    nullable: true,
+    transformer: {
+      to: (v?: string | null) => v,
+      from: (v: string | null) => (v === null ? v : String(Number(v))),
+    },
+  })
   costPrice?: string;
 
   @Column({ length: 50, nullable: true })
