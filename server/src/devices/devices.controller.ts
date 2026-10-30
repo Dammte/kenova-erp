@@ -26,23 +26,29 @@ export class DevicesController {
   ) {}
 
   @Get()
-  findAll() {
-    return this.devicesService.findAll();
+  findAll(@CurrentUser() user: AuthUser) {
+    return this.devicesService.findAll(user);
   }
 
   @Get('client/:clientId')
-  findByClientId(@Param('clientId', ParseUUIDPipe) clientId: string) {
-    return this.devicesService.findByClientId(clientId);
+  findByClientId(
+    @Param('clientId', ParseUUIDPipe) clientId: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.devicesService.findByClientId(clientId, user);
   }
 
   @Get(':id')
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.devicesService.findOne(id);
+  findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.devicesService.findOne(id, user);
   }
 
   @Post()
   create(@Body() dto: CreateDeviceDto, @CurrentUser() user: AuthUser) {
-    return this.devicesService.create(dto, user.id);
+    return this.devicesService.createFor(dto, user);
   }
 
   @Put(':id')
@@ -51,26 +57,28 @@ export class DevicesController {
     @Body() dto: UpdateDeviceDto,
     @CurrentUser() user: AuthUser,
   ) {
-    return this.devicesService.update(id, dto, user.id);
+    return this.devicesService.update(id, dto, user);
   }
 
   /** Returns the decrypted unlock code/pattern. Every call is audited. */
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
   @Post(':id/unlock-secret/reveal')
   @HttpCode(200)
-  reveal(
+  async reveal(
     @Param('id', ParseUUIDPipe) id: string,
     @Req() req: AuthenticatedRequest,
   ) {
+    await this.devicesService.assertVisible(id, req.user!);
     return this.secrets.reveal(id, req.user!.id, req.ip ?? null);
   }
 
   @Delete(':id/unlock-secret')
   @HttpCode(204)
-  clearSecret(
+  async clearSecret(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: AuthUser,
   ) {
+    await this.devicesService.assertVisible(id, user);
     return this.secrets.clear(id, user.id);
   }
 }
