@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import Sidebar from "@/components/sidebar/page";
+import Sidebar from "@/components/shell/Sidebar";
 import styles from "@/app/admin-layout.module.css";
 import { AuthProvider, useAuth } from "./AuthProvider";
 

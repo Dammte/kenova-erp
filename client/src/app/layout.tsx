@@ -51,8 +51,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es">
-      <body className={`${geistSans.variable} ${geistMono.variable} ${plexSans.variable} ${plexMono.variable} ${bricolage.variable} antialiased`}>
+    <html
+      lang="es"
+      // On <html> so the --k-* tokens declared on :root can resolve them.
+      className={`${plexSans.variable} ${plexMono.variable} ${bricolage.variable}`}
+    >
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <AppShell>{children}</AppShell>
       </body>
     </html>
