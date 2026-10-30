@@ -22,7 +22,7 @@ interface ClientFormData {
   dniType: string;
   dni: string;
   firstName: string;
-  lastName: string;
+  lastName: string | null;
   email?: string;
   phoneNumber?: string;
   address?: string;
@@ -159,9 +159,8 @@ export default function EditClientForm() {
             type="text"
             className={styles.textInput}
             name="lastName"
-            value={form.lastName}
+            value={form.lastName ?? ""}
             onChange={handleChange}
-            required
             placeholder="Pérez García"
           />
         </div>

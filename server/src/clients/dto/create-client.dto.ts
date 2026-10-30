@@ -43,11 +43,11 @@ export class CreateClientDto {
   @MaxLength(50)
   firstName: string;
 
-  @Transform(trim)
+  @Transform(emptyToNull)
   @IsString()
-  @IsNotEmpty()
   @MaxLength(50)
-  lastName: string;
+  @IsOptional()
+  lastName?: string | null;
 
   @Transform(({ value }) => {
     const v = emptyToNull({ value });

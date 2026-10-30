@@ -19,7 +19,8 @@ describe('Security foundation migration over legacy data', () => {
         ('22222222-2222-4222-8222-222222222222', 'mgr', 'Manager Ficticio', 'mgr@example.test', 'MANAGER', 'otro');
       INSERT INTO client (id, "firstName", "lastName", dni) VALUES
         ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Ana', 'Prueba', ''),
-        ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'Beto', 'Prueba', '00000000T');
+        ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'Beto', 'Prueba', '00000000T'),
+        ('cccccccc-cccc-4ccc-8ccc-cccccccccccc', 'Solo', ' ', NULL);
       INSERT INTO devices (id, type, brand, model, code, pattern, client_id) VALUES
         ('d1111111-1111-4111-8111-111111111111', 'movil', 'Marca', 'M1', '1234', NULL, 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'),
         ('d2222222-2222-4222-8222-222222222222', 'movil', 'Marca', 'M2', '', '1-5-9', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'),
@@ -109,6 +110,18 @@ describe('Security foundation migration over legacy data', () => {
       `SELECT id FROM service_orders WHERE "clientId" = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'`,
     );
     expect(orders).toHaveLength(1);
+  });
+
+  it('turns blank last names into NULL and keeps the rest', async () => {
+    const rows = await db.query(
+      `SELECT "firstName", "lastName" FROM client
+        WHERE id IN ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'cccccccc-cccc-4ccc-8ccc-cccccccccccc')
+        ORDER BY "firstName"`,
+    );
+    expect(rows).toEqual([
+      { firstName: 'Beto', lastName: 'Prueba' },
+      { firstName: 'Solo', lastName: null },
+    ]);
   });
 
   it('numbers existing orders in the main store by date of entry', async () => {

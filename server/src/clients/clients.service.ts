@@ -32,9 +32,9 @@ export class ClientsService {
       .replace(/(?:^|\s|-|')\S/g, (char) => char.toUpperCase());
   }
 
-  private normalizeNames<T extends { firstName?: string; lastName?: string }>(
-    dto: T,
-  ): T {
+  private normalizeNames<
+    T extends { firstName?: string; lastName?: string | null },
+  >(dto: T): T {
     const result = { ...dto };
     if (typeof result.firstName === 'string') {
       result.firstName = this.toTitleCase(result.firstName);

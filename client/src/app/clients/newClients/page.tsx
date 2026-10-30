@@ -167,7 +167,6 @@ export default function NewClientForm() {
             name="lastName"
             value={form.lastName}
             onChange={handleChange}
-            required
             placeholder="Pérez García"
           />
         </div>

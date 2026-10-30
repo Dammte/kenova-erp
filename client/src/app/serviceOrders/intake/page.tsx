@@ -220,7 +220,6 @@ export default function IntakePage() {
   const missing: string[] = [];
   if (!client) {
     if (!newClient.firstName.trim()) missing.push("nombre del cliente");
-    if (!newClient.lastName.trim()) missing.push("apellidos");
     if (!newClient.phoneNumber.trim()) missing.push("teléfono");
   }
   if (!deviceId) {
@@ -445,7 +444,7 @@ export default function IntakePage() {
                     />
                   </label>
                   <label>
-                    Apellidos *
+                    Apellidos
                     <input
                       value={newClient.lastName}
                       onChange={(e) => setNewClient({ ...newClient, lastName: e.target.value })}

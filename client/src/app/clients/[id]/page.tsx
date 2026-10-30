@@ -156,7 +156,7 @@ export default function ClientDetail() {
           {client.firstName?.charAt(0)}
           {client.lastName?.charAt(0)}
         </div>
-        <h1>{`${client.firstName} ${client.lastName}`}</h1>
+        <h1>{`${client.firstName} ${client.lastName ?? ""}`.trim()}</h1>
         <span className={styles.clientId}>ID: {client.id}</span>
         {/* Badges de resumen */}
         <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap", justifyContent: "center" }}>
