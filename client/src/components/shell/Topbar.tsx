@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
-import { ChevronDown, KeyRound, LogOut, Store } from "lucide-react";
+import { ChevronDown, KeyRound, LogOut, Search, Store } from "lucide-react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { API_URL, apiFetch } from "@/lib/api";
+import CommandPalette from "./CommandPalette";
 import styles from "./Topbar.module.css";
 
 const ROLE_LABEL = { SUPER_ADMIN: "Socio", STORE_ADMIN: "Tienda" } as const;
@@ -46,6 +47,7 @@ export default function Topbar() {
   const { user, logout } = useAuth();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [searching, setSearching] = useState(false);
   const menuId = useId();
   const wrap = useRef<HTMLDivElement>(null);
   const storeName = useStoreName(user?.storeId ?? null);
@@ -64,6 +66,18 @@ export default function Topbar() {
     };
   }, [open]);
 
+  // Ctrl+K (⌘K on a Mac) opens the search from anywhere.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setSearching(true);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   // Close the menu when the user goes to another page.
   useEffect(() => setOpen(false), [pathname]);
 
@@ -71,8 +85,20 @@ export default function Topbar() {
 
   return (
     <header className={styles.topbar}>
-      {/* The search (Ctrl+K) goes on the left in the next step. */}
-      <div />
+      <button
+        type="button"
+        className={styles.search}
+        aria-label="Buscar"
+        aria-keyshortcuts="Control+K Meta+K"
+        onClick={() => setSearching(true)}
+      >
+        <Search size={16} aria-hidden />
+        <span className={styles.searchText}>Orden, cliente, teléfono, DNI, IMEI…</span>
+        <kbd className={styles.kbd}>Ctrl K</kbd>
+      </button>
+      {searching && (
+        <CommandPalette role={user.role} onClose={() => setSearching(false)} />
+      )}
 
       <div className={styles.right}>
         {storeName && (
