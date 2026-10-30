@@ -58,6 +58,26 @@ export enum PaymentStatus {
   PAID = 'paid',
 }
 
+/** Checks done after the repair, offered as chips when finishing. */
+export const ORDER_TESTS = [
+  'touch',
+  'cameras',
+  'charging',
+  'audio',
+  'biometrics',
+  'network',
+] as const;
+export type OrderTest = (typeof ORDER_TESTS)[number];
+
+export enum OrderResult {
+  REPAIRED = 'repaired',
+  /** Finished without repair: the device goes back as it came in. */
+  NOT_REPAIRED = 'not_repaired',
+}
+
+/** Days after delivery during which a repair is covered (legal minimum: 3 months). */
+export const WARRANTY_DAYS = 90;
+
 export enum PaymentMethod {
   CASH = 'cash',
   CARD = 'card',
@@ -74,6 +94,22 @@ export enum PaymentMethod {
 @Check(
   'CHK_service_orders_reported_faults',
   `"reportedFaults" <@ ARRAY[${ORDER_FAULTS.map((f) => `'${f}'`).join(', ')}]::text[]`,
+)
+@Check(
+  'CHK_service_orders_tests_done',
+  `"testsDone" <@ ARRAY[${ORDER_TESTS.map((t) => `'${t}'`).join(', ')}]::text[]`,
+)
+@Check(
+  'CHK_service_orders_result',
+  `"result" IS NULL OR "result" IN ('repaired', 'not_repaired')`,
+)
+@Check(
+  'CHK_service_orders_not_repaired_reason',
+  `"notRepairedReason" IS NULL OR "result" = 'not_repaired'`,
+)
+@Check(
+  'CHK_service_orders_warranty_rejected',
+  `"warrantyRejectedReason" IS NULL OR "warrantyOfId" IS NOT NULL`,
 )
 @Index('IDX_service_orders_store_number', ['storeId', 'number'], {
   unique: true,
@@ -225,6 +261,36 @@ export class ServiceOrder {
   /** Why the order was cancelled; only kept while it is cancelled. */
   @Column({ type: 'varchar', length: 300, nullable: true })
   cancelReason?: string | null;
+
+  /** What was done, printed on the delivery receipt. */
+  @Column({ type: 'varchar', length: 1000, nullable: true })
+  workDone?: string | null;
+
+  @Column('text', { array: true, default: () => "'{}'" })
+  testsDone: OrderTest[];
+
+  /** Only while finished or delivered; reopening the order clears it. */
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  result?: OrderResult | null;
+
+  @Column({ type: 'varchar', length: 300, nullable: true })
+  notRepairedReason?: string | null;
+
+  /** The delivered order this one is a warranty claim of. */
+  @ManyToOne(() => ServiceOrder, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({
+    name: 'warrantyOfId',
+    foreignKeyConstraintName: 'FK_service_orders_warranty_of',
+  })
+  warrantyOf?: ServiceOrder | null;
+
+  @Index('IDX_service_orders_warrantyOfId')
+  @Column({ type: 'uuid', nullable: true })
+  warrantyOfId?: string | null;
+
+  /** Why the claim is not covered (the order is then charged normally). */
+  @Column({ type: 'varchar', length: 300, nullable: true })
+  warrantyRejectedReason?: string | null;
 
   @OneToMany(() => ServiceHistory, (history) => history.serviceOrder, {
     cascade: true,

@@ -115,6 +115,11 @@ export class CreateServiceOrderDto {
   @IsOptional()
   waivesQuote?: boolean;
 
+  /** Opens the order as a warranty claim of a delivered order. */
+  @IsUUID()
+  @IsOptional()
+  warrantyOfId?: string;
+
   /** Accepted for compatibility with the current frontend; parts are consumed via /consume-parts. */
   @IsArray()
   @ArrayMaxSize(100)

@@ -37,7 +37,7 @@ export class ServiceOrderController {
   ) {
     return this.serviceOrderService.create(dto, {
       storeId: await this.serviceOrderService.storeIdFor(user),
-      actorUserId: user.id,
+      actor: user,
     });
   }
 
