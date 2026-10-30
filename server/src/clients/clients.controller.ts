@@ -75,6 +75,17 @@ export class ClientsController {
     return this.clientsService.patch(id, dto, user);
   }
 
+  /** Removes the client's personal data (RGPD); its orders stay. */
+  @Post(':id/anonymize')
+  @Roles(UserRole.SUPER_ADMIN)
+  @HttpCode(200)
+  anonymize(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.clientsService.anonymize(id, user);
+  }
+
   @Delete(':id')
   @Roles(UserRole.SUPER_ADMIN)
   @HttpCode(204)

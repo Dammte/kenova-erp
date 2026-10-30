@@ -20,7 +20,7 @@ import {
 import { Service } from '../services/entities/service.entity';
 import { CreateServiceOrderDto } from './dto/create-service-order.dto';
 import { UpdateServiceOrderDto } from './dto/update-service-order.dto';
-import { Client } from '../clients/entities/client.entity';
+import { ANONYMIZED_CLIENT, Client } from '../clients/entities/client.entity';
 import { Device } from '../devices/entities/device.entity';
 import { Brand } from '../brands/entities/brand.entity';
 import { ServiceHistory } from '../service-history/entities/service-history.entity';
@@ -303,6 +303,9 @@ export class ServiceOrderService {
     if (!client) {
       throw new NotFoundException(`Cliente con ID ${clientId} no encontrado`);
     }
+    if (client.anonymizedAt) {
+      throw new BadRequestException(ANONYMIZED_CLIENT);
+    }
 
     let device: Device | null = null;
     if (deviceId) {
@@ -448,6 +451,9 @@ export class ServiceOrderService {
       });
       if (!client) {
         throw new NotFoundException(`Cliente con ID ${clientId} no encontrado`);
+      }
+      if (client.anonymizedAt) {
+        throw new BadRequestException(ANONYMIZED_CLIENT);
       }
       serviceOrder.client = client;
       serviceOrder.clientId = clientId;

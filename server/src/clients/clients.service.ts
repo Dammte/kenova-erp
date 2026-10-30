@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Brackets, EntityManager, Repository } from 'typeorm';
+import { Brackets, EntityManager, In, IsNull, Not, Repository } from 'typeorm';
 import { AuditService } from '../audit/audit.service';
 import type { AuthUser } from '../auth/auth.types';
 import {
@@ -14,7 +14,12 @@ import {
   scopedStoreId,
 } from '../common/store-scope';
 import { isValidCif } from '../common/cif';
-import { Client, DniType } from './entities/client.entity';
+import { Device } from '../devices/entities/device.entity';
+import {
+  ServiceOrder,
+  ServiceStatus,
+} from '../service-order/entities/service-order.entity';
+import { ANONYMIZED_CLIENT, Client, DniType } from './entities/client.entity';
 import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
 
@@ -181,6 +186,7 @@ export class ClientsService {
     actor: AuthUser,
   ): Promise<Client> {
     const current = await this.findOne(id, actor);
+    if (current.anonymizedAt) throw new BadRequestException(ANONYMIZED_CLIENT);
     const dniType = dto.dniType ?? current.dniType;
     if (dto.dniType !== undefined || dto.dni !== undefined) {
       ClientsService.checkDocument(
@@ -222,5 +228,68 @@ export class ClientsService {
       entityType: 'client',
       entityId: id,
     });
+  }
+
+  /**
+   * Removes the client's personal data on request (RGPD) and keeps the row, so
+   * its orders, payments and history stay intact. The devices keep their
+   * IMEI (warranties) but lose any stored unlock code. Free text written in
+   * the orders is not touched.
+   */
+  async anonymize(id: string, actor: AuthUser): Promise<Client> {
+    await this.clientRepository.manager.transaction(async (m) => {
+      const client = await m.getRepository(Client).findOne({
+        where: { id },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!client) throw new NotFoundException('Cliente no encontrado');
+      if (client.anonymizedAt) {
+        throw new BadRequestException('Este cliente ya está anonimizado');
+      }
+      const open = await m.getRepository(ServiceOrder).count({
+        where: {
+          clientId: id,
+          deletedAt: IsNull(),
+          status: Not(In([ServiceStatus.ENTREGADO, ServiceStatus.CANCELADO])),
+        },
+      });
+      if (open > 0) {
+        throw new BadRequestException(
+          `Tiene ${open} orden(es) sin entregar o cancelar: ciérralas antes de anonimizar`,
+        );
+      }
+      await m.getRepository(Client).update(id, {
+        dniType: DniType.NIF,
+        dni: null,
+        firstName: 'Cliente anonimizado',
+        lastName: null,
+        email: null,
+        phoneNumber: null,
+        address: null,
+        postalCode: null,
+        city: null,
+        observations: null,
+        isActive: false,
+        anonymizedAt: new Date(),
+      });
+      await m.getRepository(Device).update(
+        { clientId: id },
+        {
+          unlockSecretCiphertext: null,
+          unlockSecretType: null,
+          unlockSecretSetAt: null,
+        },
+      );
+      await this.audit.record(
+        {
+          action: 'CLIENT_ANONYMIZED',
+          actorUserId: actor.id,
+          entityType: 'client',
+          entityId: id,
+        },
+        m,
+      );
+    });
+    return this.findOne(id, actor);
   }
 }
