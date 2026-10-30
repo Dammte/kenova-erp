@@ -1,0 +1,111 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--k-space-2);
+  height: var(--k-control-h);
+  padding: 0 var(--k-space-4);
+  border: var(--k-border-w) solid transparent;
+  border-radius: var(--k-radius-md);
+  font: 500 15px/22px var(--k-font-sans);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 120ms,
+    border-color 120ms,
+    color 120ms;
+}
+
+.button:focus-visible {
+  outline: none;
+  box-shadow: var(--k-focus-ring);
+}
+
+.button:disabled {
+  cursor: not-allowed;
+}
+
+.primary {
+  background: var(--k-accent);
+  color: var(--k-surface);
+}
+.primary:hover:not(:disabled) {
+  background: var(--k-accent-hover);
+}
+
+.secondary {
+  background: var(--k-surface);
+  border-color: var(--k-border-strong);
+  color: var(--k-text);
+}
+.secondary:hover:not(:disabled) {
+  background: var(--k-subtle);
+}
+
+.ghost {
+  background: transparent;
+  color: var(--k-accent);
+}
+.ghost:hover:not(:disabled) {
+  background: var(--k-accent-subtle);
+}
+
+.danger {
+  background: var(--k-surface);
+  border-color: var(--k-danger);
+  color: var(--k-danger);
+}
+.danger:hover:not(:disabled) {
+  background: var(--k-status-cancelado-bg);
+}
+.danger:focus-visible {
+  box-shadow: var(--k-focus-ring-danger);
+}
+
+/* Disabled keeps the shape but loses the colour, never the text. */
+.button:disabled:not([aria-busy]) {
+  background: var(--k-subtle);
+  border-color: var(--k-border);
+  color: var(--k-text-muted);
+}
+
+.sm {
+  height: 32px;
+  padding: 0 var(--k-space-3);
+  font-size: 13px;
+}
+
+.lg {
+  height: 52px;
+  padding: 0 var(--k-space-6);
+  font: var(--k-text-md);
+}
+
+.spinner {
+  animation: spin 800ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+  }
+}
+
+.wrap {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--k-space-1);
+}
+
+.reason {
+  font: var(--k-text-xs);
+  color: var(--k-text-muted);
+}
