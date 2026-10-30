@@ -12,13 +12,16 @@ import { AuthService } from '../auth/auth.service';
 import { User, UserRole } from '../users/entities/user.entity';
 import { CreateStoreDto } from './dto/create-store.dto';
 import { UpdateStoreDto } from './dto/update-store.dto';
-import { Store } from './entities/store.entity';
+import { StoreCommissionChange } from './entities/store-commission-change.entity';
+import { CommissionType, Store } from './entities/store.entity';
 
 @Injectable()
 export class StoresService {
   constructor(
     @InjectRepository(Store) private readonly stores: Repository<Store>,
     @InjectRepository(User) private readonly users: Repository<User>,
+    @InjectRepository(StoreCommissionChange)
+    private readonly commissionChanges: Repository<StoreCommissionChange>,
     private readonly auth: AuthService,
     private readonly audit: AuditService,
   ) {}
@@ -59,6 +62,51 @@ export class StoresService {
     }
   }
 
+  /**
+   * The commission a request leaves the store with, or undefined when it does
+   * not touch it. Type and value always go together; the workshop has none.
+   */
+  private static nextCommission(
+    dto: CreateStoreDto | UpdateStoreDto,
+    isMain: boolean,
+  ): { type: CommissionType | null; value: string | null } | undefined {
+    const { commissionType: type, commissionValue: value } = dto;
+    if (type === undefined && value === undefined) return undefined;
+    if ((type ?? null) === null && (value ?? null) === null) {
+      return { type: null, value: null };
+    }
+    if (!type || value === undefined || value === null) {
+      throw new BadRequestException('Indica el tipo y el valor de la comisión');
+    }
+    if (isMain) {
+      throw new BadRequestException('La tienda principal no lleva comisión');
+    }
+    if (type === CommissionType.PERCENT && value > 100) {
+      throw new BadRequestException('El porcentaje no puede pasar de 100');
+    }
+    return { type, value: value.toFixed(2) };
+  }
+
+  /** Commission history of a store, newest first. */
+  async commissionHistory(
+    id: string,
+    actor: AuthUser,
+  ): Promise<StoreCommissionChange[]> {
+    await this.findOne(id, actor);
+    const rows = await this.commissionChanges.find({
+      where: { storeId: id },
+      relations: { changedBy: true },
+      order: { createdAt: 'DESC' },
+    });
+    for (const r of rows) {
+      if (r.changedBy) {
+        const { id: userId, fullName } = r.changedBy;
+        r.changedBy = { id: userId, fullName } as User;
+      }
+    }
+    return rows;
+  }
+
   private async checkPrefixFree(prefix: string): Promise<void> {
     if (await this.stores.exist({ where: { prefix } })) {
       throw new ConflictException(
@@ -73,14 +121,26 @@ export class StoresService {
       dto.cashOpensAt ?? '09:00:00',
       dto.cashClosesAt ?? '20:00:00',
     );
+    const commission = StoresService.nextCommission(dto, false);
     const saved = await this.stores.save(
       this.stores.create({
         ...dto,
         cashFloat: dto.cashFloat?.toFixed(2),
+        commissionType: commission?.type ?? null,
+        commissionValue: commission?.value ?? null,
         isMain: false,
         isActive: true,
       }),
     );
+    if (commission?.type) {
+      await this.commissionChanges.save(
+        this.commissionChanges.create({
+          storeId: saved.id,
+          ...commission,
+          changedById: actorId,
+        }),
+      );
+    }
     await this.audit.record({
       action: 'STORE_CREATED',
       actorUserId: actorId,
@@ -116,12 +176,28 @@ export class StoresService {
       dto.cashOpensAt ?? store.cashOpensAt,
       dto.cashClosesAt ?? store.cashClosesAt,
     );
+    const commission = StoresService.nextCommission(dto, store.isMain);
+    const commissionChanged =
+      commission !== undefined &&
+      (commission.type !== store.commissionType ||
+        commission.value !== store.commissionValue);
     const deactivating = dto.isActive === false && store.isActive;
     Object.assign(store, {
       ...dto,
       cashFloat: dto.cashFloat?.toFixed(2) ?? store.cashFloat,
+      commissionType: commission ? commission.type : store.commissionType,
+      commissionValue: commission ? commission.value : store.commissionValue,
     });
     const saved = await this.stores.save(store);
+    if (commissionChanged) {
+      await this.commissionChanges.save(
+        this.commissionChanges.create({
+          storeId: id,
+          ...commission,
+          changedById: actorId,
+        }),
+      );
+    }
 
     if (deactivating) {
       const members = await this.users.find({

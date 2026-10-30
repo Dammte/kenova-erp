@@ -1,5 +1,6 @@
 import { Transform } from 'class-transformer';
 import {
+  IsEnum,
   IsInt,
   IsNumber,
   IsOptional,
@@ -10,7 +11,7 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
-import { MIN_WARRANTY_DAYS } from '../entities/store.entity';
+import { CommissionType, MIN_WARRANTY_DAYS } from '../entities/store.entity';
 
 const HOUR = /^([01]\d|2[0-3]):[0-5]\d:00$/;
 const toTime = ({ value }: { value: unknown }) =>
@@ -91,4 +92,16 @@ export class CreateStoreDto {
   @Max(3650)
   @IsOptional()
   warrantyDays?: number;
+
+  /** null removes the commission; send it together with its value. */
+  @IsEnum(CommissionType)
+  @IsOptional()
+  commissionType?: CommissionType | null;
+
+  /** Percentage (0-100) or euros per device, as the type says. */
+  @IsNumber({ maxDecimalPlaces: 2, allowNaN: false, allowInfinity: false })
+  @Min(0, { message: 'La comisión no puede ser negativa' })
+  @Max(10_000)
+  @IsOptional()
+  commissionValue?: number | null;
 }
