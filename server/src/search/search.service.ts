@@ -5,6 +5,7 @@ import type { AuthUser } from '../auth/auth.types';
 import { Client } from '../clients/entities/client.entity';
 import { clientVisibleSql, scopedStoreId } from '../common/store-scope';
 import { ServiceOrder } from '../service-order/entities/service-order.entity';
+import { digitsSql, foldSql, likeTerms } from '../common/text-search';
 
 export interface OrderHit {
   id: string;
@@ -25,23 +26,6 @@ export interface SearchResult {
   clients: ClientHit[];
 }
 
-const ACCENTED = 'áàäâãéèëêíìïîóòöôõúùüûñç';
-const PLAIN = 'aaaaaeeeeiiiiooooouuuunc';
-
-/** Lowercases and drops accents, so "José" and "jose" match. Mirrors `foldSql`. */
-export function fold(text: string): string {
-  return text.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-}
-
-/** SQL counterpart of `fold` for a column expression. */
-function foldSql(expr: string): string {
-  return `translate(lower(coalesce(${expr}, '')), '${ACCENTED}', '${PLAIN}')`;
-}
-
-function escapeLike(term: string): string {
-  return term.replace(/[\\%_]/g, (c) => `\\${c}`);
-}
-
 const NAME = `${foldSql('c."firstName"')} || ' ' || ${foldSql('c."lastName"')}`;
 
 /**
@@ -53,14 +37,9 @@ export class SearchService {
   constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
 
   async search(raw: string, actor: AuthUser): Promise<SearchResult> {
-    const text = raw.trim().slice(0, 100);
-    if (text.length < 2) return { orders: [], clients: [] };
-    const term = `%${escapeLike(fold(text))}%`;
-    const digits = text.replace(/\D/g, '');
-    // Only a term made of digits and separators searches phones and IMEIs,
-    // so "iPhone 13" does not match every phone with a 13 in it.
-    const numeric =
-      /^[+\d\s().-]+$/.test(text) && digits.length >= 3 ? `%${digits}%` : null;
+    const terms = likeTerms(raw);
+    if (!terms) return { orders: [], clients: [] };
+    const { term, numeric } = terms;
     const [orders, clients] = await Promise.all([
       this.orders(term, numeric, actor),
       this.clients(term, numeric, actor),
@@ -98,9 +77,7 @@ export class SearchService {
               `${foldSql('d.brand')} || ' ' || ${foldSql('d.model')} LIKE :term`,
             );
           if (numeric) {
-            w.orWhere(
-              `regexp_replace(coalesce(d.imei, ''), '\\D', '', 'g') LIKE :numeric`,
-            );
+            w.orWhere(`${digitsSql('d.imei')} LIKE :numeric`);
           }
         }),
       )
@@ -135,9 +112,7 @@ export class SearchService {
             .orWhere(`${foldSql('c.email')} LIKE :term`)
             .orWhere(`${foldSql('c.dni')} LIKE :term`);
           if (numeric) {
-            w.orWhere(
-              `regexp_replace(coalesce(c."phoneNumber", ''), '\\D', '', 'g') LIKE :numeric`,
-            );
+            w.orWhere(`${digitsSql('c."phoneNumber"')} LIKE :numeric`);
           }
         }),
       )

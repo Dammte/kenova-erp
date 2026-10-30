@@ -22,6 +22,8 @@ import { CreateIntakeDto } from './dto/create-intake.dto';
 import { IntakeService } from './intake.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { OrderPaymentsService } from './order-payments.service';
+import { ListOrdersDto } from './dto/list-orders.dto';
+import { OrderListService } from './order-list.service';
 
 @Controller('service-orders')
 export class ServiceOrderController {
@@ -29,6 +31,7 @@ export class ServiceOrderController {
     private readonly serviceOrderService: ServiceOrderService,
     private readonly intakeService: IntakeService,
     private readonly paymentsService: OrderPaymentsService,
+    private readonly orderListService: OrderListService,
   ) {}
 
   @Post()
@@ -51,6 +54,12 @@ export class ServiceOrderController {
   @Get()
   findAll(@CurrentUser() user: AuthUser) {
     return this.serviceOrderService.findAll(user);
+  }
+
+  /** Design 1.4: one page of the order list, with the count of each tab. */
+  @Get('list')
+  list(@Query() query: ListOrdersDto, @CurrentUser() user: AuthUser) {
+    return this.orderListService.list(query, user);
   }
 
   @Get('client/:clientId')
