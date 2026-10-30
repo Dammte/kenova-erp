@@ -12,6 +12,7 @@ import { ConsumePartsDto } from './dto/consume-parts.dto';
 import {
   ORDER_FAULTS,
   OrderFault,
+  LOCATION_LABEL,
   OrderLocation,
   OrderResult,
   WARRANTY_DAYS,
@@ -545,6 +546,17 @@ export class ServiceOrderService {
     Object.assign(serviceOrder, updateData);
     ServiceOrderService.applyLifecycle(serviceOrder, previousStatus);
     ServiceOrderService.checkOutcome(serviceOrder, updateData);
+    if (
+      serviceOrder.status === ServiceStatus.ENTREGADO &&
+      previousStatus !== ServiceStatus.ENTREGADO &&
+      serviceOrder.location &&
+      serviceOrder.location !== OrderLocation.AT_STORE &&
+      serviceOrder.location !== OrderLocation.READY_AT_STORE
+    ) {
+      throw new BadRequestException(
+        `El equipo aún no ha vuelto a la tienda (${LOCATION_LABEL[serviceOrder.location]})`,
+      );
+    }
 
     // Recalcular balance y estado de pago si cambiaron campos financieros o servicios
     if (

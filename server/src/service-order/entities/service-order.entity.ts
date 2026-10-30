@@ -97,6 +97,15 @@ export enum OrderLocation {
   READY_AT_STORE = 'ready_at_store',
 }
 
+/** How the screens name each location. */
+export const LOCATION_LABEL: Record<OrderLocation, string> = {
+  [OrderLocation.AT_STORE]: 'En tienda (recepción)',
+  [OrderLocation.TO_WORKSHOP]: 'Enviado a Medina',
+  [OrderLocation.AT_WORKSHOP]: 'En Medina',
+  [OrderLocation.TO_STORE]: 'Enviado a tienda',
+  [OrderLocation.READY_AT_STORE]: 'En tienda (listo para entregar)',
+};
+
 @Entity('service_orders')
 @Check(
   'CHK_service_orders_location',
