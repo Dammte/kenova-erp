@@ -24,6 +24,7 @@ import { Device } from '../devices/entities/device.entity';
 import { Brand } from '../brands/entities/brand.entity';
 import { ServiceHistory } from '../service-history/entities/service-history.entity';
 import { Store } from '../stores/entities/store.entity';
+import { OrderLine, OrderLineKind } from './entities/order-line.entity';
 import type { AuthUser } from '../auth/auth.types';
 import { UserRole } from '../users/entities/user.entity';
 
@@ -94,6 +95,55 @@ export class ServiceOrderService {
       order.deliveredAt = null;
     }
     if (status !== ServiceStatus.CANCELADO) order.cancelReason = null;
+  }
+
+  /**
+   * Rebuilds the order's lines from its services and total: one line per
+   * service (keeping the price it already had on this order) plus an
+   * "Ajuste" line for any difference, so the lines always add up to the total.
+   */
+  private async syncLines(m: EntityManager, order: ServiceOrder) {
+    const repo = m.getRepository(OrderLine);
+    const previous = await repo.find({ where: { orderId: order.id } });
+    const priceOf = new Map(
+      previous
+        .filter((l) => l.kind === OrderLineKind.SERVICE && l.serviceId)
+        .map((l) => [l.serviceId, l.unitPrice]),
+    );
+    await repo.delete({ orderId: order.id });
+
+    const services = [...(order.services ?? [])].sort((a, b) =>
+      a.name.localeCompare(b.name, 'es'),
+    );
+    const lines = services.map((s, i) =>
+      repo.create({
+        orderId: order.id,
+        position: i + 1,
+        kind: OrderLineKind.SERVICE,
+        serviceId: s.id,
+        description: s.name.slice(0, 150),
+        unitPrice: priceOf.get(s.id) ?? Number(s.price).toFixed(2),
+        quantity: 1,
+      }),
+    );
+    const cents = (v: unknown) => Math.round(Number(v ?? 0) * 100);
+    const diff =
+      cents(order.totalPrice) -
+      lines.reduce((sum, l) => sum + cents(l.unitPrice) * l.quantity, 0);
+    if (diff !== 0) {
+      lines.push(
+        repo.create({
+          orderId: order.id,
+          position: lines.length + 1,
+          kind: OrderLineKind.ADJUSTMENT,
+          serviceId: null,
+          description: 'Ajuste',
+          unitPrice: (diff / 100).toFixed(2),
+          quantity: 1,
+        }),
+      );
+    }
+    await repo.save(lines);
   }
 
   // ─── Brand name resolver ────────────────────────────────────────────────────
@@ -262,14 +312,16 @@ export class ServiceOrderService {
     });
     ServiceOrderService.applyLifecycle(serviceOrder, null);
 
-    return m.getRepository(ServiceOrder).save(serviceOrder);
+    const saved = await m.getRepository(ServiceOrder).save(serviceOrder);
+    await this.syncLines(m, saved);
+    return saved;
   }
 
   async findByClientId(clientId: string): Promise<ServiceOrder[]> {
     const orders = await this.serviceOrderRepository.find({
       where: { clientId, deletedAt: IsNull() },
-      relations: ['device', 'services'],
-      order: { createdAt: 'DESC' },
+      relations: ['device', 'services', 'lines'],
+      order: { createdAt: 'DESC', lines: { position: 'ASC' } },
       withDeleted: true,
     });
     await this.resolveBrandNames(orders);
@@ -281,8 +333,8 @@ export class ServiceOrderService {
     // deleted orders themselves are filtered explicitly.
     const orders = await this.serviceOrderRepository.find({
       where: { deletedAt: IsNull() },
-      relations: ['client', 'device', 'services', 'serviceHistory'],
-      order: { createdAt: 'DESC' },
+      relations: ['client', 'device', 'services', 'serviceHistory', 'lines'],
+      order: { createdAt: 'DESC', lines: { position: 'ASC' } },
       withDeleted: true,
     });
 
@@ -293,7 +345,8 @@ export class ServiceOrderService {
   async findOne(id: string): Promise<ServiceOrder> {
     const serviceOrder = await this.serviceOrderRepository.findOne({
       where: { id, deletedAt: IsNull() },
-      relations: ['client', 'device', 'services', 'serviceHistory'],
+      relations: ['client', 'device', 'services', 'serviceHistory', 'lines'],
+      order: { lines: { position: 'ASC' } },
       withDeleted: true,
     });
 
@@ -391,7 +444,12 @@ export class ServiceOrderService {
       );
     }
 
-    await this.serviceOrderRepository.save(serviceOrder);
+    await this.dataSource.transaction(async (m) => {
+      await m.getRepository(ServiceOrder).save(serviceOrder);
+      if (updateData.totalPrice !== undefined || serviceIds !== undefined) {
+        await this.syncLines(m, serviceOrder);
+      }
+    });
 
     // Registrar cambio de estado en el historial automáticamente
     if (updateData.status && updateData.status !== previousStatus) {
