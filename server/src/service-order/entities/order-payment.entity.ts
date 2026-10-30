@@ -17,6 +17,13 @@ export enum PaymentKind {
   REFUND = 'refund',
 }
 
+/**
+ * Paid with, or refunded to, the client's saldo a favor. Only payments use
+ * it: the order's own paymentMethod keeps the four real methods.
+ */
+export const CREDIT = 'credit';
+export type OrderPaymentMethod = PaymentMethod | typeof CREDIT;
+
 export enum PaymentOrigin {
   /** Registered with the payments screen. */
   COUNTER = 'counter',
@@ -36,7 +43,7 @@ export enum PaymentOrigin {
 @Check('CHK_order_payments_kind', `"kind" IN ('charge', 'refund')`)
 @Check(
   'CHK_order_payments_method',
-  `"method" IN ('cash', 'card', 'transfer', 'other')`,
+  `"method" IN ('cash', 'card', 'transfer', 'other', 'credit')`,
 )
 @Check(
   'CHK_order_payments_origin',
@@ -78,7 +85,7 @@ export class OrderPayment {
   amount: string;
 
   @Column({ type: 'varchar', length: 10 })
-  method: PaymentMethod;
+  method: OrderPaymentMethod;
 
   /** Optional for a charge; the reason, required, for a refund. */
   @Column({ type: 'varchar', length: 300, nullable: true })

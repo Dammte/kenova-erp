@@ -28,6 +28,7 @@ import { Store } from '../stores/entities/store.entity';
 import { OrderLine, OrderLineKind } from './entities/order-line.entity';
 import type { AuthUser } from '../auth/auth.types';
 import { orderScope } from '../common/store-scope';
+import { CREDIT, OrderPayment } from './entities/order-payment.entity';
 import { OrderPaymentsService } from './order-payments.service';
 import { derivePayment } from './payment-status';
 import { UserRole } from '../users/entities/user.entity';
@@ -454,6 +455,16 @@ export class ServiceOrderService {
       }
       if (client.anonymizedAt) {
         throw new BadRequestException(ANONYMIZED_CLIENT);
+      }
+      if (clientId !== serviceOrder.clientId) {
+        const usesCredit = await this.dataSource
+          .getRepository(OrderPayment)
+          .exists({ where: { orderId: id, method: CREDIT } });
+        if (usesCredit) {
+          throw new BadRequestException(
+            'Esta orden movió saldo a favor del cliente: no se puede cambiar de cliente',
+          );
+        }
       }
       serviceOrder.client = client;
       serviceOrder.clientId = clientId;
