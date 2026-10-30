@@ -12,7 +12,6 @@ import { ConsumePartsDto } from './dto/consume-parts.dto';
 import {
   ORDER_FAULTS,
   OrderFault,
-  PaymentStatus,
   ServiceOrder,
   ServiceStatus,
 } from './entities/service-order.entity';
@@ -27,6 +26,8 @@ import { Store } from '../stores/entities/store.entity';
 import { OrderLine, OrderLineKind } from './entities/order-line.entity';
 import type { AuthUser } from '../auth/auth.types';
 import { orderScope } from '../common/store-scope';
+import { OrderPaymentsService } from './order-payments.service';
+import { derivePayment } from './payment-status';
 import { UserRole } from '../users/entities/user.entity';
 
 @Injectable()
@@ -54,21 +55,8 @@ export class ServiceOrderService {
     private readonly serviceHistoryRepository: Repository<ServiceHistory>,
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly audit: AuditService,
+    private readonly payments: OrderPaymentsService,
   ) {}
-
-  /** Payment status is always derived from the amounts, never taken from the request. */
-  private static derivePayment(totalPrice: number, amountPaid: number) {
-    const paymentStatus =
-      totalPrice > 0 && amountPaid >= totalPrice
-        ? PaymentStatus.PAID
-        : amountPaid > 0
-          ? PaymentStatus.PAID_PARTIAL
-          : PaymentStatus.PENDING;
-    return {
-      balance: Number((totalPrice - amountPaid).toFixed(2)),
-      paymentStatus,
-    };
-  }
 
   /**
    * Keeps the lifecycle dates in step with the status: the first time an order
@@ -225,16 +213,17 @@ export class ServiceOrderService {
    */
   async create(
     createServiceOrderDto: CreateServiceOrderDto,
-    storeId: string,
+    at: { storeId: string; actorUserId: string },
     manager?: EntityManager,
   ): Promise<ServiceOrder> {
     if (!manager) {
       const saved = await this.dataSource.transaction((m) =>
-        this.create(createServiceOrderDto, storeId, m),
+        this.create(createServiceOrderDto, at, m),
       );
       return this.findOne(saved.id);
     }
     const m = manager;
+    const { storeId } = at;
     const {
       serviceIds,
       clientId,
@@ -309,12 +298,20 @@ export class ServiceOrderService {
       services,
       totalPrice,
       amountPaid,
-      ...ServiceOrderService.derivePayment(totalPrice, amountPaid),
+      ...derivePayment(totalPrice, amountPaid),
     });
     ServiceOrderService.applyLifecycle(serviceOrder, null);
 
     const saved = await m.getRepository(ServiceOrder).save(serviceOrder);
     await this.syncLines(m, saved);
+    await this.payments.recordEdit(
+      m,
+      saved,
+      0,
+      at.actorUserId,
+      storeId,
+      'Pagado al crear la orden',
+    );
     return saved;
   }
 
@@ -437,6 +434,7 @@ export class ServiceOrderService {
 
     // Capturar estado anterior antes de aplicar cambios
     const previousStatus = serviceOrder.status;
+    const previousPaid = serviceOrder.amountPaid;
 
     Object.assign(serviceOrder, updateData);
     ServiceOrderService.applyLifecycle(serviceOrder, previousStatus);
@@ -449,16 +447,22 @@ export class ServiceOrderService {
     ) {
       const totalPrice = Number(serviceOrder.totalPrice ?? 0);
       const amountPaid = Number(serviceOrder.amountPaid ?? 0);
-      Object.assign(
-        serviceOrder,
-        ServiceOrderService.derivePayment(totalPrice, amountPaid),
-      );
+      Object.assign(serviceOrder, derivePayment(totalPrice, amountPaid));
     }
 
     await this.dataSource.transaction(async (m) => {
       await m.getRepository(ServiceOrder).save(serviceOrder);
       if (updateData.totalPrice !== undefined || serviceIds !== undefined) {
         await this.syncLines(m, serviceOrder);
+      }
+      if (updateData.amountPaid !== undefined) {
+        await this.payments.recordEdit(
+          m,
+          serviceOrder,
+          previousPaid,
+          actorUserId,
+          await this.storeIdFor(actor, m),
+        );
       }
     });
 

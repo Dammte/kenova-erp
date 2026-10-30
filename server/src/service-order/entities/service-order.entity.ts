@@ -20,6 +20,7 @@ import { ServiceHistory } from '../../service-history/entities/service-history.e
 import { StickyNote } from '../../sticky-notes/entities/sticky-note.entity';
 import { Store } from '../../stores/entities/store.entity';
 import { OrderLine } from './order-line.entity';
+import { OrderPayment } from './order-payment.entity';
 
 export enum ServiceStatus {
   EN_PROGRESO = 'en_progreso',
@@ -233,6 +234,10 @@ export class ServiceOrder {
   /** Priced lines; they add up to totalPrice. Kept in step with `services`. */
   @OneToMany(() => OrderLine, (line) => line.order)
   lines?: OrderLine[];
+
+  /** Charges and refunds; charges minus refunds equal amountPaid. */
+  @OneToMany(() => OrderPayment, (payment) => payment.order)
+  payments?: OrderPayment[];
 
   @OneToMany(() => StickyNote, (note) => note.orderService)
   stickyNotes: StickyNote[];

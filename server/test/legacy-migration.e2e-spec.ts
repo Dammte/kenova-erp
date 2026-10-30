@@ -44,7 +44,9 @@ describe('Security foundation migration over legacy data', () => {
       INSERT INTO service_order_services ("serviceOrderId", "serviceId") VALUES
         ('0e111111-1111-4111-8111-111111111111', '5e111111-1111-4111-8111-111111111111'),
         ('0e111111-1111-4111-8111-111111111111', '5e222222-2222-4222-8222-222222222222');
-      UPDATE service_orders SET "totalPrice" = 120 WHERE id = '0e111111-1111-4111-8111-111111111111';
+      UPDATE service_orders SET "totalPrice" = 120, "amountPaid" = 50, "paymentMethod" = 'card',
+             "updatedAt" = '2025-04-01'
+        WHERE id = '0e111111-1111-4111-8111-111111111111';
       INSERT INTO service_history (action, description, "serviceOrderId", "performedBy") VALUES
         ('nota', 'hecha por admin', '0e111111-1111-4111-8111-111111111111', '11111111-1111-4111-8111-111111111111');
       INSERT INTO service_history (action, description, "serviceOrderId", "createdAt") VALUES
@@ -221,6 +223,25 @@ describe('Security foundation migration over legacy data', () => {
         kind: 'adjustment',
         description: 'Ajuste',
         unitPrice: '-10.00',
+      },
+    ]);
+  });
+
+  it('turns what each order had paid into one migrated charge', async () => {
+    const payments = await db.query(
+      `SELECT p."orderId", p.kind, p.amount, p.method, p.origin, p."createdAt",
+              p."storeId" = o."storeId" AS "sameStore"
+         FROM order_payments p JOIN service_orders o ON o.id = p."orderId"`,
+    );
+    expect(payments).toEqual([
+      {
+        orderId: '0e111111-1111-4111-8111-111111111111',
+        kind: 'charge',
+        amount: '50.00',
+        method: 'card',
+        origin: 'migrated',
+        createdAt: new Date('2025-04-01'),
+        sameStore: true,
       },
     ]);
   });
