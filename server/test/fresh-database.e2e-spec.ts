@@ -44,11 +44,12 @@ describe('Migrations on an empty database', () => {
       'OrderIntakeFields1762400000000',
       'OrderLines1762500000000',
       'ClientStore1762600000000',
+      'OrderPayments1762700000000',
     ]);
   });
 
   it('reverts cleanly back to an empty database', async () => {
-    for (let i = 0; i < 11; i++) {
+    for (let i = 0; i < 12; i++) {
       await db.undoLastMigration({ transaction: 'all' });
     }
     const tables = await db.query(

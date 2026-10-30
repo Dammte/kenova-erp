@@ -19,12 +19,15 @@ import { UpdateServiceOrderDto } from './dto/update-service-order.dto';
 import { ConsumePartsDto } from './dto/consume-parts.dto';
 import { CreateIntakeDto } from './dto/create-intake.dto';
 import { IntakeService } from './intake.service';
+import { CreatePaymentDto } from './dto/create-payment.dto';
+import { OrderPaymentsService } from './order-payments.service';
 
 @Controller('service-orders')
 export class ServiceOrderController {
   constructor(
     private readonly serviceOrderService: ServiceOrderService,
     private readonly intakeService: IntakeService,
+    private readonly paymentsService: OrderPaymentsService,
   ) {}
 
   @Post()
@@ -32,10 +35,10 @@ export class ServiceOrderController {
     @Body() dto: CreateServiceOrderDto,
     @CurrentUser() user: AuthUser,
   ) {
-    return this.serviceOrderService.create(
-      dto,
-      await this.serviceOrderService.storeIdFor(user),
-    );
+    return this.serviceOrderService.create(dto, {
+      storeId: await this.serviceOrderService.storeIdFor(user),
+      actorUserId: user.id,
+    });
   }
 
   /** One-screen intake: client + device + order in a single transaction. */
@@ -72,6 +75,30 @@ export class ServiceOrderController {
     @CurrentUser() user: AuthUser,
   ) {
     return this.serviceOrderService.update(id, dto, user);
+  }
+
+  /** Charges and refunds of the order, oldest first. */
+  @Get(':id/payments')
+  listPayments(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.paymentsService.list(id, user);
+  }
+
+  /** Registers a charge or a refund; repeating the same `id` never charges twice. */
+  @Post(':id/payments')
+  async addPayment(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CreatePaymentDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.paymentsService.record(
+      id,
+      dto,
+      user,
+      await this.serviceOrderService.storeIdFor(user),
+    );
   }
 
   /** Atomically takes the given parts out of stock and records them on the order. */

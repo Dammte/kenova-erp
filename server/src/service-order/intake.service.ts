@@ -40,7 +40,10 @@ export class IntakeService {
         ).id;
       const order = await this.orders.create(
         { ...dto.order, clientId, deviceId },
-        await this.orders.storeIdFor(actor, manager),
+        {
+          storeId: await this.orders.storeIdFor(actor, manager),
+          actorUserId,
+        },
         manager,
       );
       return order.id;

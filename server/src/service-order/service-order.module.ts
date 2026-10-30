@@ -6,6 +6,8 @@ import { DevicesModule } from '../devices/devices.module';
 import { ServiceOrderController } from './service-order.controller';
 import { ServiceOrder } from './entities/service-order.entity';
 import { OrderLine } from './entities/order-line.entity';
+import { OrderPayment } from './entities/order-payment.entity';
+import { OrderPaymentsService } from './order-payments.service';
 import { Client } from '../clients/entities/client.entity';
 import { Device } from '../devices/entities/device.entity';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -16,13 +18,14 @@ import { ServiceHistory } from '../service-history/entities/service-history.enti
 
 @Module({
   controllers: [ServiceOrderController],
-  providers: [ServiceOrderService, IntakeService],
+  providers: [ServiceOrderService, IntakeService, OrderPaymentsService],
   imports: [
     ClientsModule,
     DevicesModule,
     TypeOrmModule.forFeature([
       ServiceOrder,
       OrderLine,
+      OrderPayment,
       Client,
       Device,
       Service,
