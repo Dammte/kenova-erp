@@ -1,0 +1,35 @@
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--k-space-1);
+  height: 24px;
+  padding: 0 var(--k-space-2);
+  border-radius: var(--k-radius-full);
+  font: var(--k-text-xs);
+  white-space: nowrap;
+}
+
+.en_progreso {
+  color: var(--k-status-en-progreso);
+  background: var(--k-status-en-progreso-bg);
+}
+.pendiente_cliente {
+  color: var(--k-status-pendiente-cliente);
+  background: var(--k-status-pendiente-cliente-bg);
+}
+.pendiente_piezas {
+  color: var(--k-status-pendiente-piezas);
+  background: var(--k-status-pendiente-piezas-bg);
+}
+.finalizado {
+  color: var(--k-status-finalizado);
+  background: var(--k-status-finalizado-bg);
+}
+.entregado {
+  color: var(--k-status-entregado);
+  background: var(--k-status-entregado-bg);
+}
+.cancelado {
+  color: var(--k-status-cancelado);
+  background: var(--k-status-cancelado-bg);
+}
