@@ -85,7 +85,25 @@ export enum PaymentMethod {
   OTHER = 'other',
 }
 
+/**
+ * Where a device received at a partner store is, apart from the order status.
+ * Orders taken in at the workshop have none.
+ */
+export enum OrderLocation {
+  AT_STORE = 'at_store',
+  TO_WORKSHOP = 'to_workshop',
+  AT_WORKSHOP = 'at_workshop',
+  TO_STORE = 'to_store',
+  READY_AT_STORE = 'ready_at_store',
+}
+
 @Entity('service_orders')
+@Check(
+  'CHK_service_orders_location',
+  `"location" IS NULL OR "location" IN (${Object.values(OrderLocation)
+    .map((l) => `'${l}'`)
+    .join(', ')})`,
+)
 @Check(
   'CHK_service_orders_amounts_nonnegative',
   `coalesce("totalPrice", 0) >= 0 AND coalesce("amountPaid", 0) >= 0`,
@@ -249,6 +267,10 @@ export class ServiceOrder {
   /** The customer waived a written quote (RD 58/1988); prints skip "presupuesto válido". */
   @Column({ default: false })
   waivesQuote: boolean;
+
+  /** Only for partner-store orders; moved by the shipments, never by hand. */
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  location?: OrderLocation | null;
 
   /** Set by the server when the order reaches "finalizado"; cleared if it is reopened. */
   @Column({ type: 'timestamptz', nullable: true })

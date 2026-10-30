@@ -16,6 +16,7 @@ import { ModelsModule } from './models/models.module';
 import { ServiceHistoryModule } from './service-history/service-history.module';
 import { ServiceOrderModule } from './service-order/service-order.module';
 import { ServicesModule } from './services/services.module';
+import { ShipmentsModule } from './shipments/shipments.module';
 import { StickyNotesModule } from './sticky-notes/sticky-notes.module';
 import { StoresModule } from './stores/stores.module';
 import { UsersModule } from './users/users.module';
@@ -52,6 +53,7 @@ import { UsersModule } from './users/users.module';
     BrandsModule,
     ModelsModule,
     StickyNotesModule,
+    ShipmentsModule,
   ],
   controllers: [AppController],
 })
