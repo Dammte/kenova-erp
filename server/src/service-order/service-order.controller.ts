@@ -8,6 +8,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import type { AuthUser } from '../auth/auth.types';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -58,6 +59,12 @@ export class ServiceOrderController {
     @CurrentUser() user: AuthUser,
   ) {
     return this.serviceOrderService.findByClientId(clientId, user);
+  }
+
+  /** Open orders and past deliveries of an IMEI, for the intake warnings. */
+  @Get('by-imei')
+  lookupImei(@Query('imei') imei = '', @CurrentUser() user: AuthUser) {
+    return this.serviceOrderService.lookupImei(imei, user);
   }
 
   @Get(':id')
