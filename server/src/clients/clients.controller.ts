@@ -52,6 +52,15 @@ export class ClientsController {
     return this.clientsService.findOne(id, user);
   }
 
+  /** Saldo a favor per store (only the actor's store for a partner store). */
+  @Get(':id/credit')
+  credit(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.clientsService.credit(id, user);
+  }
+
   @Post()
   create(@Body() dto: CreateClientDto, @CurrentUser() user: AuthUser) {
     return this.clientsService.create(dto, user);

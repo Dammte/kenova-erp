@@ -1,6 +1,7 @@
 import { Transform } from 'class-transformer';
 import {
   IsEnum,
+  IsIn,
   IsNumber,
   IsOptional,
   IsString,
@@ -9,7 +10,11 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
-import { PaymentKind } from '../entities/order-payment.entity';
+import {
+  CREDIT,
+  OrderPaymentMethod,
+  PaymentKind,
+} from '../entities/order-payment.entity';
 import { PaymentMethod } from '../entities/service-order.entity';
 
 const trimToNull = ({ value }) =>
@@ -29,8 +34,9 @@ export class CreatePaymentDto {
   @Max(1_000_000)
   amount: number;
 
-  @IsEnum(PaymentMethod)
-  method: PaymentMethod;
+  /** 'credit' pays with, or refunds to, the client's saldo a favor. */
+  @IsIn([...Object.values(PaymentMethod), CREDIT])
+  method: OrderPaymentMethod;
 
   @Transform(trimToNull)
   @IsOptional()

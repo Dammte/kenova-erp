@@ -7,13 +7,17 @@ import {
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager, IsNull } from 'typeorm';
 import type { AuthUser } from '../auth/auth.types';
+import { creditByStore } from '../common/client-credit';
 import { assertOrderVisible, orderScope } from '../common/store-scope';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import {
+  CREDIT,
   OrderPayment,
+  OrderPaymentMethod,
   PaymentKind,
   PaymentOrigin,
 } from './entities/order-payment.entity';
+import { Client } from '../clients/entities/client.entity';
 import { PaymentMethod, ServiceOrder } from './entities/service-order.entity';
 import { derivePayment, toCents } from './payment-status';
 
@@ -91,6 +95,22 @@ export class OrderPaymentsService {
             `Máximo ${euros(pending)}: es lo que queda pendiente`,
           );
         }
+        if (dto.method === CREDIT) {
+          // Locks the client, so two orders cannot spend the same credit.
+          await m.getRepository(Client).findOne({
+            where: { id: order.clientId },
+            lock: { mode: 'pessimistic_write' },
+          });
+          const [held] = await creditByStore(m, order.clientId, storeId);
+          const credit = toCents(held?.balance);
+          if (amount > credit) {
+            throw new BadRequestException(
+              credit > 0
+                ? `Saldo a favor insuficiente: tiene ${euros(credit)}`
+                : 'El cliente no tiene saldo a favor en esta tienda',
+            );
+          }
+        }
       } else {
         if (!dto.note) {
           throw new BadRequestException('Indica el motivo de la devolución');
@@ -158,7 +178,7 @@ export class OrderPaymentsService {
       id?: string;
       kind: PaymentKind;
       amount: number;
-      method: PaymentMethod;
+      method: OrderPaymentMethod;
       note: string | null;
       origin: PaymentOrigin;
       createdById: string | null;

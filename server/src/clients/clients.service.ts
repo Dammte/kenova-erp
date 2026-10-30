@@ -14,6 +14,7 @@ import {
   scopedStoreId,
 } from '../common/store-scope';
 import { isValidCif } from '../common/cif';
+import { StoreCredit, creditByStore } from '../common/client-credit';
 import { Device } from '../devices/entities/device.entity';
 import {
   ServiceOrder,
@@ -231,6 +232,19 @@ export class ClientsService {
   }
 
   /**
+   * Saldo a favor of the client, per store, as the payments leave it (see
+   * src/common/client-credit.ts). A store only sees its own.
+   */
+  async credit(id: string, actor: AuthUser): Promise<StoreCredit[]> {
+    await this.findOne(id, actor);
+    return creditByStore(
+      this.clientRepository.manager,
+      id,
+      scopedStoreId(actor),
+    );
+  }
+
+  /**
    * Removes the client's personal data on request (RGPD) and keeps the row, so
    * its orders, payments and history stay intact. The devices keep their
    * IMEI (warranties) but lose any stored unlock code. Free text written in
@@ -256,6 +270,11 @@ export class ClientsService {
       if (open > 0) {
         throw new BadRequestException(
           `Tiene ${open} orden(es) sin entregar o cancelar: ciérralas antes de anonimizar`,
+        );
+      }
+      if ((await creditByStore(m, id, null)).length > 0) {
+        throw new BadRequestException(
+          'Tiene saldo a favor: devuélveselo antes de anonimizar',
         );
       }
       await m.getRepository(Client).update(id, {
