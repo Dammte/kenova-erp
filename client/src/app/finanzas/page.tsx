@@ -1,6 +1,7 @@
 "use client";
 
 import { API_URL, apiFetch } from "@/lib/api";
+import { orderCode } from "@/lib/format";
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
@@ -39,6 +40,7 @@ type PeriodKind = "month" | "quarter" | "year" | "custom";
 
 interface FinOrder {
   id: string;
+  code?: string;
   status: string;
   paymentStatus?: string;
   paymentMethod?: string;
@@ -268,7 +270,7 @@ ${LETTERHEAD("LIBRO DE INGRESOS", period, gen)}
       return `<tr>
         <td class="mono">${String(i + 1).padStart(3, "0")}</td>
         <td>${fDate(o.updatedAt ?? o.createdAt)}</td>
-        <td class="mono">#${o.id.substring(0, 8)}</td>
+        <td class="mono">${orderCode(o)}</td>
         <td>${clientName(o)}</td>
         <td class="r">${fEur(netoOf(total))}</td>
         <td class="r">${fEur(ivaOf(total))}</td>
@@ -378,7 +380,7 @@ ${LETTERHEAD("AGING DE CUENTAS POR COBRAR", `A fecha ${gen}`, gen)}
     ${sorted.map(o => {
       const days = daysAgo(o.createdAt);
       return `<tr class="${agingClass(days)}">
-        <td class="mono">#${o.id.substring(0, 8)}</td>
+        <td class="mono">${orderCode(o)}</td>
         <td>${clientName(o)}</td>
         <td>${o.device ? [o.device.brand, o.device.model].filter(Boolean).join(" ") || o.device.type || "—" : "—"}</td>
         <td class="r">${fEur(n(o.totalPrice))}</td>
@@ -762,7 +764,7 @@ export default function FinanzasPage() {
                     <tr key={o.id} className={styles.tRow}>
                       <td className={styles.seq}>{String(i + 1).padStart(3, "0")}</td>
                       <td className={styles.dateCell}>{fDate(o.updatedAt ?? o.createdAt)}</td>
-                      <td><span className={styles.ref}>#{ o.id.substring(0, 8)}</span></td>
+                      <td><span className={styles.ref}>{orderCode(o)}</span></td>
                       <td>{clientName(o)}</td>
                       <td className={`${styles.r} ${styles.mono}`}>{fEur(netoOf(total))}</td>
                       <td className={`${styles.r} ${styles.mono}`} style={{ color: "#6d28d9" }}>{fEur(ivaOf(total))}</td>
@@ -875,7 +877,7 @@ export default function FinanzasPage() {
                     days >= 15 ? styles.agingWarn   : "";
                   return (
                     <tr key={o.id} className={`${styles.tRow} ${agingStyle}`}>
-                      <td><span className={styles.ref}>#{o.id.substring(0, 8)}</span></td>
+                      <td><span className={styles.ref}>{orderCode(o)}</span></td>
                       <td>{clientName(o)}</td>
                       <td>{o.device ? [o.device.brand, o.device.model].filter(Boolean).join(" ") || o.device.type || "—" : "—"}</td>
                       <td className={`${styles.r} ${styles.mono}`}>{fEur(n(o.totalPrice))}</td>

@@ -28,14 +28,20 @@ export class ServiceOrderController {
   ) {}
 
   @Post()
-  create(@Body() dto: CreateServiceOrderDto) {
-    return this.serviceOrderService.create(dto);
+  async create(
+    @Body() dto: CreateServiceOrderDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.serviceOrderService.create(
+      dto,
+      await this.serviceOrderService.storeIdFor(user),
+    );
   }
 
   /** One-screen intake: client + device + order in a single transaction. */
   @Post('intake')
   intake(@Body() dto: CreateIntakeDto, @CurrentUser() user: AuthUser) {
-    return this.intakeService.create(dto, user.id);
+    return this.intakeService.create(dto, user);
   }
 
   @Get()

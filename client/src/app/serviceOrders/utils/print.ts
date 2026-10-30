@@ -2,6 +2,7 @@ import jsPDF from "jspdf";
 import { ServiceOrder, ServiceStatus, Priority } from "../types";
 import { PRIORITY_LABELS } from "../constants";
 import { formatDate, formatCurrency } from "./format";
+import { orderCode } from "@/lib/format";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Datos del emisor — actualizar con los datos reales de la empresa
@@ -562,7 +563,7 @@ export const printOrderTicket = (order: ServiceOrder): jsPDF => {
   doc.setTextColor(0);
   doc.setFontSize(16);
   doc.setFont("helvetica", "bold");
-  doc.text(`#${order.id.substring(0, 8).toUpperCase()}`, margin + 10, currentY + 28);
+  doc.text(orderCode(order), margin + 10, currentY + 28);
 
   doc.setFontSize(7);
   doc.setFont("helvetica", "normal");

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import type { AuthUser } from '../auth/auth.types';
 import { ClientsService } from '../clients/clients.service';
 import { DevicesService } from '../devices/devices.service';
 import { CreateIntakeDto } from './dto/create-intake.dto';
@@ -22,10 +23,8 @@ export class IntakeService {
     private readonly orders: ServiceOrderService,
   ) {}
 
-  async create(
-    dto: CreateIntakeDto,
-    actorUserId: string,
-  ): Promise<ServiceOrder> {
+  async create(dto: CreateIntakeDto, actor: AuthUser): Promise<ServiceOrder> {
+    const actorUserId = actor.id;
     const orderId = await this.dataSource.transaction(async (manager) => {
       const clientId =
         dto.clientId ?? (await this.clients.create(dto.client!, manager)).id;
@@ -40,6 +39,7 @@ export class IntakeService {
         ).id;
       const order = await this.orders.create(
         { ...dto.order, clientId, deviceId },
+        await this.orders.storeIdFor(actor, manager),
         manager,
       );
       return order.id;

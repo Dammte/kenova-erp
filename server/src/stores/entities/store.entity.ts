@@ -45,6 +45,10 @@ export class Store {
   @Column({ default: false })
   isMain: boolean;
 
+  /** Next order number to hand out; taken under a row lock when an order is created. */
+  @Column({ type: 'int', default: 1 })
+  nextOrderNumber: number;
+
   /** An inactive store takes no new orders and its users cannot sign in. */
   @Column({ default: true })
   isActive: boolean;

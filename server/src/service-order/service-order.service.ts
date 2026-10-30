@@ -17,6 +17,9 @@ import { Client } from '../clients/entities/client.entity';
 import { Device } from '../devices/entities/device.entity';
 import { Brand } from '../brands/entities/brand.entity';
 import { ServiceHistory } from '../service-history/entities/service-history.entity';
+import { Store } from '../stores/entities/store.entity';
+import type { AuthUser } from '../auth/auth.types';
+import { UserRole } from '../users/entities/user.entity';
 
 @Injectable()
 export class ServiceOrderService {
@@ -88,14 +91,65 @@ export class ServiceOrderService {
 
   // ─── CRUD ───────────────────────────────────────────────────────────────────
   /**
+   * The store an order is created in: a store account's own store; for the
+   * workshop admins, the main store.
+   */
+  async storeIdFor(
+    actor: AuthUser,
+    m: EntityManager = this.dataSource.manager,
+  ): Promise<string> {
+    if (actor.role !== UserRole.SUPER_ADMIN && actor.storeId) {
+      return actor.storeId;
+    }
+    const main = await m
+      .getRepository(Store)
+      .findOne({ where: { isMain: true }, select: { id: true } });
+    if (!main) throw new BadRequestException('No hay tienda principal');
+    return main.id;
+  }
+
+  /**
+   * Takes the store's next number. The UPDATE locks the store row until the
+   * transaction ends, so concurrent orders never get the same number, and a
+   * rolled-back order gives its number back.
+   */
+  private async takeNumber(
+    m: EntityManager,
+    storeId: string,
+  ): Promise<{ number: number; code: string }> {
+    const { raw } = await m
+      .createQueryBuilder()
+      .update(Store)
+      .set({ nextOrderNumber: () => '"nextOrderNumber" + 1' })
+      .where('id = :storeId AND "isActive"', { storeId })
+      .returning(['nextOrderNumber', 'prefix'])
+      .execute();
+    const row = (raw as { nextOrderNumber: number; prefix: string }[])[0];
+    if (!row) {
+      throw new BadRequestException('La tienda no existe o está desactivada');
+    }
+    const number = row.nextOrderNumber - 1;
+    return { number, code: `${row.prefix}-${String(number).padStart(4, '0')}` };
+  }
+
+  /**
    * With `manager`, runs inside the caller's transaction (the intake) and
    * returns the saved row without relations; the caller reloads it after commit.
+   * Without it, opens its own transaction so the number is only spent if the
+   * order is saved.
    */
   async create(
     createServiceOrderDto: CreateServiceOrderDto,
+    storeId: string,
     manager?: EntityManager,
   ): Promise<ServiceOrder> {
-    const m = manager ?? this.dataSource.manager;
+    if (!manager) {
+      const saved = await this.dataSource.transaction((m) =>
+        this.create(createServiceOrderDto, storeId, m),
+      );
+      return this.findOne(saved.id);
+    }
+    const m = manager;
     const {
       serviceIds,
       clientId,
@@ -155,6 +209,8 @@ export class ServiceOrderService {
 
     const serviceOrder = m.getRepository(ServiceOrder).create({
       ...orderData,
+      storeId,
+      ...(await this.takeNumber(m, storeId)),
       client,
       device: device ?? undefined,
       services,
@@ -163,8 +219,7 @@ export class ServiceOrderService {
       ...ServiceOrderService.derivePayment(totalPrice, amountPaid),
     });
 
-    const saved = await m.getRepository(ServiceOrder).save(serviceOrder);
-    return manager ? saved : this.findOne(saved.id);
+    return m.getRepository(ServiceOrder).save(serviceOrder);
   }
 
   async findByClientId(clientId: string): Promise<ServiceOrder[]> {
