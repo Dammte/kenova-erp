@@ -41,6 +41,11 @@
   color: var(--k-text-muted);
 }
 
+.suffix {
+  display: flex;
+  padding-right: var(--k-space-1);
+}
+
 .input {
   flex: 1;
   min-width: 0;

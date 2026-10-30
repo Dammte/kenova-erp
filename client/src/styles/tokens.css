@@ -22,6 +22,8 @@
   --k-success: #1f6b45;
   --k-warning: #8a4b00;
   --k-danger: #b42318;
+  --k-danger-subtle: #f9eeec;
+  --k-danger-border: #f1b5ae;
   --k-info: #1d55a8;
 
   /* One fixed colour pair per order status, always shown with icon and text. */
