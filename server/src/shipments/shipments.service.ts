@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -8,6 +9,7 @@ import { DataSource, EntityManager, In, IsNull } from 'typeorm';
 import type { AuthUser } from '../auth/auth.types';
 import { scopedStoreId } from '../common/store-scope';
 import {
+  LOCATION_LABEL,
   OrderLocation,
   ServiceOrder,
   ServiceStatus,
@@ -19,13 +21,19 @@ import { Shipment, ShipmentStatus } from './entities/shipment.entity';
 
 export const SHIPMENTS_PAGE_SIZE = 30;
 
-const LOCATION_LABEL: Record<OrderLocation, string> = {
-  [OrderLocation.AT_STORE]: 'En tienda (recepción)',
-  [OrderLocation.TO_WORKSHOP]: 'Enviado a Medina',
-  [OrderLocation.AT_WORKSHOP]: 'En Medina',
-  [OrderLocation.TO_STORE]: 'Enviado a tienda',
-  [OrderLocation.READY_AT_STORE]: 'En tienda (listo para entregar)',
-};
+export interface ScanResult {
+  /**
+   * received: confirmed now · already: it was confirmed before · late: it
+   * arrived from an earlier shipment where it was missing · foreign: it is not
+   * in this shipment (nothing changes) · unknown: no order has that code.
+   */
+  result: 'received' | 'already' | 'late' | 'foreign' | 'unknown';
+  message: string;
+  orderCode?: string;
+  /** Devices of this shipment confirmed so far, out of `total`. */
+  received: number;
+  total: number;
+}
 
 export interface ShipmentLineView {
   orderId: string;
@@ -148,6 +156,172 @@ export class ShipmentsService {
     return this.findOne(id, actor);
   }
 
+  /**
+   * One reading of the scanner at the destination. Never fails for a wrong
+   * code: it answers what happened, so the screen can beep and go on.
+   */
+  async scan(
+    id: string,
+    rawCode: string,
+    actor: AuthUser,
+  ): Promise<ScanResult> {
+    return this.dataSource.transaction(async (m) => {
+      const shipment = await this.receivable(m, id, actor);
+      const code = rawCode.trim().toUpperCase();
+      const progress = () => this.progress(m, id);
+
+      const order = await m.getRepository(ServiceOrder).findOne({
+        where: { code, deletedAt: IsNull() },
+        relations: { store: true },
+      });
+      if (!order) {
+        return {
+          result: 'unknown',
+          message: `No hay ninguna orden ${code}`,
+          ...(await progress()),
+        };
+      }
+      const arrived = shipment.toStore!.isMain
+        ? OrderLocation.AT_WORKSHOP
+        : OrderLocation.READY_AT_STORE;
+      const lines = m.getRepository(ShipmentLine);
+
+      const line = await lines.findOne({
+        where: { shipmentId: id, orderId: order.id },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (line?.receivedAt) {
+        return {
+          result: 'already',
+          message: `${code} ya estaba leído`,
+          orderCode: code,
+          ...(await progress()),
+        };
+      }
+      if (line) {
+        await lines.update(line.id, { receivedAt: new Date() });
+        await m
+          .getRepository(ServiceOrder)
+          .update(order.id, { location: arrived });
+        return {
+          result: 'received',
+          message: `${code} recibido`,
+          orderCode: code,
+          ...(await progress()),
+        };
+      }
+
+      // Missing from an earlier shipment to the same place: it turns up now.
+      const missing = await lines
+        .createQueryBuilder('l')
+        .innerJoinAndSelect('l.shipment', 's')
+        .where('l.orderId = :orderId AND l.notArrived', { orderId: order.id })
+        .andWhere('s.toStoreId = :to', { to: shipment.toStoreId })
+        .setLock('pessimistic_write', undefined, ['l'])
+        .getOne();
+      if (missing) {
+        await lines.update(missing.id, {
+          receivedAt: new Date(),
+          notArrived: false,
+        });
+        await m
+          .getRepository(ServiceOrder)
+          .update(order.id, { location: arrived });
+        const stillMissing = await lines.exists({
+          where: { shipmentId: missing.shipmentId, notArrived: true },
+        });
+        if (!stillMissing) {
+          await m
+            .getRepository(Shipment)
+            .update(missing.shipmentId, { status: ShipmentStatus.RECEIVED });
+        }
+        return {
+          result: 'late',
+          message: `${code} llegó del envío ${ShipmentsService.code(missing.shipment!.number)}`,
+          orderCode: code,
+          ...(await progress()),
+        };
+      }
+
+      // Where it is, only to someone who may see the order.
+      const storeId = scopedStoreId(actor);
+      let message = `${code} no está en este envío.`;
+      if (!storeId || order.storeId === storeId) {
+        message += order.location
+          ? ` Es de ${order.store!.name} y está ${LOCATION_LABEL[order.location]}.`
+          : ` Es de ${order.store!.name}.`;
+      }
+      return {
+        result: 'foreign',
+        message,
+        orderCode: code,
+        ...(await progress()),
+      };
+    });
+  }
+
+  /**
+   * Ends the reception. Devices not scanned are marked as not arrived: they
+   * stay in transit and are confirmed when they turn up in a later reception.
+   */
+  async close(id: string, actor: AuthUser): Promise<ShipmentView> {
+    await this.dataSource.transaction(async (m) => {
+      await this.receivable(m, id, actor);
+      const { affected } = await m
+        .getRepository(ShipmentLine)
+        .update({ shipmentId: id, receivedAt: IsNull() }, { notArrived: true });
+      await m.getRepository(Shipment).update(id, {
+        status: affected
+          ? ShipmentStatus.RECEIVED_INCOMPLETE
+          : ShipmentStatus.RECEIVED,
+        receivedAt: new Date(),
+      });
+    });
+    return this.findOne(id, actor);
+  }
+
+  /**
+   * The shipment, locked, if it is still open and the actor receives it: the
+   * destination store, or the workshop admins.
+   */
+  private async receivable(
+    m: EntityManager,
+    id: string,
+    actor: AuthUser,
+  ): Promise<Shipment> {
+    const visible = await this.query(m, actor)
+      .andWhere('s.id = :id', { id })
+      .getOne();
+    if (!visible) throw new NotFoundException('Envío no encontrado');
+    const storeId = scopedStoreId(actor);
+    if (storeId && storeId !== visible.toStoreId) {
+      throw new ForbiddenException(
+        `Este envío lo recibe ${visible.toStore!.name}`,
+      );
+    }
+    const current = await m.getRepository(Shipment).findOne({
+      where: { id },
+      select: { id: true, status: true },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (current!.status !== ShipmentStatus.SENT) {
+      throw new BadRequestException('Este envío ya está recibido');
+    }
+    return visible;
+  }
+
+  private async progress(
+    m: EntityManager,
+    shipmentId: string,
+  ): Promise<{ received: number; total: number }> {
+    const rows: { received: number; total: number }[] = await m.query(
+      `SELECT count("receivedAt")::int AS received, count(*)::int AS total
+         FROM shipment_lines WHERE "shipmentId" = $1`,
+      [shipmentId],
+    );
+    return rows[0];
+  }
+
   /** Newest first, 30 per page; a store sees the ones it sends or receives. */
   async list(
     actor: AuthUser,
@@ -235,7 +409,7 @@ export class ShipmentsService {
   private toView(s: Shipment, deviceCount: number): ShipmentView {
     return {
       id: s.id,
-      code: `ENV-${String(s.number).padStart(4, '0')}`,
+      code: ShipmentsService.code(s.number),
       status: s.status,
       fromStore: { id: s.fromStore!.id, name: s.fromStore!.name },
       toStore: { id: s.toStore!.id, name: s.toStore!.name },
@@ -249,7 +423,11 @@ export class ShipmentsService {
     };
   }
 
-  /** Why an order cannot travel, in the words of the screens. */
+  private static code(number: number): string {
+    return `ENV-${String(number).padStart(4, '0')}`;
+  }
+
+  /** Where an order is, in the words of the screens. */
   private static where(o: ServiceOrder): string {
     if (o.status === ServiceStatus.ENTREGADO) return 'ya entregada';
     if (o.status === ServiceStatus.CANCELADO) return 'cancelada';
