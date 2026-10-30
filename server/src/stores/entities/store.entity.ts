@@ -8,6 +8,9 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
+/** Legal minimum warranty of a repair in Spain (RD 58/1988). */
+export const MIN_WARRANTY_DAYS = 90;
+
 /**
  * A shop that takes devices in. The main store is Kenova's workshop (Medina de
  * Pomar), where repairs happen; the others are partner reception points.
@@ -19,6 +22,9 @@ import {
   where: '"isMain"',
 })
 @Check('CHK_stores_prefix', `"prefix" ~ '^[A-Z]{2,4}$'`)
+@Check('CHK_stores_warranty_days', `"warrantyDays" >= 90`)
+@Check('CHK_stores_cash_hours', `"cashClosesAt" > "cashOpensAt"`)
+@Check('CHK_stores_cash_float', `"cashFloat" >= 0`)
 export class Store {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -40,6 +46,28 @@ export class Store {
 
   @Column({ type: 'varchar', length: 20, nullable: true })
   phone: string | null;
+
+  /** Legal name and tax id for the printouts; not printed when empty. */
+  @Column({ type: 'varchar', length: 150, nullable: true })
+  legalName: string | null;
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  taxId: string | null;
+
+  /** The till day opens and closes by itself at these hours ("HH:MM:SS"). */
+  @Column({ type: 'time', default: '09:00:00' })
+  cashOpensAt: string;
+
+  @Column({ type: 'time', default: '20:00:00' })
+  cashClosesAt: string;
+
+  /** Cash in the till on its first day; later days carry the expected amount over. */
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  cashFloat: string;
+
+  /** Warranty of its repairs, counted from delivery; never under the legal 90 days. */
+  @Column({ type: 'int', default: MIN_WARRANTY_DAYS })
+  warrantyDays: number;
 
   /** Exactly one store is the workshop: it holds the stock and does repairs. */
   @Column({ default: false })

@@ -81,11 +81,16 @@ describe('Stores and the store of each user', () => {
     expect(bad.status).toBe(400);
   });
 
-  it('the prefix cannot be changed and the main store cannot be deactivated', async () => {
-    // Unknown fields are stripped by the validation pipe: the prefix stays.
+  it('the prefix of a store with orders cannot change and the main store cannot be deactivated', async () => {
+    // As if it had already numbered four orders.
+    await t.db.query(`UPDATE stores SET "nextOrderNumber" = 5 WHERE id = $1`, [
+      mainId,
+    ]);
     const res = await patch(`/api/stores/${mainId}`, sa, { prefix: 'XX' });
-    expect(res.status).toBe(200);
-    expect(res.body.prefix).toBe('MP');
+    expect(res.status).toBe(400);
+    expect(res.body.message).toBe(
+      'El prefijo no se puede cambiar: ya hay 4 órdenes con MP-',
+    );
     const off = await patch(`/api/stores/${mainId}`, sa, { isActive: false });
     expect(off.status).toBe(400);
   });
