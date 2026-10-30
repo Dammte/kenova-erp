@@ -3,6 +3,7 @@ import { ServiceOrderService } from './service-order.service';
 import { IntakeService } from './intake.service';
 import { ClientsModule } from '../clients/clients.module';
 import { DevicesModule } from '../devices/devices.module';
+import { OrderListService } from './order-list.service';
 import { ServiceOrderController } from './service-order.controller';
 import { ServiceOrder } from './entities/service-order.entity';
 import { OrderLine } from './entities/order-line.entity';
@@ -18,7 +19,12 @@ import { ServiceHistory } from '../service-history/entities/service-history.enti
 
 @Module({
   controllers: [ServiceOrderController],
-  providers: [ServiceOrderService, IntakeService, OrderPaymentsService],
+  providers: [
+    ServiceOrderService,
+    IntakeService,
+    OrderPaymentsService,
+    OrderListService,
+  ],
   imports: [
     ClientsModule,
     DevicesModule,
