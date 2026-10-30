@@ -1,0 +1,104 @@
+/*
+ * Kenova design tokens (design system 3.1-3.3). New screens use only these
+ * variables; changing --k-accent-* rebrands the whole app. Every text colour
+ * keeps at least 4.5:1 contrast on its background. Light theme only for now.
+ */
+:root {
+  /* Neutrals: cool, slightly green greys. */
+  --k-surface: #ffffff;
+  --k-bg: #f6f7f8;
+  --k-subtle: #edeff1;
+  --k-border: #dfe3e6;
+  --k-border-strong: #c5cbd0;
+  --k-text-muted: #4a535a;
+  --k-text: #161b1f;
+
+  /* Brand accent ("petróleo"). */
+  --k-accent: #0f5e6e;
+  --k-accent-hover: #0b4c59;
+  --k-accent-subtle: #e3f0f2;
+
+  /* Semantic. */
+  --k-success: #1f6b45;
+  --k-warning: #8a4b00;
+  --k-danger: #b42318;
+  --k-info: #1d55a8;
+
+  /* One fixed colour pair per order status, always shown with icon and text. */
+  --k-status-pendiente-cliente: #8a4b00;
+  --k-status-pendiente-cliente-bg: #f8f0e3;
+  --k-status-en-progreso: #1e4fa8;
+  --k-status-en-progreso-bg: #e9eef6;
+  --k-status-pendiente-piezas: #6a3aa6;
+  --k-status-pendiente-piezas-bg: #f0ecf6;
+  --k-status-finalizado: #1c6b43;
+  --k-status-finalizado-bg: #e6f1ea;
+  --k-status-entregado: #3a4248;
+  --k-status-entregado-bg: #eceef0;
+  --k-status-cancelado: #9b2c24;
+  --k-status-cancelado-bg: #f7ecea;
+
+  /*
+   * Type: IBM Plex Sans with tabular figures for the interface, IBM Plex Mono
+   * for IMEI, SKU and order numbers. Use as `font: var(--k-text-base)`.
+   * The font variables come from next/font in the root layout.
+   */
+  --k-font-sans: var(--k-font-plex-sans), system-ui, sans-serif;
+  --k-font-mono: var(--k-font-plex-mono), ui-monospace, monospace;
+  --k-font-brand: var(--k-font-bricolage), var(--k-font-sans);
+  --k-text-2xl: 600 34px/40px var(--k-font-sans);
+  --k-text-xl: 600 26px/32px var(--k-font-sans);
+  --k-text-lg: 600 20px/28px var(--k-font-sans);
+  --k-text-md: 500 17px/24px var(--k-font-sans);
+  --k-text-base: 400 15px/22px var(--k-font-sans);
+  --k-text-sm: 400 13px/18px var(--k-font-sans);
+  --k-text-xs: 500 12px/16px var(--k-font-sans);
+  --k-text-code: 500 14px/20px var(--k-font-mono);
+
+  /* Spacing on a 4 px grid. */
+  --k-space-1: 4px;
+  --k-space-2: 8px;
+  --k-space-3: 12px;
+  --k-space-4: 16px;
+  --k-space-6: 24px;
+  --k-space-8: 32px;
+  --k-space-12: 48px;
+  --k-space-16: 64px;
+
+  /* Radii and borders. */
+  --k-radius-sm: 4px; /* chips */
+  --k-radius-md: 6px; /* fields */
+  --k-radius-lg: 10px; /* cards */
+  --k-radius-full: 999px; /* status */
+  --k-border-w: 1px;
+  --k-focus-ring: 0 0 0 2px var(--k-surface), 0 0 0 4px var(--k-accent);
+  --k-focus-ring-danger: 0 0 0 2px var(--k-surface), 0 0 0 4px var(--k-danger);
+
+  /* Shadows only for what floats over the content. */
+  --k-shadow-pop: 0 4px 16px rgba(22, 27, 31, 0.12),
+    0 0 0 1px rgba(22, 27, 31, 0.06);
+  --k-shadow-modal: 0 16px 48px rgba(22, 27, 31, 0.22),
+    0 0 0 1px rgba(22, 27, 31, 0.06);
+  --k-shadow-drawer: -8px 0 24px rgba(22, 27, 31, 0.08);
+
+  /* Layers. */
+  --k-z-sidebar: 10;
+  --k-z-topbar: 20;
+  --k-z-drawer: 40;
+  --k-z-modal: 50;
+  --k-z-popover: 60;
+  --k-z-toast: 70;
+  --k-z-palette: 80;
+
+  /* Sizes of the shell and of touch targets. */
+  --k-sidebar-w: 240px;
+  --k-sidebar-w-collapsed: 72px;
+  --k-control-h: 40px;
+}
+
+/* Touch screens get 44 px targets. */
+@media (pointer: coarse) {
+  :root {
+    --k-control-h: 44px;
+  }
+}
