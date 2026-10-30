@@ -3,13 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import {
-  KeyRound,
-  LogOut,
-  PanelLeftClose,
-  PanelLeftOpen,
-  Plus,
-} from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen, Plus } from "lucide-react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { isActive, navFor, type NavItem } from "./nav";
 import styles from "./Sidebar.module.css";
@@ -41,7 +35,7 @@ function writePref(userId: string, collapsed: boolean) {
  * tablet; the choice is remembered per user.
  */
 export default function Sidebar() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
 
@@ -116,36 +110,8 @@ export default function Sidebar() {
         )}
       </nav>
 
-      {/* Until the new top bar with its user menu arrives. */}
       <div className={styles.footer}>
         <ul className={styles.list}>
-          <li>
-            <Link
-              href="/cuenta/contrasena"
-              className={styles.item}
-              aria-label={collapsed ? "Cambiar contraseña" : undefined}
-              title={collapsed ? "Cambiar contraseña" : undefined}
-            >
-              <KeyRound size={20} aria-hidden />
-              <span className={styles.label}>
-                {collapsed ? "Contraseña" : "Cambiar contraseña"}
-              </span>
-            </Link>
-          </li>
-          <li>
-            <button
-              type="button"
-              onClick={logout}
-              className={styles.item}
-              aria-label={collapsed ? "Cerrar sesión" : undefined}
-              title={collapsed ? "Cerrar sesión" : undefined}
-            >
-              <LogOut size={20} aria-hidden />
-              <span className={styles.label}>
-                {collapsed ? "Salir" : "Cerrar sesión"}
-              </span>
-            </button>
-          </li>
           <li>
             <button
               type="button"
