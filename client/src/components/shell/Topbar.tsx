@@ -6,6 +6,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { ChevronDown, KeyRound, LogOut, Search, Store } from "lucide-react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { API_URL, apiFetch } from "@/lib/api";
+import { OPEN_SEARCH_EVENT } from "./BottomBar";
 import CommandPalette from "./CommandPalette";
 import styles from "./Topbar.module.css";
 
@@ -74,8 +75,13 @@ export default function Topbar() {
         setSearching(true);
       }
     };
+    const onOpen = () => setSearching(true);
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener(OPEN_SEARCH_EVENT, onOpen);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener(OPEN_SEARCH_EVENT, onOpen);
+    };
   }, []);
 
   // Close the menu when the user goes to another page.
@@ -85,6 +91,10 @@ export default function Topbar() {
 
   return (
     <header className={styles.topbar}>
+      {/* Phones have no side bar, so the brand moves up here. */}
+      <span className={styles.brand} aria-hidden>
+        Kenova
+      </span>
       <button
         type="button"
         className={styles.search}

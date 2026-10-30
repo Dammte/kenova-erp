@@ -13,6 +13,13 @@
   z-index: var(--k-z-topbar);
 }
 
+.brand {
+  display: none;
+  font: 700 22px/32px var(--k-font-brand);
+  letter-spacing: -0.01em;
+  color: var(--k-accent);
+}
+
 .search {
   display: flex;
   align-items: center;
@@ -51,6 +58,7 @@
 
 .right {
   display: flex;
+  margin-left: auto;
   align-items: center;
   gap: var(--k-space-4);
 }
@@ -170,13 +178,13 @@
 
 /* Phones: the name gives way to the avatar. */
 @media (max-width: 640px) {
+  /* Phones search from the bottom bar. */
   .who,
-  .kbd,
-  .searchText {
+  .search {
     display: none;
   }
-  .search {
-    flex: 0 0 auto;
+  .brand {
+    display: block;
   }
   .topbar {
     padding: 0 var(--k-space-4);
