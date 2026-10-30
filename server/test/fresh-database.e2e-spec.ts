@@ -38,11 +38,12 @@ describe('Migrations on an empty database', () => {
       'PasswordResetTokens1761400000000',
       'Stores1761900000000',
       'OrderNumber1762000000000',
+      'ClientLastNameOptional1762100000000',
     ]);
   });
 
   it('reverts cleanly back to an empty database', async () => {
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 6; i++) {
       await db.undoLastMigration({ transaction: 'all' });
     }
     const tables = await db.query(

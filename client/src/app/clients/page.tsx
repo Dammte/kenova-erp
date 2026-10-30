@@ -77,7 +77,7 @@ export default function Clients() {
       const filtered = clients.filter(
         (client) =>
           client.firstName.toLowerCase().includes(term) ||
-          client.lastName.toLowerCase().includes(term) ||
+          (client.lastName ?? "").toLowerCase().includes(term) ||
           client.dni.toLowerCase().includes(term) ||
           (client.email && client.email.toLowerCase().includes(term)) ||
           (client.phoneNumber && client.phoneNumber.includes(term))
@@ -276,7 +276,7 @@ export default function Clients() {
                     <td className={styles.clientNameCell}>
                       <div className={styles.clientAvatar}>
                         {client.firstName.charAt(0)}
-                        {client.lastName.charAt(0)}
+                        {client.lastName?.charAt(0)}
                       </div>
                       <div className={styles.clientInfo}>
                         <span className={styles.clientFullname}>

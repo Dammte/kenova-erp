@@ -39,8 +39,9 @@ export class Client {
   @Column({ length: 50 })
   firstName: string;
 
-  @Column({ length: 50 })
-  lastName: string;
+  /** Optional: only the first name is required. */
+  @Column({ type: 'varchar', length: 50, nullable: true, default: null })
+  lastName: string | null;
 
   @Index()
   @Column({
