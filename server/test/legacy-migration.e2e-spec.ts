@@ -25,6 +25,8 @@ describe('Security foundation migration over legacy data', () => {
         ('d1111111-1111-4111-8111-111111111111', 'movil', 'Marca', 'M1', '1234', NULL, 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'),
         ('d2222222-2222-4222-8222-222222222222', 'movil', 'Marca', 'M2', '', '1-5-9', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'),
         ('d3333333-3333-4333-8333-333333333333', 'movil', 'Marca', 'M3', NULL, NULL, 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb');
+      UPDATE devices SET status = 'broken_screen' WHERE id = 'd1111111-1111-4111-8111-111111111111';
+      UPDATE devices SET status = 'pantalla y más' WHERE id = 'd2222222-2222-4222-8222-222222222222';
       INSERT INTO service_orders (id, "clientId", "deviceId") VALUES
         ('0e111111-1111-4111-8111-111111111111', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'd1111111-1111-4111-8111-111111111111');
       INSERT INTO service_orders (id, "clientId", "deviceId", "createdAt") VALUES
@@ -167,6 +169,23 @@ describe('Security foundation migration over legacy data', () => {
         WHERE id = '0e111111-1111-4111-8111-111111111111'`,
     );
     expect(open).toEqual({ finishedAt: null, deliveredAt: null });
+  });
+
+  it('copies the known device fault to its orders', async () => {
+    const rows = await db.query(
+      `SELECT o.id, o."reportedFaults" FROM service_orders o ORDER BY o.id`,
+    );
+    expect(rows).toEqual([
+      {
+        id: '0e111111-1111-4111-8111-111111111111',
+        reportedFaults: ['broken_screen'],
+      },
+      { id: '0e222222-2222-4222-8222-222222222222', reportedFaults: [] },
+    ]);
+    const [device] = await db.query(
+      `SELECT status FROM devices WHERE id = 'd2222222-2222-4222-8222-222222222222'`,
+    );
+    expect(device.status).toBe('pantalla y más');
   });
 
   it('numbers existing orders in the main store by date of entry', async () => {

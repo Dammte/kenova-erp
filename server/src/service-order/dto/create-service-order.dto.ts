@@ -1,8 +1,11 @@
 import { Transform, Type } from 'class-transformer';
 import {
   ArrayMaxSize,
+  ArrayUnique,
   IsArray,
+  IsBoolean,
   IsEnum,
+  IsIn,
   IsNumber,
   IsOptional,
   IsString,
@@ -12,6 +15,8 @@ import {
   Min,
 } from 'class-validator';
 import {
+  ORDER_FAULTS,
+  OrderFault,
   PaymentMethod,
   Priority,
   ServiceStatus,
@@ -22,6 +27,8 @@ const lower = ({ value }) =>
   typeof value === 'string' ? value.trim().toLowerCase() : value;
 const blankToUndefined = ({ value }) =>
   value === '' || value === null ? undefined : value;
+const trimToNull = ({ value }) =>
+  typeof value === 'string' ? value.trim() || null : value;
 
 /**
  * `paymentStatus` and `balance` are not accepted: the server derives them from
@@ -79,6 +86,34 @@ export class CreateServiceOrderDto {
   @IsUUID('all', { each: true })
   @IsOptional()
   serviceIds?: string[];
+
+  @IsArray()
+  @ArrayUnique()
+  @IsIn(ORDER_FAULTS, { each: true })
+  @IsOptional()
+  reportedFaults?: OrderFault[];
+
+  @Transform(trimToNull)
+  @IsString()
+  @MaxLength(500)
+  @IsOptional()
+  faultNotes?: string | null;
+
+  @Transform(trimToNull)
+  @IsString()
+  @MaxLength(500)
+  @IsOptional()
+  physicalCondition?: string | null;
+
+  @Transform(trimToNull)
+  @IsString()
+  @MaxLength(300)
+  @IsOptional()
+  accessories?: string | null;
+
+  @IsBoolean()
+  @IsOptional()
+  waivesQuote?: boolean;
 
   /** Accepted for compatibility with the current frontend; parts are consumed via /consume-parts. */
   @IsArray()
