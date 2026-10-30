@@ -36,11 +36,12 @@ describe('Migrations on an empty database', () => {
       'InitialSchema1758000000000',
       'SecurityFoundation1759000000000',
       'PasswordResetTokens1761400000000',
+      'Stores1761900000000',
     ]);
   });
 
   it('reverts cleanly back to an empty database', async () => {
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 4; i++) {
       await db.undoLastMigration({ transaction: 'all' });
     }
     const tables = await db.query(
@@ -83,7 +84,7 @@ describe('Migrations on an empty Supabase-like database', () => {
       expect(client.id).toMatch(/^[0-9a-f-]{36}$/);
       const [user] = (
         await c.query(
-          `INSERT INTO users (username, "fullName", email, role) VALUES ('u1', 'U', 'u@k.test', 'STORE_ADMIN') RETURNING id`,
+          `INSERT INTO users (username, "fullName", email, role) VALUES ('u1', 'U', 'u@k.test', 'SUPER_ADMIN') RETURNING id`,
         )
       ).rows;
       const [session] = (

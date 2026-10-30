@@ -6,6 +6,8 @@ export interface AuthUser {
   email: string;
   fullName: string;
   role: UserRole;
+  /** The store a STORE_ADMIN belongs to; null for SUPER_ADMIN. */
+  storeId: string | null;
   mustChangePassword: boolean;
 }
 

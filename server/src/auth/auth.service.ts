@@ -36,8 +36,14 @@ export function toAuthUser(user: User): AuthUser {
     email: user.email,
     fullName: user.fullName,
     role: user.role,
+    storeId: user.storeId ?? null,
     mustChangePassword: user.mustChangePassword,
   };
+}
+
+/** Active user whose store, if any, is also active. */
+function canSignIn(user: User): boolean {
+  return user.isActive && (!user.store || user.store.isActive);
 }
 
 @Injectable()
@@ -52,6 +58,7 @@ export class AuthService {
   private findUserWithSecrets(where: Partial<User>) {
     return this.users
       .createQueryBuilder('u')
+      .leftJoinAndSelect('u.store', 'store')
       .addSelect(['u.passwordHash', 'u.failedLoginCount', 'u.lockedUntil'])
       .where(where)
       .getOne();
@@ -85,7 +92,7 @@ export class AuthService {
 
     const ok = await this.passwords.verify(user?.passwordHash, password);
 
-    if (!user || !ok || !user.isActive || !user.passwordHash) {
+    if (!user || !ok || !canSignIn(user) || !user.passwordHash) {
       if (user) {
         const failed = (user.failedLoginCount ?? 0) + 1;
         const lock = failed >= MAX_FAILED_LOGINS;
@@ -101,7 +108,13 @@ export class AuthService {
         entityId: user?.id,
         ip: client.ip,
         metadata: user
-          ? { reason: !user.isActive ? 'inactive' : 'password' }
+          ? {
+              reason: !user.isActive
+                ? 'inactive'
+                : !canSignIn(user)
+                  ? 'store_inactive'
+                  : 'password',
+            }
           : { reason: 'unknown_email' },
       });
       throw new UnauthorizedException(INVALID_CREDENTIALS);
@@ -144,7 +157,7 @@ export class AuthService {
     if (!token || token.length > 128) return null;
     const session = await this.sessions.findOne({
       where: { tokenHash: hashToken(token), revokedAt: IsNull() },
-      relations: ['user'],
+      relations: ['user', 'user.store'],
     });
     if (!session || !session.user) return null;
 
@@ -152,7 +165,7 @@ export class AuthService {
     if (
       session.expiresAt.getTime() <= now ||
       session.lastSeenAt.getTime() + SESSION_IDLE_MS <= now ||
-      !session.user.isActive
+      !canSignIn(session.user)
     ) {
       return null;
     }
