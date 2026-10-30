@@ -42,7 +42,7 @@ export class IntakeService {
         { ...dto.order, clientId, deviceId },
         {
           storeId: await this.orders.storeIdFor(actor, manager),
-          actorUserId,
+          actor,
         },
         manager,
       );

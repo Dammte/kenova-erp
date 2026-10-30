@@ -12,6 +12,8 @@ import { ConsumePartsDto } from './dto/consume-parts.dto';
 import {
   ORDER_FAULTS,
   OrderFault,
+  OrderResult,
+  WARRANTY_DAYS,
   ServiceOrder,
   ServiceStatus,
 } from './entities/service-order.entity';
@@ -69,6 +71,12 @@ export class ServiceOrderService {
     now = new Date(),
   ): void {
     const status = order.status;
+    const finished =
+      status === ServiceStatus.FINALIZADO || status === ServiceStatus.ENTREGADO;
+    if (!finished) order.result = null;
+    if (order.result !== OrderResult.NOT_REPAIRED) {
+      order.notRepairedReason = null;
+    }
     if (status === previous) {
       if (status !== ServiceStatus.CANCELADO) order.cancelReason = null;
       return;
@@ -84,6 +92,26 @@ export class ServiceOrderService {
       order.deliveredAt = null;
     }
     if (status !== ServiceStatus.CANCELADO) order.cancelReason = null;
+  }
+
+  /** Rejects an outcome that the order's state cannot hold. */
+  private static checkOutcome(
+    order: ServiceOrder,
+    dto: UpdateServiceOrderDto,
+  ): void {
+    if (dto.result && order.result !== dto.result) {
+      throw new BadRequestException(
+        'Solo una orden finalizada o entregada tiene resultado',
+      );
+    }
+    if (order.result === OrderResult.NOT_REPAIRED && !order.notRepairedReason) {
+      throw new BadRequestException('Indica por qué no se repara');
+    }
+    if (order.warrantyRejectedReason && !order.warrantyOfId) {
+      throw new BadRequestException(
+        'Solo una orden de garantía puede marcarse como «garantía no procede»',
+      );
+    }
   }
 
   /**
@@ -162,6 +190,43 @@ export class ServiceOrderService {
     });
   }
 
+  /**
+   * A warranty claim must point to a delivered order the actor can see, within
+   * the warranty period; only the workshop admins may open one after it.
+   */
+  private async checkWarrantyOf(
+    m: EntityManager,
+    warrantyOfId: string,
+    actor: AuthUser,
+    selfId?: string,
+  ): Promise<void> {
+    const original = await m.getRepository(ServiceOrder).findOne({
+      where: { id: warrantyOfId, ...orderScope(actor) },
+      withDeleted: true,
+    });
+    if (!original || original.id === selfId) {
+      throw new NotFoundException('Orden original no encontrada');
+    }
+    if (original.deletedAt) {
+      throw new BadRequestException(
+        `La orden ${original.code} está en la Papelera. Restáurala o crea una orden normal.`,
+      );
+    }
+    if (!original.deliveredAt) {
+      throw new BadRequestException(
+        `La orden ${original.code} aún no se ha entregado`,
+      );
+    }
+    const days = Math.floor(
+      (Date.now() - original.deliveredAt.getTime()) / 86_400_000,
+    );
+    if (days > WARRANTY_DAYS && actor.role !== UserRole.SUPER_ADMIN) {
+      throw new BadRequestException(
+        `Este equipo se entregó hace ${days} días (${original.code}). El plazo de garantía es de ${WARRANTY_DAYS} días.`,
+      );
+    }
+  }
+
   // ─── CRUD ───────────────────────────────────────────────────────────────────
   /**
    * The store an order is created in: a store account's own store; for the
@@ -213,7 +278,7 @@ export class ServiceOrderService {
    */
   async create(
     createServiceOrderDto: CreateServiceOrderDto,
-    at: { storeId: string; actorUserId: string },
+    at: { storeId: string; actor: AuthUser },
     manager?: EntityManager,
   ): Promise<ServiceOrder> {
     if (!manager) {
@@ -275,6 +340,10 @@ export class ServiceOrderService {
       }
     }
 
+    if (orderData.warrantyOfId) {
+      await this.checkWarrantyOf(m, orderData.warrantyOfId, at.actor);
+    }
+
     // Calcular total solo con servicios
     const servicesTotal = services.reduce((sum, s) => sum + Number(s.price), 0);
     const calculatedTotal = servicesTotal;
@@ -308,7 +377,7 @@ export class ServiceOrderService {
       m,
       saved,
       0,
-      at.actorUserId,
+      at.actor.id,
       storeId,
       'Pagado al crear la orden',
     );
@@ -436,8 +505,21 @@ export class ServiceOrderService {
     const previousStatus = serviceOrder.status;
     const previousPaid = serviceOrder.amountPaid;
 
+    if (
+      updateData.warrantyOfId &&
+      updateData.warrantyOfId !== serviceOrder.warrantyOfId
+    ) {
+      await this.checkWarrantyOf(
+        this.dataSource.manager,
+        updateData.warrantyOfId,
+        actor,
+        serviceOrder.id,
+      );
+    }
+
     Object.assign(serviceOrder, updateData);
     ServiceOrderService.applyLifecycle(serviceOrder, previousStatus);
+    ServiceOrderService.checkOutcome(serviceOrder, updateData);
 
     // Recalcular balance y estado de pago si cambiaron campos financieros o servicios
     if (
