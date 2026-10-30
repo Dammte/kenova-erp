@@ -29,11 +29,42 @@ import { ServiceHistory } from '../service-history/entities/service-history.enti
 import { Store } from '../stores/entities/store.entity';
 import { OrderLine, OrderLineKind } from './entities/order-line.entity';
 import type { AuthUser } from '../auth/auth.types';
-import { orderScope } from '../common/store-scope';
+import { orderScope, scopedStoreId } from '../common/store-scope';
 import { CREDIT, OrderPayment } from './entities/order-payment.entity';
 import { OrderPaymentsService } from './order-payments.service';
 import { derivePayment } from './payment-status';
 import { UserRole } from '../users/entities/user.entity';
+
+/** IMEI or serial as typed or scanned: no spaces or dashes, upper case. */
+export function normalizeImei(value: string): string {
+  return value.replace(/[\s-]/g, '').toUpperCase();
+}
+
+/** Whole days since `date`. */
+function daysSince(date: Date): number {
+  return Math.floor((Date.now() - date.getTime()) / 86_400_000);
+}
+
+export interface ImeiLookup {
+  imei: string;
+  openOrders: {
+    id: string;
+    code: string;
+    status: ServiceStatus;
+    createdAt: Date;
+  }[];
+  deliveries: {
+    id: string;
+    code: string;
+    deliveredAt: Date;
+    daysAgo: number;
+    withinWarranty: boolean;
+    /** The order is in the trash: restore it to open a warranty claim. */
+    inTrash: boolean;
+    /** "Batería · 59,00 €" */
+    summary: string;
+  }[];
+}
 
 @Injectable()
 export class ServiceOrderService {
@@ -220,14 +251,75 @@ export class ServiceOrderService {
         `La orden ${original.code} aún no se ha entregado`,
       );
     }
-    const days = Math.floor(
-      (Date.now() - original.deliveredAt.getTime()) / 86_400_000,
-    );
+    const days = daysSince(original.deliveredAt);
     if (days > WARRANTY_DAYS && actor.role !== UserRole.SUPER_ADMIN) {
       throw new BadRequestException(
         `Este equipo se entregó hace ${days} días (${original.code}). El plazo de garantía es de ${WARRANTY_DAYS} días.`,
       );
     }
+  }
+
+  /**
+   * What the shop knows about an IMEI or serial number when a device comes in:
+   * orders still open for it (it may already be in the workshop) and its past
+   * deliveries, newest first, with whether each is still under warranty.
+   * Limited to the orders the actor sees.
+   */
+  async lookupImei(rawImei: string, actor: AuthUser): Promise<ImeiLookup> {
+    const imei = normalizeImei(rawImei);
+    if (imei.length < 5) return { imei, openOrders: [], deliveries: [] };
+
+    const qb = this.dataSource
+      .getRepository(ServiceOrder)
+      .createQueryBuilder('o')
+      .withDeleted()
+      .innerJoin('o.device', 'd')
+      .leftJoinAndSelect('o.lines', 'l')
+      .where(`regexp_replace(upper(d.imei), '[\\s-]', '', 'g') = :imei`, {
+        imei,
+      });
+    const storeId = scopedStoreId(actor);
+    if (storeId) qb.andWhere('o.storeId = :storeId', { storeId });
+    const orders = await qb
+      .orderBy('o.createdAt', 'DESC')
+      .addOrderBy('l.position', 'ASC')
+      .getMany();
+
+    const closed = [ServiceStatus.ENTREGADO, ServiceStatus.CANCELADO];
+    return {
+      imei,
+      openOrders: orders
+        .filter((o) => !o.deletedAt && !closed.includes(o.status))
+        .map((o) => ({
+          id: o.id,
+          code: o.code,
+          status: o.status,
+          createdAt: o.createdAt,
+        })),
+      deliveries: orders
+        .filter((o) => o.status === ServiceStatus.ENTREGADO && o.deliveredAt)
+        .sort((a, b) => b.deliveredAt!.getTime() - a.deliveredAt!.getTime())
+        .slice(0, 10)
+        .map((o) => {
+          const daysAgo = daysSince(o.deliveredAt!);
+          return {
+            id: o.id,
+            code: o.code,
+            deliveredAt: o.deliveredAt!,
+            daysAgo,
+            withinWarranty: daysAgo <= WARRANTY_DAYS,
+            inTrash: !!o.deletedAt,
+            summary: [
+              (o.lines ?? []).map((l) => l.description).join(' + '),
+              `${Number(o.totalPrice ?? 0)
+                .toFixed(2)
+                .replace('.', ',')} €`,
+            ]
+              .filter(Boolean)
+              .join(' · '),
+          };
+        }),
+    };
   }
 
   // ─── CRUD ───────────────────────────────────────────────────────────────────
