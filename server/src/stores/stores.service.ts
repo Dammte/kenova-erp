@@ -50,14 +50,36 @@ export class StoresService {
     return this.stores.findOne({ where: { isMain: true } });
   }
 
-  async create(dto: CreateStoreDto, actorId: string): Promise<Store> {
-    if (await this.stores.exist({ where: { prefix: dto.prefix } })) {
-      throw new ConflictException(
-        `El prefijo ${dto.prefix} ya lo usa otra tienda. Elige otro.`,
+  /** "09:00" and "09:00:00" compare alike. */
+  private static checkCashHours(opens: string, closes: string): void {
+    if (closes.slice(0, 5) <= opens.slice(0, 5)) {
+      throw new BadRequestException(
+        'La hora de cierre debe ser posterior a la de apertura.',
       );
     }
+  }
+
+  private async checkPrefixFree(prefix: string): Promise<void> {
+    if (await this.stores.exist({ where: { prefix } })) {
+      throw new ConflictException(
+        `El prefijo ${prefix} ya lo usa otra tienda. Elige otro.`,
+      );
+    }
+  }
+
+  async create(dto: CreateStoreDto, actorId: string): Promise<Store> {
+    await this.checkPrefixFree(dto.prefix);
+    StoresService.checkCashHours(
+      dto.cashOpensAt ?? '09:00:00',
+      dto.cashClosesAt ?? '20:00:00',
+    );
     const saved = await this.stores.save(
-      this.stores.create({ ...dto, isMain: false, isActive: true }),
+      this.stores.create({
+        ...dto,
+        cashFloat: dto.cashFloat?.toFixed(2),
+        isMain: false,
+        isActive: true,
+      }),
     );
     await this.audit.record({
       action: 'STORE_CREATED',
@@ -81,8 +103,24 @@ export class StoresService {
         'La tienda principal no se puede desactivar',
       );
     }
+    if (dto.prefix !== undefined && dto.prefix !== store.prefix) {
+      const orders = store.nextOrderNumber - 1;
+      if (orders > 0) {
+        throw new BadRequestException(
+          `El prefijo no se puede cambiar: ya hay ${orders} órdenes con ${store.prefix}-`,
+        );
+      }
+      await this.checkPrefixFree(dto.prefix);
+    }
+    StoresService.checkCashHours(
+      dto.cashOpensAt ?? store.cashOpensAt,
+      dto.cashClosesAt ?? store.cashClosesAt,
+    );
     const deactivating = dto.isActive === false && store.isActive;
-    Object.assign(store, dto);
+    Object.assign(store, {
+      ...dto,
+      cashFloat: dto.cashFloat?.toFixed(2) ?? store.cashFloat,
+    });
     const saved = await this.stores.save(store);
 
     if (deactivating) {

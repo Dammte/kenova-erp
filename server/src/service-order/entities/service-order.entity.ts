@@ -75,9 +75,6 @@ export enum OrderResult {
   NOT_REPAIRED = 'not_repaired',
 }
 
-/** Days after delivery during which a repair is covered (legal minimum: 3 months). */
-export const WARRANTY_DAYS = 90;
-
 export enum PaymentMethod {
   CASH = 'cash',
   CARD = 'card',

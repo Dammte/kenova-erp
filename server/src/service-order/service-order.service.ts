@@ -15,7 +15,6 @@ import {
   LOCATION_LABEL,
   OrderLocation,
   OrderResult,
-  WARRANTY_DAYS,
   ServiceOrder,
   ServiceStatus,
 } from './entities/service-order.entity';
@@ -236,6 +235,7 @@ export class ServiceOrderService {
   ): Promise<void> {
     const original = await m.getRepository(ServiceOrder).findOne({
       where: { id: warrantyOfId, ...orderScope(actor) },
+      relations: { store: true },
       withDeleted: true,
     });
     if (!original || original.id === selfId) {
@@ -252,9 +252,11 @@ export class ServiceOrderService {
       );
     }
     const days = daysSince(original.deliveredAt);
-    if (days > WARRANTY_DAYS && actor.role !== UserRole.SUPER_ADMIN) {
+    // The warranty of the store that delivered it.
+    const limit = original.store!.warrantyDays;
+    if (days > limit && actor.role !== UserRole.SUPER_ADMIN) {
       throw new BadRequestException(
-        `Este equipo se entregó hace ${days} días (${original.code}). El plazo de garantía es de ${WARRANTY_DAYS} días.`,
+        `Este equipo se entregó hace ${days} días (${original.code}). El plazo de garantía es de ${limit} días.`,
       );
     }
   }
@@ -274,6 +276,7 @@ export class ServiceOrderService {
       .createQueryBuilder('o')
       .withDeleted()
       .innerJoin('o.device', 'd')
+      .innerJoinAndSelect('o.store', 's')
       .leftJoinAndSelect('o.lines', 'l')
       .where(`regexp_replace(upper(d.imei), '[\\s-]', '', 'g') = :imei`, {
         imei,
@@ -307,7 +310,7 @@ export class ServiceOrderService {
             code: o.code,
             deliveredAt: o.deliveredAt!,
             daysAgo,
-            withinWarranty: daysAgo <= WARRANTY_DAYS,
+            withinWarranty: daysAgo <= o.store!.warrantyDays,
             inTrash: !!o.deletedAt,
             summary: [
               (o.lines ?? []).map((l) => l.description).join(' + '),
