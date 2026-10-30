@@ -12,6 +12,7 @@ import { ConsumePartsDto } from './dto/consume-parts.dto';
 import {
   ORDER_FAULTS,
   OrderFault,
+  OrderLocation,
   OrderResult,
   WARRANTY_DAYS,
   ServiceOrder,
@@ -255,20 +256,27 @@ export class ServiceOrderService {
   private async takeNumber(
     m: EntityManager,
     storeId: string,
-  ): Promise<{ number: number; code: string }> {
+  ): Promise<{ number: number; code: string; location: OrderLocation | null }> {
     const { raw } = await m
       .createQueryBuilder()
       .update(Store)
       .set({ nextOrderNumber: () => '"nextOrderNumber" + 1' })
       .where('id = :storeId AND "isActive"', { storeId })
-      .returning(['nextOrderNumber', 'prefix'])
+      .returning(['nextOrderNumber', 'prefix', 'isMain'])
       .execute();
-    const row = (raw as { nextOrderNumber: number; prefix: string }[])[0];
+    const row = (
+      raw as { nextOrderNumber: number; prefix: string; isMain: boolean }[]
+    )[0];
     if (!row) {
       throw new BadRequestException('La tienda no existe o está desactivada');
     }
     const number = row.nextOrderNumber - 1;
-    return { number, code: `${row.prefix}-${String(number).padStart(4, '0')}` };
+    return {
+      number,
+      code: `${row.prefix}-${String(number).padStart(4, '0')}`,
+      // A partner store sends the device to the workshop to be repaired.
+      location: row.isMain ? null : OrderLocation.AT_STORE,
+    };
   }
 
   /**
