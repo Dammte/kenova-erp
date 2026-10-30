@@ -1,5 +1,12 @@
 import { OmitType, PartialType } from '@nestjs/mapped-types';
-import { IsOptional, IsUUID, ValidateIf } from 'class-validator';
+import { Transform } from 'class-transformer';
+import {
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+  ValidateIf,
+} from 'class-validator';
 import { CreateServiceOrderDto } from './create-service-order.dto';
 
 export class UpdateServiceOrderDto extends PartialType(
@@ -10,4 +17,13 @@ export class UpdateServiceOrderDto extends PartialType(
   @IsUUID()
   @IsOptional()
   deviceId?: string | null;
+
+  /** Only stored when the order is (or becomes) cancelled. */
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() || null : value,
+  )
+  @IsString()
+  @MaxLength(300)
+  @IsOptional()
+  cancelReason?: string | null;
 }

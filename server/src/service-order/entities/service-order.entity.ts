@@ -174,6 +174,18 @@ export class ServiceOrder {
   @Column({ type: 'text', nullable: true })
   observations: string;
 
+  /** Set by the server when the order reaches "finalizado"; cleared if it is reopened. */
+  @Column({ type: 'timestamptz', nullable: true })
+  finishedAt?: Date | null;
+
+  /** Set by the server when the order is handed back ("entregado"). */
+  @Column({ type: 'timestamptz', nullable: true })
+  deliveredAt?: Date | null;
+
+  /** Why the order was cancelled; only kept while it is cancelled. */
+  @Column({ type: 'varchar', length: 300, nullable: true })
+  cancelReason?: string | null;
+
   @OneToMany(() => ServiceHistory, (history) => history.serviceOrder, {
     cascade: true,
   })

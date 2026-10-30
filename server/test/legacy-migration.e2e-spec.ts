@@ -34,8 +34,13 @@ describe('Security foundation migration over legacy data', () => {
         ('f2222222-2222-4222-8222-222222222222', 'C2', 'Euro', ' 8 €'),
         ('f3333333-3333-4333-8333-333333333333', 'C3', 'Texto', 'consultar'),
         ('f4444444-4444-4444-8444-444444444444', 'C4', 'Vacio', '');
+      UPDATE service_orders SET status = 'entregado', "updatedAt" = '2025-03-10'
+        WHERE id = '0e222222-2222-4222-8222-222222222222';
       INSERT INTO service_history (action, description, "serviceOrderId", "performedBy") VALUES
         ('nota', 'hecha por admin', '0e111111-1111-4111-8111-111111111111', '11111111-1111-4111-8111-111111111111');
+      INSERT INTO service_history (action, description, "serviceOrderId", "createdAt") VALUES
+        ('cambio_estado', 'Estado cambiado de "En Progreso" a "Finalizado"', '0e222222-2222-4222-8222-222222222222', '2025-03-01 10:00'),
+        ('cambio_estado', 'Estado cambiado de "Finalizado" a "Entregado"', '0e222222-2222-4222-8222-222222222222', '2025-03-05 12:00');
     `);
     await runMigrations(name);
     db = new DataSource({
@@ -148,6 +153,20 @@ describe('Security foundation migration over legacy data', () => {
         costPrice: 'consultar',
       },
     ]);
+  });
+
+  it('dates finished and delivered orders from their history', async () => {
+    const [done] = await db.query(
+      `SELECT to_char("finishedAt" AT TIME ZONE current_setting('TimeZone'), 'YYYY-MM-DD HH24:MI') AS f,
+              to_char("deliveredAt" AT TIME ZONE current_setting('TimeZone'), 'YYYY-MM-DD HH24:MI') AS d
+         FROM service_orders WHERE id = '0e222222-2222-4222-8222-222222222222'`,
+    );
+    expect(done).toEqual({ f: '2025-03-01 10:00', d: '2025-03-05 12:00' });
+    const [open] = await db.query(
+      `SELECT "finishedAt", "deliveredAt" FROM service_orders
+        WHERE id = '0e111111-1111-4111-8111-111111111111'`,
+    );
+    expect(open).toEqual({ finishedAt: null, deliveredAt: null });
   });
 
   it('numbers existing orders in the main store by date of entry', async () => {
