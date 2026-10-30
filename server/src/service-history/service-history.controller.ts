@@ -21,16 +21,25 @@ export class ServiceHistoryController {
 
   @Post()
   create(@Body() dto: CreateServiceHistoryDto, @CurrentUser() user: AuthUser) {
-    return this.serviceHistoryService.create(dto, user.id);
+    return this.serviceHistoryService.create(dto, user);
   }
 
   @Get('order/:serviceOrderId')
-  findByOrder(@Param('serviceOrderId', ParseUUIDPipe) serviceOrderId: string) {
-    return this.serviceHistoryService.findByServiceOrderId(serviceOrderId);
+  findByOrder(
+    @Param('serviceOrderId', ParseUUIDPipe) serviceOrderId: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.serviceHistoryService.findByServiceOrderId(
+      serviceOrderId,
+      user,
+    );
   }
 
   @Get(':id')
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.serviceHistoryService.findOne(id);
+  findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.serviceHistoryService.findOne(id, user);
   }
 }

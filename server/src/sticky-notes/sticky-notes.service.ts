@@ -2,6 +2,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import type { AuthUser } from '../auth/auth.types';
+import { assertOrderVisible } from '../common/store-scope';
 import { StickyNote } from './entities/sticky-note.entity';
 import { ServiceOrder } from '../service-order/entities/service-order.entity';
 import { CreateStickyNoteDto } from './dto/create-sticky-note.dto';
@@ -19,28 +21,47 @@ export class StickyNotesService {
   async create(
     orderId: string,
     createStickyNoteDto: CreateStickyNoteDto,
+    actor: AuthUser,
   ): Promise<StickyNote> {
-    const order = await this.serviceOrderRepository.findOneBy({ id: orderId });
-    if (!order) {
-      throw new NotFoundException(`ServiceOrder with ID ${orderId} not found`);
-    }
+    await assertOrderVisible(
+      this.serviceOrderRepository.manager,
+      orderId,
+      actor,
+    );
 
     const stickyNote = this.stickyNotesRepository.create({
       ...createStickyNoteDto,
-      orderService: order,
+      orderService: { id: orderId } as ServiceOrder,
     });
 
     return this.stickyNotesRepository.save(stickyNote);
   }
 
-  async findAllByOrder(orderId: string): Promise<StickyNote[]> {
+  async findAllByOrder(
+    orderId: string,
+    actor: AuthUser,
+  ): Promise<StickyNote[]> {
+    await assertOrderVisible(
+      this.serviceOrderRepository.manager,
+      orderId,
+      actor,
+    );
     return this.stickyNotesRepository.find({
       where: { orderService: { id: orderId } },
       order: { createdAt: 'DESC' },
     });
   }
 
-  async findOne(orderId: string, id: number): Promise<StickyNote> {
+  async findOne(
+    orderId: string,
+    id: number,
+    actor: AuthUser,
+  ): Promise<StickyNote> {
+    await assertOrderVisible(
+      this.serviceOrderRepository.manager,
+      orderId,
+      actor,
+    );
     const stickyNote = await this.stickyNotesRepository.findOne({
       where: { id, orderService: { id: orderId } },
     });
@@ -56,14 +77,15 @@ export class StickyNotesService {
     orderId: string,
     id: number,
     updateStickyNoteDto: UpdateStickyNoteDto,
+    actor: AuthUser,
   ): Promise<StickyNote> {
-    const stickyNote = await this.findOne(orderId, id);
+    const stickyNote = await this.findOne(orderId, id, actor);
     Object.assign(stickyNote, updateStickyNoteDto);
     return this.stickyNotesRepository.save(stickyNote);
   }
 
-  async remove(orderId: string, id: number): Promise<void> {
-    const stickyNote = await this.findOne(orderId, id);
+  async remove(orderId: string, id: number, actor: AuthUser): Promise<void> {
+    const stickyNote = await this.findOne(orderId, id, actor);
     await this.stickyNotesRepository.remove(stickyNote);
   }
 }

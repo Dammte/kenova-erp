@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
+import type { AuthUser } from '../auth/auth.types';
+import { assertOrderVisible, orderScope } from '../common/store-scope';
 import { ServiceHistory } from './entities/service-history.entity';
 import { CreateServiceHistoryDto } from './dto/create-service-history.dto';
 import { ServiceOrder } from '../service-order/entities/service-order.entity';
@@ -32,12 +34,12 @@ export class ServiceHistoryService {
 
   async create(
     dto: CreateServiceHistoryDto,
-    actorUserId: string,
+    actor: AuthUser,
   ): Promise<ServiceHistory> {
     const { serviceOrderId, deviceId, ...rest } = dto;
 
     const serviceOrder = await this.serviceOrderRepository.findOne({
-      where: { id: serviceOrderId, deletedAt: IsNull() },
+      where: { id: serviceOrderId, deletedAt: IsNull(), ...orderScope(actor) },
     });
     if (!serviceOrder) {
       throw new NotFoundException('Orden de servicio no encontrada');
@@ -55,15 +57,21 @@ export class ServiceHistoryService {
         ...rest,
         serviceOrderId: serviceOrder.id,
         deviceId: deviceId ?? serviceOrder.deviceId ?? undefined,
-        performedBy: { id: actorUserId } as any,
+        performedBy: { id: actor.id } as any,
       }),
     );
-    return this.findOne(saved.id);
+    return this.findOne(saved.id, actor);
   }
 
   async findByServiceOrderId(
     serviceOrderId: string,
+    actor: AuthUser,
   ): Promise<ServiceHistory[]> {
+    await assertOrderVisible(
+      this.serviceOrderRepository.manager,
+      serviceOrderId,
+      actor,
+    );
     const rows = await this.serviceHistoryRepository.find({
       where: { serviceOrderId },
       relations: { performedBy: true },
@@ -72,9 +80,12 @@ export class ServiceHistoryService {
     return rows.map(slimAuthor);
   }
 
-  async findOne(id: string): Promise<ServiceHistory> {
+  async findOne(id: string, actor: AuthUser): Promise<ServiceHistory> {
     const serviceHistory = await this.serviceHistoryRepository.findOne({
-      where: { id },
+      where: {
+        id,
+        serviceOrder: { deletedAt: IsNull(), ...orderScope(actor) },
+      },
       relations: { performedBy: true },
     });
     if (!serviceHistory) {
