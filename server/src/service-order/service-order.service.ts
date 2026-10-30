@@ -26,6 +26,7 @@ import { ServiceHistory } from '../service-history/entities/service-history.enti
 import { Store } from '../stores/entities/store.entity';
 import { OrderLine, OrderLineKind } from './entities/order-line.entity';
 import type { AuthUser } from '../auth/auth.types';
+import { orderScope } from '../common/store-scope';
 import { UserRole } from '../users/entities/user.entity';
 
 @Injectable()
@@ -317,9 +318,12 @@ export class ServiceOrderService {
     return saved;
   }
 
-  async findByClientId(clientId: string): Promise<ServiceOrder[]> {
+  async findByClientId(
+    clientId: string,
+    actor: AuthUser,
+  ): Promise<ServiceOrder[]> {
     const orders = await this.serviceOrderRepository.find({
-      where: { clientId, deletedAt: IsNull() },
+      where: { clientId, deletedAt: IsNull(), ...orderScope(actor) },
       relations: ['device', 'services', 'lines'],
       order: { createdAt: 'DESC', lines: { position: 'ASC' } },
       withDeleted: true,
@@ -328,11 +332,11 @@ export class ServiceOrderService {
     return orders;
   }
 
-  async findAll(): Promise<ServiceOrder[]> {
+  async findAll(actor: AuthUser): Promise<ServiceOrder[]> {
     // withDeleted keeps orders of archived (soft-deleted) clients readable;
     // deleted orders themselves are filtered explicitly.
     const orders = await this.serviceOrderRepository.find({
-      where: { deletedAt: IsNull() },
+      where: { deletedAt: IsNull(), ...orderScope(actor) },
       relations: ['client', 'device', 'services', 'serviceHistory', 'lines'],
       order: { createdAt: 'DESC', lines: { position: 'ASC' } },
       withDeleted: true,
@@ -342,9 +346,10 @@ export class ServiceOrderService {
     return orders;
   }
 
-  async findOne(id: string): Promise<ServiceOrder> {
+  /** Without an actor (internal calls) the order is not limited to a store. */
+  async findOne(id: string, actor?: AuthUser): Promise<ServiceOrder> {
     const serviceOrder = await this.serviceOrderRepository.findOne({
-      where: { id, deletedAt: IsNull() },
+      where: { id, deletedAt: IsNull(), ...(actor ? orderScope(actor) : {}) },
       relations: ['client', 'device', 'services', 'serviceHistory', 'lines'],
       order: { lines: { position: 'ASC' } },
       withDeleted: true,
@@ -363,12 +368,13 @@ export class ServiceOrderService {
   async update(
     id: string,
     updateServiceOrderDto: UpdateServiceOrderDto,
-    actorUserId?: string,
+    actor: AuthUser,
   ): Promise<ServiceOrder> {
+    const actorUserId = actor.id;
     const { serviceIds, clientId, deviceId, ...updateData } =
       updateServiceOrderDto;
 
-    const serviceOrder = await this.findOne(id);
+    const serviceOrder = await this.findOne(id, actor);
 
     if (clientId) {
       const client = await this.clientRepository.findOne({
@@ -464,7 +470,7 @@ export class ServiceOrderService {
       await this.serviceHistoryRepository.save(
         this.serviceHistoryRepository.create({
           serviceOrderId: id,
-          performedBy: actorUserId ? ({ id: actorUserId } as any) : undefined,
+          performedBy: { id: actorUserId } as any,
           action: 'cambio_estado',
           description: `Estado cambiado de "${STATUS_LABELS[previousStatus] ?? previousStatus}" a "${STATUS_LABELS[updateData.status] ?? updateData.status}"`,
         }),
@@ -494,7 +500,7 @@ export class ServiceOrderService {
   async consumeParts(
     orderId: string,
     dto: ConsumePartsDto,
-    actorUserId: string,
+    actor: AuthUser,
   ): Promise<{
     parts: {
       inventoryId: string;
@@ -503,6 +509,7 @@ export class ServiceOrderService {
       stock: number;
     }[];
   }> {
+    const actorUserId = actor.id;
     const merged = new Map<string, number>();
     for (const p of dto.parts) {
       merged.set(p.inventoryId, (merged.get(p.inventoryId) ?? 0) + p.quantity);
@@ -510,7 +517,7 @@ export class ServiceOrderService {
 
     return this.dataSource.transaction(async (manager) => {
       const order = await manager.getRepository(ServiceOrder).findOne({
-        where: { id: orderId, deletedAt: IsNull() },
+        where: { id: orderId, deletedAt: IsNull(), ...orderScope(actor) },
       });
       if (!order)
         throw new NotFoundException('Orden de servicio no encontrada');

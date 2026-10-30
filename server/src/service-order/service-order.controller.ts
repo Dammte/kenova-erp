@@ -45,18 +45,24 @@ export class ServiceOrderController {
   }
 
   @Get()
-  findAll() {
-    return this.serviceOrderService.findAll();
+  findAll(@CurrentUser() user: AuthUser) {
+    return this.serviceOrderService.findAll(user);
   }
 
   @Get('client/:clientId')
-  findByClient(@Param('clientId', ParseUUIDPipe) clientId: string) {
-    return this.serviceOrderService.findByClientId(clientId);
+  findByClient(
+    @Param('clientId', ParseUUIDPipe) clientId: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.serviceOrderService.findByClientId(clientId, user);
   }
 
   @Get(':id')
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.serviceOrderService.findOne(id);
+  findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.serviceOrderService.findOne(id, user);
   }
 
   @Patch(':id')
@@ -65,7 +71,7 @@ export class ServiceOrderController {
     @Body() dto: UpdateServiceOrderDto,
     @CurrentUser() user: AuthUser,
   ) {
-    return this.serviceOrderService.update(id, dto, user.id);
+    return this.serviceOrderService.update(id, dto, user);
   }
 
   /** Atomically takes the given parts out of stock and records them on the order. */
@@ -76,7 +82,7 @@ export class ServiceOrderController {
     @Body() dto: ConsumePartsDto,
     @CurrentUser() user: AuthUser,
   ) {
-    return this.serviceOrderService.consumeParts(id, dto, user.id);
+    return this.serviceOrderService.consumeParts(id, dto, user);
   }
 
   @Delete(':id')
