@@ -20,6 +20,8 @@
 
   /* Semantic. */
   --k-success: #1f6b45;
+  --k-success-subtle: #e9f3ee;
+  --k-success-border: #a9d3bc;
   --k-warning: #8a4b00;
   --k-danger: #b42318;
   --k-danger-subtle: #f9eeec;

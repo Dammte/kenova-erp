@@ -4,7 +4,7 @@ import { useEffect, useState, type KeyboardEvent } from "react";
 import Link from "next/link";
 import { Button, TextField } from "@/components/ui";
 import { API_URL } from "@/lib/api";
-import styles from "./LoginForm.module.css";
+import { AuthLayout, authStyles as styles } from "./AuthLayout";
 
 /** Only same-site relative paths are accepted as a post-login destination. */
 export function safeNext(next: string | null): string {
@@ -80,66 +80,62 @@ export function LoginForm({ next, navigate = (url) => window.location.assign(url
       : undefined;
 
   return (
-    <main className={styles.page}>
-      <div className={styles.column}>
-        <div className={styles.brand}>Kenova</div>
-        <form onSubmit={submit} className={styles.card} noValidate>
-          <h1 className={styles.title}>Iniciar sesión</h1>
-          {error && (
-            <p role="alert" className={styles.alert}>
-              {error}
-            </p>
-          )}
-          <TextField
-            label="Email"
-            type="email"
-            autoComplete="username"
-            autoFocus
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          <TextField
-            label="Contraseña"
-            type={showPassword ? "text" : "password"}
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            onKeyDown={trackCapsLock}
-            onKeyUp={trackCapsLock}
-            hint={capsLock ? "Bloq Mayús está activado." : undefined}
-            suffix={
-              <Button
-                variant="ghost"
-                size="sm"
-                aria-pressed={showPassword}
-                onClick={() => setShowPassword((v) => !v)}
-              >
-                {showPassword ? "Ocultar" : "Mostrar"}
-              </Button>
-            }
-          />
-          <Button
-            type="submit"
-            variant="primary"
-            size="lg"
-            className={styles.submit}
-            loading={loading}
-            loadingText="Entrando…"
-            disabledReason={loading ? undefined : missing}
-          >
-            Entrar
-          </Button>
-          {canReset ? (
-            <Link href="/recuperar-contrasena" className={styles.link}>
-              ¿Olvidaste tu contraseña?
-            </Link>
-          ) : (
-            <p className={styles.note}>
-              ¿Has olvidado la contraseña? Pide a un socio que te la restablezca.
-            </p>
-          )}
-        </form>
-      </div>
-    </main>
+    <AuthLayout title="Iniciar sesión">
+      <form onSubmit={submit} className={styles.form} noValidate>
+        {error && (
+          <p role="alert" className={styles.alert}>
+            {error}
+          </p>
+        )}
+        <TextField
+          label="Email"
+          type="email"
+          autoComplete="username"
+          autoFocus
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+        <TextField
+          label="Contraseña"
+          type={showPassword ? "text" : "password"}
+          autoComplete="current-password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          onKeyDown={trackCapsLock}
+          onKeyUp={trackCapsLock}
+          hint={capsLock ? "Bloq Mayús está activado." : undefined}
+          suffix={
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-pressed={showPassword}
+              onClick={() => setShowPassword((v) => !v)}
+            >
+              {showPassword ? "Ocultar" : "Mostrar"}
+            </Button>
+          }
+        />
+        <Button
+          type="submit"
+          variant="primary"
+          size="lg"
+          className={styles.submit}
+          loading={loading}
+          loadingText="Entrando…"
+          disabledReason={loading ? undefined : missing}
+        >
+          Entrar
+        </Button>
+        {canReset ? (
+          <Link href="/recuperar-contrasena" className={styles.link}>
+            ¿Olvidaste tu contraseña?
+          </Link>
+        ) : (
+          <p className={styles.note}>
+            ¿Has olvidado la contraseña? Pide a un socio que te la restablezca.
+          </p>
+        )}
+      </form>
+    </AuthLayout>
   );
 }
