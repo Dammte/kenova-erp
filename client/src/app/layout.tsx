@@ -1,43 +1,46 @@
 import type { Metadata } from "next";
-import {
-  Bricolage_Grotesque,
-  Geist,
-  Geist_Mono,
-  IBM_Plex_Mono,
-  IBM_Plex_Sans,
-} from "next/font/google";
+import localFont from "next/font/local";
 import "../styles/tokens.css";
 import "./globals.css";
 import AppShell from "@/components/auth/AppShell";
 
-const geistSans = Geist({
+// Fonts are served from the repository (src/fonts, SIL Open Font License), so
+// the build never depends on Google Fonts being reachable.
+const geistSans = localFont({
   variable: "--font-geist-sans",
-  subsets: ["latin"],
+  src: "../fonts/geist-latin-wght-normal.woff2",
+  weight: "100 900",
 });
 
-const geistMono = Geist_Mono({
+const geistMono = localFont({
   variable: "--font-geist-mono",
-  subsets: ["latin"],
+  src: "../fonts/geist-mono-latin-wght-normal.woff2",
+  weight: "100 900",
 });
 
 // Kenova design system fonts. They only set variables, so the current screens
 // keep their look until each one is redone.
-const plexSans = IBM_Plex_Sans({
+const plexSans = localFont({
   variable: "--k-font-plex-sans",
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
+  src: [
+    { path: "../fonts/ibm-plex-sans-latin-400-normal.woff2", weight: "400" },
+    { path: "../fonts/ibm-plex-sans-latin-500-normal.woff2", weight: "500" },
+    { path: "../fonts/ibm-plex-sans-latin-600-normal.woff2", weight: "600" },
+  ],
 });
 
-const plexMono = IBM_Plex_Mono({
+const plexMono = localFont({
   variable: "--k-font-plex-mono",
-  subsets: ["latin"],
-  weight: ["500"],
+  src: "../fonts/ibm-plex-mono-latin-500-normal.woff2",
+  weight: "500",
 });
 
-const bricolage = Bricolage_Grotesque({
+const bricolage = localFont({
   variable: "--k-font-bricolage",
-  subsets: ["latin"],
-  weight: ["600", "700"],
+  src: [
+    { path: "../fonts/bricolage-grotesque-latin-600-normal.woff2", weight: "600" },
+    { path: "../fonts/bricolage-grotesque-latin-700-normal.woff2", weight: "700" },
+  ],
 });
 
 export const metadata: Metadata = {
