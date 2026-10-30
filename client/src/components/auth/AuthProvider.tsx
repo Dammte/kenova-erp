@@ -10,6 +10,8 @@ export interface SessionUser {
   email: string;
   fullName: string;
   role: Role;
+  /** The store of a STORE_ADMIN; null for the partners. */
+  storeId: string | null;
   mustChangePassword: boolean;
 }
 

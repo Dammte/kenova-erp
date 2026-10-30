@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import Sidebar from "@/components/shell/Sidebar";
+import Topbar from "@/components/shell/Topbar";
 import styles from "@/app/admin-layout.module.css";
 import { AuthProvider, useAuth } from "./AuthProvider";
 
@@ -16,6 +17,7 @@ function ProtectedContent({ children }: { children: React.ReactNode }) {
     <div className={styles.adminContainer}>
       <Sidebar />
       <div className={styles.mainContent}>
+        <Topbar />
         <main className={styles.pageContent}>{children}</main>
       </div>
     </div>

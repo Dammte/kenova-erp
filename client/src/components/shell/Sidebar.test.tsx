@@ -16,6 +16,7 @@ const asRole = (role: SessionUser["role"]): SessionUser => ({
   email: "x@kenova.test",
   fullName: "Ana Rojo",
   role,
+  storeId: role === "SUPER_ADMIN" ? null : "s1",
   mustChangePassword: false,
 });
 

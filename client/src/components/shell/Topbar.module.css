@@ -1,0 +1,142 @@
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--k-space-4);
+  flex-shrink: 0;
+  height: 56px;
+  padding: 0 var(--k-space-6);
+  background: var(--k-surface);
+  border-bottom: var(--k-border-w) solid var(--k-border);
+  font: var(--k-text-base);
+  color: var(--k-text);
+  z-index: var(--k-z-topbar);
+}
+
+.right {
+  display: flex;
+  align-items: center;
+  gap: var(--k-space-4);
+}
+
+.store {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--k-space-2);
+  height: 32px;
+  padding: 0 var(--k-space-3);
+  border: var(--k-border-w) solid var(--k-border);
+  border-radius: var(--k-radius-md);
+  font: var(--k-text-sm);
+  color: var(--k-text-muted);
+  white-space: nowrap;
+}
+
+.account {
+  position: relative;
+}
+
+.user {
+  display: flex;
+  align-items: center;
+  gap: var(--k-space-2);
+  min-height: var(--k-control-h);
+  padding: 0 var(--k-space-2);
+  border: 0;
+  border-radius: var(--k-radius-md);
+  background: transparent;
+  font: inherit;
+  color: var(--k-text);
+  cursor: pointer;
+}
+
+.user:hover {
+  background: var(--k-subtle);
+}
+
+.user:focus-visible,
+.menuItem:focus-visible {
+  outline: none;
+  box-shadow: var(--k-focus-ring);
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--k-radius-full);
+  background: var(--k-accent-subtle);
+  color: var(--k-accent);
+  font: var(--k-text-xs);
+  font-weight: 600;
+}
+
+.who {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.1;
+}
+
+.name {
+  font: 500 13px/18px var(--k-font-sans);
+  color: var(--k-text);
+}
+
+.role {
+  font: var(--k-text-xs);
+  font-weight: 400;
+  color: var(--k-text-muted);
+}
+
+.menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + var(--k-space-1));
+  min-width: 240px;
+  padding: var(--k-space-2);
+  background: var(--k-surface);
+  border-radius: var(--k-radius-lg);
+  box-shadow: var(--k-shadow-pop);
+  z-index: var(--k-z-popover);
+}
+
+.menuHead {
+  display: flex;
+  flex-direction: column;
+  margin: 0 0 var(--k-space-2);
+  padding: var(--k-space-2) var(--k-space-3) var(--k-space-3);
+  border-bottom: var(--k-border-w) solid var(--k-border);
+}
+
+.menuItem {
+  display: flex;
+  align-items: center;
+  gap: var(--k-space-2);
+  width: 100%;
+  min-height: var(--k-control-h);
+  padding: 0 var(--k-space-3);
+  border: 0;
+  border-radius: var(--k-radius-md);
+  background: transparent;
+  font: var(--k-text-base);
+  color: var(--k-text);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.menuItem:hover {
+  background: var(--k-subtle);
+}
+
+/* Phones: the name gives way to the avatar. */
+@media (max-width: 640px) {
+  .who {
+    display: none;
+  }
+  .topbar {
+    padding: 0 var(--k-space-4);
+  }
+}
