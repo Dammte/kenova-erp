@@ -11,12 +11,14 @@ export interface TextFieldProps
   error?: string;
   /** Fixed text before the value, such as "+34" or "€". */
   prefix?: ReactNode;
+  /** Inside the field after the value, such as a "Mostrar" button. */
+  suffix?: ReactNode;
 }
 
 /** Design system 3.5: label on top, plain-language error below. */
 export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(
   function TextField(
-    { label, hint, error, prefix, className, required, ...rest },
+    { label, hint, error, prefix, suffix, className, required, ...rest },
     ref,
   ) {
     const id = useId();
@@ -44,6 +46,7 @@ export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(
             className={styles.input}
             {...rest}
           />
+          {suffix && <span className={styles.suffix}>{suffix}</span>}
         </div>
         {note && (
           <p id={noteId} className={error ? styles.error : styles.hint}>
