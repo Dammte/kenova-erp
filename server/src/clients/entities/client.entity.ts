@@ -28,6 +28,10 @@ export enum DniType {
   CIF = 'CIF',
 }
 
+/** Shown when someone tries to use a client whose data was removed. */
+export const ANONYMIZED_CLIENT =
+  'Este cliente está anonimizado: sus datos personales se borraron';
+
 @Entity()
 export class Client {
   @PrimaryGeneratedColumn('uuid')
@@ -62,20 +66,20 @@ export class Client {
   @Column({ type: 'varchar', length: 20, nullable: true, default: null })
   phoneNumber: string | null;
 
-  @Column({ nullable: true })
-  address: string;
+  @Column({ type: 'varchar', nullable: true })
+  address: string | null;
 
-  @Column({ length: 10, nullable: true })
-  postalCode: string;
+  @Column({ type: 'varchar', length: 10, nullable: true })
+  postalCode: string | null;
 
-  @Column({ length: 50, nullable: true })
-  city: string;
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  city: string | null;
 
   @Column({ type: 'enum', enum: ContactMethod, default: ContactMethod.PHONE })
   preferredContact: ContactMethod;
 
   @Column({ type: 'text', nullable: true })
-  observations: string;
+  observations: string | null;
 
   @Column({ default: true })
   isActive: boolean;
@@ -91,6 +95,13 @@ export class Client {
   @Index('IDX_client_storeId')
   @Column({ type: 'uuid', nullable: true, default: null })
   storeId: string | null;
+
+  /**
+   * When a workshop admin removed the client's personal data (RGPD). The row
+   * stays so its orders and payments keep their history.
+   */
+  @Column({ type: 'timestamptz', nullable: true, default: null })
+  anonymizedAt: Date | null;
 
   @CreateDateColumn()
   createdAt: Date;
