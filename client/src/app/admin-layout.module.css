@@ -17,3 +17,10 @@
   overflow-y: auto;
   background-color: var(--background-color);
 }
+
+/* Phones: leave room for the bottom bar. */
+@media (max-width: 640px) {
+  .pageContent {
+    padding-bottom: calc(var(--k-bottom-bar-h) + env(safe-area-inset-bottom));
+  }
+}

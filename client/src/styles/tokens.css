@@ -97,6 +97,7 @@
   /* Sizes of the shell and of touch targets. */
   --k-sidebar-w: 240px;
   --k-sidebar-w-collapsed: 72px;
+  --k-bottom-bar-h: 64px; /* phones: the side bar becomes a bottom bar */
   --k-control-h: 40px;
 }
 

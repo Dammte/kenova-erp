@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import BottomBar from "@/components/shell/BottomBar";
 import Sidebar from "@/components/shell/Sidebar";
 import Topbar from "@/components/shell/Topbar";
 import styles from "@/app/admin-layout.module.css";
@@ -26,6 +27,7 @@ function ProtectedContent({ children }: { children: React.ReactNode }) {
         <Topbar />
         <main className={styles.pageContent}>{children}</main>
       </div>
+      <BottomBar />
     </div>
   );
 }
