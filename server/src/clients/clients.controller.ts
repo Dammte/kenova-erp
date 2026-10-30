@@ -24,40 +24,55 @@ export class ClientsController {
   constructor(private readonly clientsService: ClientsService) {}
 
   @Get()
-  findAll() {
-    return this.clientsService.findAll();
+  findAll(@CurrentUser() user: AuthUser) {
+    return this.clientsService.findAll(user);
   }
 
   @Get('search')
-  async search(@Query('q') q?: string, @Query('dni') dni?: string) {
+  async search(
+    @CurrentUser() user: AuthUser,
+    @Query('q') q?: string,
+    @Query('dni') dni?: string,
+  ) {
     if (typeof dni === 'string' && dni.trim()) {
-      const client = await this.clientsService.findByDni(dni);
+      const client = await this.clientsService.findByDni(dni, user);
       return client ? [client] : [];
     }
     if (typeof q === 'string') {
-      return this.clientsService.searchClients(q);
+      return this.clientsService.searchClients(q, user);
     }
     return [];
   }
 
   @Get(':id')
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.clientsService.findOne(id);
+  findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.clientsService.findOne(id, user);
   }
 
   @Post()
-  create(@Body() dto: CreateClientDto) {
-    return this.clientsService.create(dto);
+  create(@Body() dto: CreateClientDto, @CurrentUser() user: AuthUser) {
+    return this.clientsService.create(dto, user);
   }
 
   @Put(':id')
-  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateClientDto) {
-    return this.clientsService.update(id, dto);
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateClientDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.clientsService.update(id, dto, user);
   }
 
   @Patch(':id')
-  patch(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateClientDto) {
-    return this.clientsService.patch(id, dto);
+  patch(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateClientDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.clientsService.patch(id, dto, user);
   }
 
   @Delete(':id')
@@ -67,6 +82,6 @@ export class ClientsController {
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: AuthUser,
   ) {
-    return this.clientsService.remove(id, user.id);
+    return this.clientsService.remove(id, user);
   }
 }

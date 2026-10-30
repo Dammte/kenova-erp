@@ -27,7 +27,8 @@ export class IntakeService {
     const actorUserId = actor.id;
     const orderId = await this.dataSource.transaction(async (manager) => {
       const clientId =
-        dto.clientId ?? (await this.clients.create(dto.client!, manager)).id;
+        dto.clientId ??
+        (await this.clients.create(dto.client!, actor, manager)).id;
       const deviceId =
         dto.deviceId ??
         (

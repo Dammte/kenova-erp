@@ -400,6 +400,11 @@ export class ServiceOrderService {
             `Dispositivo con ID ${deviceId} no encontrado`,
           );
         }
+        if (device.clientId && device.clientId !== serviceOrder.clientId) {
+          throw new BadRequestException(
+            'El dispositivo no pertenece a este cliente',
+          );
+        }
         serviceOrder.device = device;
         serviceOrder.deviceId = deviceId;
       }

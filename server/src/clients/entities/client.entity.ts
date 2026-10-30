@@ -6,10 +6,13 @@ import {
   UpdateDateColumn,
   DeleteDateColumn,
   OneToMany,
+  ManyToOne,
+  JoinColumn,
   Index,
 } from 'typeorm';
 import { Device } from '../../devices/entities/device.entity';
 import { ServiceOrder } from '../../service-order/entities/service-order.entity';
+import { Store } from '../../stores/entities/store.entity';
 
 export enum ContactMethod {
   EMAIL = 'EMAIL',
@@ -73,6 +76,18 @@ export class Client {
 
   @Column({ default: true })
   isActive: boolean;
+
+  /**
+   * The partner store that registered the client, so it sees the client before
+   * its first order; NULL when registered by the workshop admins.
+   */
+  @ManyToOne(() => Store, { onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'storeId', foreignKeyConstraintName: 'FK_client_store' })
+  store?: Store;
+
+  @Index('IDX_client_storeId')
+  @Column({ type: 'uuid', nullable: true, default: null })
+  storeId: string | null;
 
   @CreateDateColumn()
   createdAt: Date;
