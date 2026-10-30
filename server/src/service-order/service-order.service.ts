@@ -9,7 +9,11 @@ import { DataSource, EntityManager, In, IsNull, Repository } from 'typeorm';
 import { AuditService } from '../audit/audit.service';
 import { Inventory } from '../inventory/entities/inventory.entity';
 import { ConsumePartsDto } from './dto/consume-parts.dto';
-import { PaymentStatus, ServiceOrder } from './entities/service-order.entity';
+import {
+  PaymentStatus,
+  ServiceOrder,
+  ServiceStatus,
+} from './entities/service-order.entity';
 import { Service } from '../services/entities/service.entity';
 import { CreateServiceOrderDto } from './dto/create-service-order.dto';
 import { UpdateServiceOrderDto } from './dto/update-service-order.dto';
@@ -60,6 +64,34 @@ export class ServiceOrderService {
       balance: Number((totalPrice - amountPaid).toFixed(2)),
       paymentStatus,
     };
+  }
+
+  /**
+   * Keeps the lifecycle dates in step with the status: the first time an order
+   * is finished or delivered is recorded, and reopening it clears them so the
+   * days in the workshop count again.
+   */
+  private static applyLifecycle(
+    order: ServiceOrder,
+    previous: ServiceStatus | null,
+    now = new Date(),
+  ): void {
+    const status = order.status;
+    if (status === previous) {
+      if (status !== ServiceStatus.CANCELADO) order.cancelReason = null;
+      return;
+    }
+    if (status === ServiceStatus.FINALIZADO) {
+      order.finishedAt ??= now;
+      order.deliveredAt = null;
+    } else if (status === ServiceStatus.ENTREGADO) {
+      order.finishedAt ??= now;
+      order.deliveredAt ??= now;
+    } else if (status !== ServiceStatus.CANCELADO) {
+      order.finishedAt = null;
+      order.deliveredAt = null;
+    }
+    if (status !== ServiceStatus.CANCELADO) order.cancelReason = null;
   }
 
   // ─── Brand name resolver ────────────────────────────────────────────────────
@@ -218,6 +250,7 @@ export class ServiceOrderService {
       amountPaid,
       ...ServiceOrderService.derivePayment(totalPrice, amountPaid),
     });
+    ServiceOrderService.applyLifecycle(serviceOrder, null);
 
     return m.getRepository(ServiceOrder).save(serviceOrder);
   }
@@ -332,6 +365,7 @@ export class ServiceOrderService {
     const previousStatus = serviceOrder.status;
 
     Object.assign(serviceOrder, updateData);
+    ServiceOrderService.applyLifecycle(serviceOrder, previousStatus);
 
     // Recalcular balance y estado de pago si cambiaron campos financieros o servicios
     if (
