@@ -40,7 +40,7 @@ export class CreateClientDto {
   @Transform(trim)
   @IsString()
   @IsNotEmpty()
-  @MaxLength(50)
+  @MaxLength(100)
   firstName: string;
 
   @Transform(emptyToNull)

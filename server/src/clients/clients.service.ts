@@ -13,7 +13,8 @@ import {
   isClientVisible,
   scopedStoreId,
 } from '../common/store-scope';
-import { Client } from './entities/client.entity';
+import { isValidCif } from '../common/cif';
+import { Client, DniType } from './entities/client.entity';
 import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
 
@@ -55,17 +56,35 @@ export class ClientsService {
       .replace(/(?:^|\s|-|')\S/g, (char) => char.toUpperCase());
   }
 
+  /**
+   * Title-cases people's names. A company's legal name is kept as typed
+   * ("Talleres García SL", not "Talleres García Sl").
+   */
   private normalizeNames<
     T extends { firstName?: string; lastName?: string | null },
-  >(dto: T): T {
+  >(dto: T, dniType?: DniType): T {
     const result = { ...dto };
-    if (typeof result.firstName === 'string') {
+    if (typeof result.firstName === 'string' && dniType === DniType.CIF) {
+      result.firstName = result.firstName.trim();
+    } else if (typeof result.firstName === 'string') {
       result.firstName = this.toTitleCase(result.firstName);
     }
     if (typeof result.lastName === 'string') {
       result.lastName = this.toTitleCase(result.lastName);
     }
     return result;
+  }
+
+  /** Rejects a malformed CIF (people's documents are checked on screen). */
+  private static checkDocument(
+    dniType: DniType | undefined,
+    dni: string | null | undefined,
+  ): void {
+    if (dniType === DniType.CIF && dni && !isValidCif(dni)) {
+      throw new BadRequestException(
+        'El CIF no tiene un formato válido (letra + 8 cifras).',
+      );
+    }
   }
 
   /**
@@ -78,8 +97,9 @@ export class ClientsService {
     manager?: EntityManager,
   ): Promise<Client> {
     const repo = manager?.getRepository(Client) ?? this.clientRepository;
+    ClientsService.checkDocument(dto.dniType, dto.dni);
     const client = repo.create({
-      ...(this.normalizeNames(dto) as Partial<Client>),
+      ...(this.normalizeNames(dto, dto.dniType) as Partial<Client>),
       storeId: scopedStoreId(actor),
     });
     return repo.save(client);
@@ -160,8 +180,15 @@ export class ClientsService {
     dto: UpdateClientDto,
     actor: AuthUser,
   ): Promise<Client> {
-    await this.findOne(id, actor);
-    const changes = this.normalizeNames(dto) as Partial<Client>;
+    const current = await this.findOne(id, actor);
+    const dniType = dto.dniType ?? current.dniType;
+    if (dto.dniType !== undefined || dto.dni !== undefined) {
+      ClientsService.checkDocument(
+        dniType,
+        dto.dni !== undefined ? dto.dni : current.dni,
+      );
+    }
+    const changes = this.normalizeNames(dto, dniType) as Partial<Client>;
     if (Object.keys(changes).length > 0) {
       await this.clientRepository.update(id, changes);
     }

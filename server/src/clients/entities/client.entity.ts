@@ -24,6 +24,8 @@ export enum DniType {
   NIF = 'NIF',
   NIE = 'NIE',
   PASSPORT = 'PASSPORT',
+  /** A company: firstName holds its legal name, lastName the contact person. */
+  CIF = 'CIF',
 }
 
 @Entity()
@@ -39,7 +41,8 @@ export class Client {
   @Column({ type: 'varchar', length: 20, nullable: true, default: null })
   dni?: string | null;
 
-  @Column({ length: 50 })
+  /** First name, or the legal name of a company. */
+  @Column({ length: 100 })
   firstName: string;
 
   /** Optional: only the first name is required. */
