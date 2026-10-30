@@ -1,8 +1,8 @@
 /** Session lifetime settings (overridable through the environment). */
 export const SESSION_IDLE_MS =
-  Number(process.env.SESSION_IDLE_HOURS ?? 12) * 60 * 60 * 1000;
+  Number(process.env.SESSION_IDLE_HOURS ?? 24) * 60 * 60 * 1000;
 export const SESSION_ABSOLUTE_MS =
-  Number(process.env.SESSION_ABSOLUTE_DAYS ?? 7) * 24 * 60 * 60 * 1000;
+  Number(process.env.SESSION_ABSOLUTE_DAYS ?? 30) * 24 * 60 * 60 * 1000;
 /** lastSeenAt is only written when older than this, to avoid a write per request. */
 export const SESSION_TOUCH_MS = 5 * 60 * 1000;
 

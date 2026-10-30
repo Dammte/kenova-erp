@@ -136,10 +136,27 @@ describe('Authentication and sessions', () => {
     }
   });
 
-  it('expires idle sessions', async () => {
+  it('keeps a session through a long workday and lasts 30 days', async () => {
+    const cookie = await t.login(t.storeAdmin.email);
+    const [row] = await t.db.query(
+      `SELECT extract(epoch FROM "expiresAt" - "createdAt") / 86400 AS days
+         FROM sessions WHERE "userId" = $1 AND "revokedAt" IS NULL
+        ORDER BY "createdAt" DESC LIMIT 1`,
+      [t.storeAdmin.id],
+    );
+    expect(Math.round(Number(row.days))).toBe(30);
+    await t.db.query(
+      `UPDATE sessions SET "lastSeenAt" = now() - interval '23 hours' WHERE "userId" = $1`,
+      [t.storeAdmin.id],
+    );
+    const res = await t.http().get('/api/clients').set('Cookie', cookie);
+    expect(res.status).toBe(200);
+  });
+
+  it('expires sessions idle for more than 24 hours', async () => {
     const cookie = await t.login(t.storeAdmin.email);
     await t.db.query(
-      `UPDATE sessions SET "lastSeenAt" = now() - interval '13 hours' WHERE "userId" = $1`,
+      `UPDATE sessions SET "lastSeenAt" = now() - interval '25 hours' WHERE "userId" = $1`,
       [t.storeAdmin.id],
     );
     const res = await t.http().get('/api/clients').set('Cookie', cookie);
