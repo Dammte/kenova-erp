@@ -21,12 +21,15 @@ const toNumber = ({ value }) => {
   }
   return value;
 };
-/** costPrice is still a text column (see audit ECO-001); only well-formed amounts are stored. */
+/** Normalizes the cost to a plain decimal string ("12,5" → "12.5") for the numeric column. */
 const toDecimalString = ({ value }) => {
   if (value === '' || value === null || value === undefined) return undefined;
   if (typeof value === 'number')
     return Number.isFinite(value) ? String(value) : 'NaN';
-  return typeof value === 'string' ? value.trim().replace(',', '.') : value;
+  if (typeof value !== 'string') return value;
+  const v = value.trim().replace(',', '.');
+  // Same form the column reads back ("12.50" → "12.5"); anything else fails @Matches.
+  return /^\d{1,8}(\.\d{1,4})?$/.test(v) ? String(Number(v)) : v;
 };
 
 export class CreateInventoryDto {

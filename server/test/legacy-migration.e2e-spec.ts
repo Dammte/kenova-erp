@@ -29,6 +29,11 @@ describe('Security foundation migration over legacy data', () => {
         ('0e111111-1111-4111-8111-111111111111', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'd1111111-1111-4111-8111-111111111111');
       INSERT INTO service_orders (id, "clientId", "deviceId", "createdAt") VALUES
         ('0e222222-2222-4222-8222-222222222222', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'd2222222-2222-4222-8222-222222222222', '2025-01-15');
+      INSERT INTO inventory (id, sku, name, "costPrice") VALUES
+        ('f1111111-1111-4111-8111-111111111111', 'C1', 'Coma', '12,50'),
+        ('f2222222-2222-4222-8222-222222222222', 'C2', 'Euro', ' 8 €'),
+        ('f3333333-3333-4333-8333-333333333333', 'C3', 'Texto', 'consultar'),
+        ('f4444444-4444-4444-8444-444444444444', 'C4', 'Vacio', '');
       INSERT INTO service_history (action, description, "serviceOrderId", "performedBy") VALUES
         ('nota', 'hecha por admin', '0e111111-1111-4111-8111-111111111111', '11111111-1111-4111-8111-111111111111');
     `);
@@ -124,6 +129,27 @@ describe('Security foundation migration over legacy data', () => {
     ]);
   });
 
+  it('converts costs to numbers and keeps the ones that are not', async () => {
+    const rows = await db.query(
+      `SELECT sku, "costPrice" FROM inventory WHERE sku LIKE 'C%' ORDER BY sku`,
+    );
+    expect(rows).toEqual([
+      { sku: 'C1', costPrice: '12.5000' },
+      { sku: 'C2', costPrice: '8.0000' },
+      { sku: 'C3', costPrice: null },
+      { sku: 'C4', costPrice: null },
+    ]);
+    const kept = await db.query(
+      `SELECT "inventoryId", "costPrice" FROM inventory_cost_price_legacy`,
+    );
+    expect(kept).toEqual([
+      {
+        inventoryId: 'f3333333-3333-4333-8333-333333333333',
+        costPrice: 'consultar',
+      },
+    ]);
+  });
+
   it('numbers existing orders in the main store by date of entry', async () => {
     const orders = await db.query(
       `SELECT o.id, o.number, o.code, s.prefix
@@ -167,6 +193,10 @@ describe('Security foundation migration over legacy data', () => {
     );
     expect(rows[0]).toEqual({ code: '1234', pattern: null });
     expect(rows[1]).toEqual({ code: null, pattern: '1-5-9' });
+    const [cost] = await ds.query(
+      `SELECT "costPrice" FROM inventory WHERE sku = 'C3'`,
+    );
+    expect(cost.costPrice).toBe('consultar');
     await ds.runMigrations({ transaction: 'all' });
     await ds.destroy();
   });

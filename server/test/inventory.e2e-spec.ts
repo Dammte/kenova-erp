@@ -57,6 +57,23 @@ describe('Inventory and parts consumption', () => {
     expect(ok.body.createdBy).toBe(t.storeAdmin.id);
   });
 
+  it('stores the cost as a number that can be summed', async () => {
+    const p = await part('SUM1', 1);
+    expect(p.costPrice).toBe('12.5');
+    const [row] = await t.db.query(
+      `SELECT pg_typeof("costPrice")::text AS type, "costPrice" * 2 AS double
+         FROM inventory WHERE id = $1`,
+      [p.id],
+    );
+    expect(row.type).toBe('numeric');
+    expect(Number(row.double)).toBe(25);
+    const read = await t
+      .http()
+      .get(`/api/inventory/${p.id}`)
+      .set('Cookie', cookie);
+    expect(read.body.costPrice).toBe('12.5');
+  });
+
   it('never loses or oversells the last unit under concurrency', async () => {
     const p = await part('LAST1', 1);
     const results = await Promise.all(
