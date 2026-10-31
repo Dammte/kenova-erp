@@ -1,6 +1,7 @@
 "use client";
 
 import { API_URL, apiFetch } from "@/lib/api";
+import { PickupReminders } from "@/components/notices/PickupReminders";
 
 import React, {
   useState,
@@ -1016,6 +1017,10 @@ export default function Dashboard() {
           </button>
         </div>
       </header>
+
+      <div className={styles.reminders}>
+        <PickupReminders />
+      </div>
 
       <main className={styles.main}>
         {error && (

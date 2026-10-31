@@ -1311,3 +1311,12 @@
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
 }
+
+/* Design 2.5: the pickup reminders, aligned with the header. */
+.reminders {
+  position: relative;
+  padding: 16px 28px 0;
+}
+.reminders:empty {
+  display: none;
+}
