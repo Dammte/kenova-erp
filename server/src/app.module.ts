@@ -17,6 +17,7 @@ import { ServiceHistoryModule } from './service-history/service-history.module';
 import { ServiceOrderModule } from './service-order/service-order.module';
 import { MessageTemplatesModule } from './message-templates/message-templates.module';
 import { QuotesModule } from './quotes/quotes.module';
+import { CashModule } from './cash/cash.module';
 import { TodayModule } from './today/today.module';
 import { SearchModule } from './search/search.module';
 import { ServicesModule } from './services/services.module';
@@ -62,6 +63,7 @@ import { UsersModule } from './users/users.module';
     QuotesModule,
     MessageTemplatesModule,
     TodayModule,
+    CashModule,
   ],
   controllers: [AppController],
 })
