@@ -61,6 +61,21 @@ describe('One-screen intake (POST /service-orders/intake)', () => {
     expect(reveal.body).toMatchObject({ type: 'CODE', value: '4321' });
   });
 
+  it('stores an unlock pattern encrypted, like the PIN', async () => {
+    const res = await intake({
+      client: { ...newClient, phoneNumber: '600555666' },
+      device: { ...newDevice, code: undefined, pattern: '1-5-9-6' },
+      order: {},
+    });
+    expect(res.status).toBe(201);
+    expect(JSON.stringify(res.body)).not.toContain('1-5-9-6');
+    const reveal = await post(
+      `/api/devices/${res.body.device.id}/unlock-secret/reveal`,
+      {},
+    );
+    expect(reveal.body).toMatchObject({ type: 'PATTERN', value: '1-5-9-6' });
+  });
+
   it('reuses an existing client and device', async () => {
     const first = await intake({
       client: { ...newClient, phoneNumber: '600333444' },

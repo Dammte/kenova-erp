@@ -33,9 +33,24 @@ export interface NewDevice {
   brand: string;
   model: string;
   imei: string;
-  /** PIN or password; the pattern comes later. */
+  /** How the device is unlocked; only the chosen secret is sent. */
+  unlock: Unlock;
+  /** PIN or password. */
   code: string;
+  /** Pattern dots 1-9 joined with "-", e.g. "1-5-9-6". */
+  pattern: string;
 }
+
+export type Unlock = "none" | "code" | "pattern";
+
+export const UNLOCKS: [Unlock, string][] = [
+  ["none", "Sin código"],
+  ["code", "PIN o contraseña"],
+  ["pattern", "Patrón"],
+];
+
+/** The server's pattern format; Android asks for 4 dots at least. */
+export const PATTERN_RE = /^[1-9](-[1-9]){3,8}$/;
 
 export type Priority = "low" | "medium" | "high" | "urgent";
 
@@ -68,7 +83,7 @@ export interface IntakeState {
 }
 
 export const EMPTY_CLIENT: NewClient = { firstName: "", lastName: "", phoneNumber: "", email: "" };
-export const EMPTY_DEVICE: NewDevice = { type: "movil", brand: "", model: "", imei: "", code: "" };
+export const EMPTY_DEVICE: NewDevice = { type: "movil", brand: "", model: "", imei: "", unlock: "none", code: "", pattern: "" };
 
 export const DEVICE_TYPES = [
   ["movil", "Móvil"],
@@ -142,6 +157,10 @@ export function missing(s: IntakeState): { field: string; text: string }[] {
   else if (!isKnown(s.device)) {
     if (!s.device.brand.trim()) out.push({ field: "device-brand", text: "Dispositivo: marca" });
     if (!s.device.model.trim()) out.push({ field: "device-model", text: "Dispositivo: modelo" });
+    if (s.device.unlock === "code" && !s.device.code.trim())
+      out.push({ field: "device-code", text: "Desbloqueo: PIN o contraseña" });
+    if (s.device.unlock === "pattern" && !PATTERN_RE.test(s.device.pattern))
+      out.push({ field: "device-pattern", text: "Desbloqueo: patrón de 4 puntos o más" });
   }
   if (s.faults.length === 0) out.push({ field: "faults", text: "Avería declarada" });
   if (s.deposit && cents(s.deposit) > cents(orderTotal(s)))
@@ -175,7 +194,8 @@ export function intakePayload(s: IntakeState) {
             brand: device.brand.trim(),
             model: device.model.trim(),
             imei: orNull(cleanImei(device.imei)),
-            ...(device.code.trim() ? { code: device.code.trim() } : {}),
+            ...(device.unlock === "code" && device.code.trim() ? { code: device.code.trim() } : {}),
+            ...(device.unlock === "pattern" ? { pattern: device.pattern } : {}),
           },
         }),
     order: {

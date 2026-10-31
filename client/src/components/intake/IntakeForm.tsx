@@ -8,6 +8,7 @@ import { formatEur } from "@/lib/format";
 import { FAULT_LABEL } from "@/components/orders/orderList";
 import { ClientPicker } from "./ClientPicker";
 import { DevicePicker } from "./DevicePicker";
+import { ImeiWarning } from "./ImeiWarning";
 import { ServicePicker } from "./ServicePicker";
 import {
   ACCESSORY_CHIPS,
@@ -135,6 +136,7 @@ export function IntakeForm() {
               value={s.device}
               onChange={(device) => set({ device })}
             />
+            {s.device?.imei && <ImeiWarning imei={s.device.imei} />}
           </Block>
 
           <Block n={3} title="Avería declarada" field="faults">
