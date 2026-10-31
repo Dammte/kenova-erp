@@ -6,13 +6,13 @@ const labels = (items: { label: string }[]) => items.map((i) => i.label);
 describe("navFor", () => {
   it("the partners see stock and settings", () => {
     const nav = navFor("SUPER_ADMIN");
-    expect(labels(nav.main)).toEqual(["Panel", "Órdenes", "Tarifas", "Clientes", "Inventario"]);
+    expect(labels(nav.main)).toEqual(["Panel", "Órdenes", "Presupuestos", "Tarifas", "Clientes", "Inventario"]);
     expect(labels(nav.settings)).toEqual(["Servicios", "Usuarios"]);
   });
 
   it("a store sees neither stock nor settings", () => {
     const nav = navFor("STORE_ADMIN");
-    expect(labels(nav.main)).toEqual(["Panel", "Órdenes", "Tarifas", "Clientes"]);
+    expect(labels(nav.main)).toEqual(["Panel", "Órdenes", "Presupuestos", "Tarifas", "Clientes"]);
     expect(nav.settings).toEqual([]);
   });
 });
