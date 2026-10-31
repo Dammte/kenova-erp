@@ -1,4 +1,5 @@
 import { FAULT_LABEL } from "@/components/orders/orderList";
+import type { Method } from "@/components/orders/ChargeForm";
 
 /** A client as GET /api/clients/search returns it. */
 export interface FoundClient {
@@ -38,6 +39,16 @@ export interface NewDevice {
 
 export type Priority = "low" | "medium" | "high" | "urgent";
 
+/** A service of the price list (GET /api/services?available=true). */
+export interface PricedService {
+  id: string;
+  name: string;
+  /** Decimal as the server sends it, e.g. "149.00". */
+  price: string | number;
+  category?: string | null;
+  estimatedTime?: string | null;
+}
+
 export interface IntakeState {
   client: FoundClient | NewClient | null;
   /** A device the client already had, or a new one. */
@@ -48,6 +59,12 @@ export interface IntakeState {
   accessories: string;
   priority: Priority;
   observations: string;
+  services: PricedService[];
+  /** The agreed total when it is not the sum of the services. */
+  total: number | null;
+  /** Paid on account at intake. */
+  deposit: number | null;
+  method: Method | null;
 }
 
 export const EMPTY_CLIENT: NewClient = { firstName: "", lastName: "", phoneNumber: "", email: "" };
@@ -103,6 +120,15 @@ export function toggleWord(text: string, word: string): string {
   return next.join(", ");
 }
 
+const cents = (n: number | string) => Math.round(Number(n) * 100);
+
+/** Sum of the chosen services, in euros. */
+export const servicesSum = (services: PricedService[]) =>
+  services.reduce((sum, x) => sum + cents(x.price), 0) / 100;
+
+/** The order total: the agreed one, or else the services' sum. */
+export const orderTotal = (s: Pick<IntakeState, "services" | "total">) => s.total ?? servicesSum(s.services);
+
 /** What still stops the order from being created, in screen order. */
 export function missing(s: IntakeState): { field: string; text: string }[] {
   const out: { field: string; text: string }[] = [];
@@ -118,6 +144,9 @@ export function missing(s: IntakeState): { field: string; text: string }[] {
     if (!s.device.model.trim()) out.push({ field: "device-model", text: "Dispositivo: modelo" });
   }
   if (s.faults.length === 0) out.push({ field: "faults", text: "Avería declarada" });
+  if (s.deposit && cents(s.deposit) > cents(orderTotal(s)))
+    out.push({ field: "deposit", text: "A cuenta mayor que el total" });
+  if (s.deposit && !s.method) out.push({ field: "method", text: "Forma de pago de lo que deja a cuenta" });
   return out;
 }
 
@@ -157,6 +186,9 @@ export function intakePayload(s: IntakeState) {
       physicalCondition: orNull(s.physicalCondition),
       accessories: orNull(s.accessories),
       ...(s.observations.trim() ? { observations: s.observations.trim() } : {}),
+      ...(s.services.length ? { serviceIds: s.services.map((x) => x.id) } : {}),
+      ...(s.services.length || s.total !== null ? { totalPrice: orderTotal(s) } : {}),
+      ...(s.deposit ? { amountPaid: s.deposit, paymentMethod: s.method } : {}),
     },
   };
 }
