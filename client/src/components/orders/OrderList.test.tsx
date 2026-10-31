@@ -107,7 +107,7 @@ describe("OrderList", () => {
     const [first, second] = screen.getAllByRole("row").slice(1);
     const row = within(first);
     expect(row.getByRole("link", { name: "MP-0142" }).getAttribute("href")).toBe(
-      "/serviceOrders/o1",
+      "/ordenes?orden=o1",
     );
     row.getByText("612 345 678");
     row.getByText("Pantalla rota, Batería");
@@ -122,10 +122,26 @@ describe("OrderList", () => {
     expect(within(second).queryByText(/Debe/)).toBeNull();
   });
 
-  it("opens the order when a row is clicked", async () => {
+  it("opens the order's panel when a row is clicked, keeping the list", async () => {
+    search = "tab=all";
     await show();
     fireEvent.click(screen.getByText("Lucía Fernández"));
-    expect(push).toHaveBeenCalledWith("/serviceOrders/o1");
+    expect(replace).toHaveBeenCalledWith("/ordenes?tab=all&orden=o1", { scroll: false });
+  });
+
+  it("shows the panel of the order in the address and closes it", async () => {
+    search = "orden=o1";
+    // The panel's own calls fail; the list behind it still loads.
+    fetchMock.mockImplementation(async (url: string) =>
+      url.startsWith("/api/service-orders/list")
+        ? new Response(JSON.stringify(PAGE))
+        : new Response("{}", { status: 500 }),
+    );
+    await show();
+    const panel = screen.getByRole("dialog", { name: "Orden MP-0142" });
+    expect(fetchMock.mock.calls.map((c) => c[0])).toContain("/api/service-orders/o1");
+    fireEvent.click(within(panel).getByRole("button", { name: "Cerrar" }));
+    expect(replace).toHaveBeenCalledWith("/ordenes", { scroll: false });
   });
 
   it("asks for what the address says and changes tab from page 1", async () => {
@@ -151,7 +167,7 @@ describe("OrderList", () => {
     search = "q=mp-0142";
     await show();
     fireEvent.keyDown(screen.getByLabelText("Buscar órdenes"), { key: "Enter" });
-    expect(push).toHaveBeenCalledWith("/serviceOrders/o1");
+    expect(replace).toHaveBeenCalledWith("/ordenes?q=mp-0142&orden=o1", { scroll: false });
   });
 
   it("an empty search says why and clears the filters", async () => {

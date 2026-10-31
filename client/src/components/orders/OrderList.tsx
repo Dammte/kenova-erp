@@ -20,10 +20,11 @@ import {
   type OrderListPage,
   type OrderRow,
 } from "./orderList";
+import OrderPanel from "./OrderPanel";
 import { StatusMenu } from "./StatusMenu";
 import styles from "./OrderList.module.css";
 
-/** Where a row leads until the order panel (design 1.5) exists. */
+/** The order's own page, for what the panel cannot do yet. */
 export const orderHref = (id: string) => `/serviceOrders/${id}`;
 export const NEW_ORDER_HREF = "/serviceOrders/newServiceOrder";
 
@@ -120,6 +121,17 @@ export default function OrderList() {
     [query, pathname, router],
   );
 
+  // The open order lives in the address too (?orden=), so it survives a reload.
+  const openId = params.get("orden");
+  const panelHref = (id: string | null) => {
+    const qs = queryString(query);
+    const all = new URLSearchParams(qs);
+    if (id) all.set("orden", id);
+    const s = all.toString();
+    return s ? `${pathname}?${s}` : pathname;
+  };
+  const openOrder = (id: string | null) => router.replace(panelHref(id), { scroll: false });
+
   // The search reaches the server once the user stops typing.
   useEffect(() => {
     if (draft.trim() === query.q.trim()) return;
@@ -149,7 +161,7 @@ export default function OrderList() {
   const onSearchKey = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key !== "Enter") return;
     const exact = data?.rows.find((r) => r.code.toLowerCase() === draft.trim().toLowerCase());
-    if (exact) router.push(orderHref(exact.id));
+    if (exact) openOrder(exact.id);
   };
 
   const changeStatus = async (row: OrderRow, from: OrderStatus, to: OrderStatus, undoable = true) => {
@@ -288,7 +300,8 @@ export default function OrderList() {
                 <Row
                   key={row.id}
                   row={{ ...row, status: moved[row.id] ?? row.status }}
-                  onOpen={() => router.push(orderHref(row.id))}
+                  href={panelHref(row.id)}
+                  onOpen={() => openOrder(row.id)}
                   onStatus={(from, to) => void changeStatus(row, from, to)}
                 />
               ))}
@@ -296,6 +309,16 @@ export default function OrderList() {
           </table>
           {data && <Pager data={data} onPage={(page) => go({ page })} />}
         </div>
+      )}
+
+      {openId && (
+        <OrderPanel
+          key={openId}
+          id={openId}
+          code={rows.find((r) => r.id === openId)?.code}
+          fullHref={orderHref(openId)}
+          onClose={() => openOrder(null)}
+        />
       )}
 
       {toast && (
@@ -314,10 +337,13 @@ export default function OrderList() {
 
 function Row({
   row,
+  href,
   onOpen,
   onStatus,
 }: {
   row: OrderRow;
+  /** Opens the order's panel; the number links there too, for the keyboard. */
+  href: string;
   onOpen: () => void;
   onStatus: (from: OrderStatus, to: OrderStatus) => void;
 }) {
@@ -327,7 +353,9 @@ function Row({
     <tr className={styles.row} onClick={onOpen}>
       <td className={styles.code}>
         <Link
-          href={orderHref(row.id)}
+          href={href}
+          replace
+          scroll={false}
           className={`${styles.codeLink} ${styles[`p_${row.priority}`]}`}
           onClick={(e) => e.stopPropagation()}
         >
