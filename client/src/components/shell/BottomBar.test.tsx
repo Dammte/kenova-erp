@@ -39,7 +39,7 @@ describe("BottomBar", () => {
     );
   });
 
-  it("«Menú» holds the rest, with settings only for the partners", () => {
+  it("«Menú» holds the rest; a store's only setting is its notice texts", () => {
     const { rerender } = render(<BottomBar />);
     fireEvent.click(screen.getByRole("button", { name: "Menú" }));
     const sheet = screen.getByRole("dialog", { name: "Menú" });
@@ -49,6 +49,7 @@ describe("BottomBar", () => {
       "Clientes",
       "Inventario",
       "Servicios",
+      "Plantillas",
       "Usuarios",
     ]);
     fireEvent.keyDown(window, { key: "Escape" });
@@ -59,8 +60,7 @@ describe("BottomBar", () => {
     fireEvent.click(screen.getByRole("button", { name: "Menú" }));
     expect(
       within(screen.getByRole("dialog")).getAllByRole("link").map((a) => a.textContent),
-    ).toEqual(["Presupuestos", "Tarifas", "Clientes"]);
-    expect(screen.queryByText("Configuración")).toBeNull();
+    ).toEqual(["Presupuestos", "Tarifas", "Clientes", "Plantillas"]);
   });
 
   it("marks «Menú» when the current section lives in it", () => {

@@ -43,11 +43,12 @@ describe("Sidebar", () => {
     ).toBeNull();
   });
 
-  it("a store account has no stock and no settings", () => {
+  it("a store account has no stock and only its notice texts in settings", () => {
     user = asRole("STORE_ADMIN");
     render(<Sidebar />);
     expect(screen.queryByRole("link", { name: "Inventario" })).toBeNull();
-    expect(screen.queryByText("Configuración")).toBeNull();
+    expect(screen.queryByRole("link", { name: "Usuarios" })).toBeNull();
+    expect(screen.getByRole("link", { name: "Plantillas" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Nueva orden" })).toBeTruthy();
   });
 
