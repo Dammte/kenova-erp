@@ -323,6 +323,62 @@
   white-space: nowrap;
 }
 
+/* Finishing an order, inside "Siguiente paso". */
+.finish {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-2);
+}
+.label {
+  padding: 0;
+  font: var(--k-text-sm);
+  font-weight: 500;
+}
+.group {
+  margin: var(--k-space-2) 0 0;
+  padding: 0;
+  border: 0;
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--k-space-2);
+  margin-top: var(--k-space-2);
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--k-space-2);
+  min-height: 32px;
+  padding: 0 var(--k-space-3);
+  border: var(--k-border-w) solid var(--k-border-strong);
+  border-radius: var(--k-radius-full);
+  font: var(--k-text-sm);
+  cursor: pointer;
+}
+.chip:has(input:checked) {
+  border-color: var(--k-accent);
+  background: var(--k-accent-subtle);
+  font-weight: 500;
+}
+.chip:has(input:focus-visible) {
+  box-shadow: var(--k-focus-ring);
+}
+.input {
+  height: var(--k-control-h);
+  padding: 0 var(--k-space-3);
+  border: var(--k-border-w) solid var(--k-border-strong);
+  border-radius: var(--k-radius-md);
+  background: var(--k-surface);
+  color: var(--k-text);
+  font: var(--k-text-base);
+}
+.input:focus {
+  outline: none;
+  border-color: var(--k-accent);
+  box-shadow: var(--k-focus-ring);
+}
+
 .history li {
   padding: var(--k-space-2) 0;
   border-bottom: var(--k-border-w) solid var(--k-border);

@@ -81,6 +81,7 @@ const NOTES = [
 
 const fetchMock = vi.fn();
 const onClose = vi.fn();
+const onChanged = vi.fn();
 
 function serve(overrides: Record<string, Response> = {}) {
   fetchMock.mockImplementation(async (url: string) => {
@@ -94,6 +95,7 @@ function serve(overrides: Record<string, Response> = {}) {
 
 beforeEach(() => {
   onClose.mockReset();
+  onChanged.mockReset();
   fetchMock.mockReset();
   serve();
   vi.stubGlobal("fetch", fetchMock);
@@ -104,10 +106,18 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-async function open() {
-  render(<OrderPanel id="o1" code="MP-0142" fullHref="/serviceOrders/o1" onClose={onClose} />);
+async function open(order?: Partial<OrderDetail>) {
+  if (order) serve({ "/api/service-orders/o1": new Response(JSON.stringify({ ...ORDER, ...order })) });
+  render(
+    <OrderPanel id="o1" code="MP-0142" fullHref="/serviceOrders/o1" onClose={onClose} onChanged={onChanged} />,
+  );
   await act(async () => {});
 }
+
+const patches = () =>
+  fetchMock.mock.calls
+    .filter(([, init]) => (init as RequestInit | undefined)?.method === "PATCH")
+    .map(([url, init]) => [url, JSON.parse((init as RequestInit).body as string)]);
 
 describe("OrderPanel", () => {
   it("leads with the fault, then the work, the money, the device and the client", async () => {
@@ -115,6 +125,7 @@ describe("OrderPanel", () => {
     screen.getByRole("dialog", { name: "Orden MP-0142" });
     const titles = screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent);
     expect(titles).toEqual([
+      "Siguiente paso",
       "Avería declarada en la entrada",
       "Servicios y piezas",
       "Pagos",
@@ -216,6 +227,99 @@ describe("OrderPanel", () => {
     fireEvent.keyDown(window, { key: "Escape" });
     fireEvent.click(screen.getByRole("button", { name: "Cerrar" }));
     expect(onClose).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("OrderPanel next step", () => {
+  it("finishes the order with the work done, the tests and the result", async () => {
+    await open();
+    fireEvent.click(screen.getByRole("button", { name: "Finalizar…" }));
+    const finish = screen.getByRole("button", { name: "Finalizar orden" });
+    expect(finish.hasAttribute("disabled")).toBe(true);
+    screen.getByText("Escribe el trabajo realizado.");
+
+    fireEvent.change(screen.getByLabelText(/Trabajo realizado/), { target: { value: " Pantalla cambiada " } });
+    fireEvent.click(screen.getByLabelText("Carga"));
+    fireEvent.click(screen.getByLabelText("Táctil"));
+    fireEvent.click(screen.getByLabelText("No reparado"));
+    screen.getByText("Indica por qué no se repara.");
+    fireEvent.change(screen.getByLabelText("Por qué no se repara"), { target: { value: "Placa dañada" } });
+    const reads = fetchMock.mock.calls.length;
+    fireEvent.click(screen.getByRole("button", { name: "Finalizar orden" }));
+    await act(async () => {});
+
+    expect(patches()).toEqual([
+      [
+        "/api/service-orders/o1",
+        {
+          status: "finalizado",
+          workDone: "Pantalla cambiada",
+          testsDone: ["touch", "charging"],
+          result: "not_repaired",
+          notRepairedReason: "Placa dañada",
+        },
+      ],
+    ]);
+    expect(onChanged).toHaveBeenCalledTimes(1);
+    // The panel reloads the order after the change.
+    expect(fetchMock.mock.calls.length).toBeGreaterThan(reads + 1);
+  });
+
+  it("sends a repaired order without a reason", async () => {
+    await open();
+    fireEvent.click(screen.getByRole("button", { name: "Finalizar…" }));
+    fireEvent.change(screen.getByLabelText(/Trabajo realizado/), { target: { value: "Batería nueva" } });
+    fireEvent.click(screen.getByRole("button", { name: "Finalizar orden" }));
+    await act(async () => {});
+    expect(patches()[0][1]).toEqual({
+      status: "finalizado",
+      workDone: "Batería nueva",
+      testsDone: [],
+      result: "repaired",
+      notRepairedReason: null,
+    });
+  });
+
+  it.each([
+    ["pendiente_piezas", "Pieza recibida"],
+    ["pendiente_cliente", "Cliente respondió"],
+  ] as const)("takes a %s order back to work", async (status, label) => {
+    await open({ status });
+    fireEvent.click(screen.getByRole("button", { name: label }));
+    await act(async () => {});
+    expect(patches()).toEqual([["/api/service-orders/o1", { status: "en_progreso" }]]);
+    expect(onChanged).toHaveBeenCalled();
+  });
+
+  it("does not deliver while money is owed", async () => {
+    await open({ status: "finalizado", finishedAt: "2026-10-30T10:00:00Z" });
+    expect(screen.getByRole("button", { name: "Entregar…" }).hasAttribute("disabled")).toBe(true);
+    screen.getByText(/Cobra antes los 90,00\s€ pendientes/);
+  });
+
+  it("delivers a paid order after confirming", async () => {
+    await open({ status: "finalizado", finishedAt: "2026-10-30T10:00:00Z", balance: "0.00", amountPaid: "149.00" });
+    fireEvent.click(screen.getByRole("button", { name: "Entregar…" }));
+    screen.getByText("¿Entregar el equipo a Lucía Fernández?");
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar entrega" }));
+    await act(async () => {});
+    expect(patches()).toEqual([["/api/service-orders/o1", { status: "entregado" }]]);
+  });
+
+  it("shows why the server refused the change", async () => {
+    await open({ status: "pendiente_piezas" });
+    fetchMock.mockImplementationOnce(
+      async () => new Response(JSON.stringify({ message: "El equipo aún no ha vuelto a la tienda" }), { status: 400 }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Pieza recibida" }));
+    await act(async () => {});
+    expect(screen.getByRole("alert").textContent).toContain("El equipo aún no ha vuelto a la tienda");
+    expect(onChanged).not.toHaveBeenCalled();
+  });
+
+  it("offers nothing on a delivered or cancelled order", async () => {
+    await open({ status: "entregado" });
+    expect(screen.queryByText("Siguiente paso")).toBeNull();
   });
 });
 

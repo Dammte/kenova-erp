@@ -18,6 +18,7 @@ import {
   type OrderPayment,
 } from "./orderDetail";
 import { FAULT_LABEL, PRIORITY_LABEL } from "./orderList";
+import { OrderActions } from "./OrderActions";
 import { OrderNotes } from "./OrderNotes";
 import styles from "./OrderPanel.module.css";
 
@@ -65,13 +66,15 @@ function useOrder(id: string) {
 /**
  * Design 1.5 as a side panel over the list: what is wrong with the device,
  * what has to be done, the money, then the device, the client and the notes.
- * Read only for now; changes still happen on the order's page.
+ * The next step for the status is done here; editing, charging and printing
+ * still happen on the order's page.
  */
 export default function OrderPanel({
   id,
   code,
   fullHref,
   onClose,
+  onChanged,
 }: {
   id: string;
   /** The number from the list, shown while the order loads. */
@@ -79,6 +82,8 @@ export default function OrderPanel({
   /** The order's page, for what the panel cannot do yet. */
   fullHref: string;
   onClose: () => void;
+  /** After the panel changed the order, so the list can refresh. */
+  onChanged?: () => void;
 }) {
   const { data, error, retry } = useOrder(id);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -141,7 +146,16 @@ export default function OrderPanel({
           ) : !data ? (
             <p className={styles.loading}>Cargando…</p>
           ) : (
-            <Sections {...data} />
+            <>
+              <OrderActions
+                order={data.order}
+                onChanged={() => {
+                  retry();
+                  onChanged?.();
+                }}
+              />
+              <Sections {...data} />
+            </>
           )}
         </div>
       </aside>
