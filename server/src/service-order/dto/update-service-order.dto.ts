@@ -68,4 +68,14 @@ export class UpdateServiceOrderDto extends PartialType(
   @MaxLength(300)
   @IsOptional()
   warrantyRejectedReason?: string | null;
+
+  /**
+   * Why the order is handed over with money still owed. Not a column: it only
+   * goes to the history when the order becomes delivered with a balance.
+   */
+  @Transform(trimToNull)
+  @IsString()
+  @MaxLength(300)
+  @IsOptional()
+  owedReason?: string | null;
 }
