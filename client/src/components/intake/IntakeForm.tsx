@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui";
 import { API_URL, apiFetch, errorMessage } from "@/lib/api";
@@ -23,6 +23,7 @@ import {
   toggleWord,
   type FoundClient,
   type IntakeState,
+  type PricedService,
 } from "./intake";
 import styles from "./Intake.module.css";
 
@@ -85,6 +86,25 @@ export function IntakeForm() {
   const [problem, setProblem] = useState<string | null>(null);
 
   const set = (patch: Partial<IntakeState>) => setS((prev) => ({ ...prev, ...patch }));
+
+  // «Dar de alta» from the price list opens /ordenes/nueva?servicio=<id>: the rate comes in.
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("servicio");
+    if (!id) return;
+    const controller = new AbortController();
+    apiFetch(`${API_URL}/services/${encodeURIComponent(id)}`, { signal: controller.signal })
+      .then(async (res) => {
+        if (!res.ok) return;
+        const rate = (await res.json()) as PricedService;
+        setS((prev) =>
+          prev.services.some((x) => x.id === rate.id) ? prev : { ...prev, services: [...prev.services, rate] },
+        );
+      })
+      .catch(() => {
+        // The rate is a shortcut; without it the intake works the same.
+      });
+    return () => controller.abort();
+  }, []);
   const todo = missing(s);
   const knownClientId = s.client && isKnown<FoundClient>(s.client) ? s.client.id : null;
 

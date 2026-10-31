@@ -118,6 +118,9 @@ describe("RatesPage", () => {
     });
     expect(writeText.mock.calls[0][0]).toMatch(/79,00\s€ con pieza original/);
     expect(screen.getByRole("status").textContent).toBe("Copiado.");
+    expect(within(panel).getByRole("link", { name: "Dar de alta" }).getAttribute("href")).toBe(
+      "/ordenes/nueva?servicio=r2",
+    );
   });
 
   it("says when nothing matches and does not search one letter", async () => {

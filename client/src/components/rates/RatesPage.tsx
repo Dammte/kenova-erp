@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Copy, Search } from "lucide-react";
+import Link from "next/link";
+import { Copy, Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { API_URL, apiFetch } from "@/lib/api";
@@ -45,12 +46,19 @@ function Price({ row, onEdit }: { row: RateRow | null; onEdit?: (id: string) => 
   );
 }
 
+/** The rate an intake starts with: the quoted one, or the compatible when both are quoted. */
+function intakeRate(g: RateGroup, choice: Choice): RateRow | null {
+  if (choice === "original") return g.original;
+  return g.single ?? g.compatible ?? g.original;
+}
+
 /** The text for the customer, with the price to quote and a copy button. */
 function WhatsApp({ group }: { group: RateGroup }) {
   const choices = choicesFor(group);
   const [choice, setChoice] = useState<Choice>(choices[0] ?? "compatible");
   const [copied, setCopied] = useState(false);
   const text = whatsappText(group, choice);
+  const start = intakeRate(group, choice);
 
   const copy = async () => {
     try {
@@ -86,6 +94,11 @@ function WhatsApp({ group }: { group: RateGroup }) {
         <Button variant="primary" size="sm" icon={<Copy size={16} aria-hidden />} onClick={() => void copy()}>
           Copiar para WhatsApp
         </Button>
+        {start && (
+          <Link className={styles.intake} href={`/ordenes/nueva?servicio=${start.id}`}>
+            <Plus size={16} aria-hidden /> Dar de alta
+          </Link>
+        )}
         <span role="status" className={styles.muted}>
           {copied ? "Copiado." : ""}
         </span>

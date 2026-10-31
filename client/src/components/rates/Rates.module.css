@@ -234,6 +234,18 @@ button.chip:focus-visible {
   padding: 0;
   border: 0;
 }
+.intake {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--k-space-1);
+  color: var(--k-accent);
+  font: var(--k-text-sm);
+  font-weight: 500;
+}
+.intake:focus-visible {
+  outline: none;
+  box-shadow: var(--k-focus-ring);
+}
 
 @media (max-width: 600px) {
   .page {
