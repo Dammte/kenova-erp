@@ -348,3 +348,10 @@
   align-items: center;
   gap: var(--k-space-2);
 }
+.quoteActions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-2);
+  padding-top: var(--k-space-3);
+  border-top: var(--k-border-w) solid var(--k-border);
+}

@@ -4,11 +4,24 @@ import Link from "next/link";
 import { Pencil } from "lucide-react";
 import { Button } from "@/components/ui";
 import { formatEur } from "@/lib/format";
+import { QuoteActions } from "./QuoteActions";
 import { QUALITY_LABEL, QUOTE_STATUS_LABEL, formatDay, validityText, type QuoteDetail } from "./quotes";
 import styles from "./Quotes.module.css";
 
 /** Design 2.4: one quote as the client got it, with its validity and who made it. */
-export function QuoteView({ quote, onEdit }: { quote: QuoteDetail; onEdit: () => void }) {
+export function QuoteView({
+  quote,
+  notice,
+  onEdit,
+  onChanged,
+  onDeleted,
+}: {
+  quote: QuoteDetail;
+  notice?: string | null;
+  onEdit: () => void;
+  onChanged: (q: QuoteDetail, notice?: string) => void;
+  onDeleted: () => void;
+}) {
   const device = [quote.brand, quote.model].filter(Boolean).join(" ");
   return (
     <article className={styles.detail} aria-label={`Presupuesto ${quote.code}`}>
@@ -25,6 +38,11 @@ export function QuoteView({ quote, onEdit }: { quote: QuoteDetail; onEdit: () =>
           </Button>
         )}
       </header>
+      {notice && (
+        <p role="status" className={styles.notice}>
+          {notice}
+        </p>
+      )}
       {quote.order && (
         <p className={styles.notice}>
           Convertido en la orden <Link href={`/ordenes?orden=${quote.order.id}`}>{quote.order.code}</Link>.
@@ -91,6 +109,7 @@ export function QuoteView({ quote, onEdit }: { quote: QuoteDetail; onEdit: () =>
       {quote.diagnosticFee && (
         <p className={styles.muted}>Si no se acepta, se cobra el diagnóstico ({formatEur(quote.diagnosticFee)}).</p>
       )}
+      <QuoteActions quote={quote} onChanged={onChanged} onDeleted={onDeleted} />
     </article>
   );
 }
