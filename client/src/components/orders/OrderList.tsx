@@ -318,6 +318,7 @@ export default function OrderList() {
           code={rows.find((r) => r.id === openId)?.code}
           fullHref={orderHref(openId)}
           onClose={() => openOrder(null)}
+          onChanged={retry}
         />
       )}
 
