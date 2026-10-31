@@ -70,7 +70,7 @@ describe("ChangePasswordForm", () => {
     type("Repite la contraseña", "tres gatos azules");
     expect(save().hasAttribute("disabled")).toBe(false);
     fireEvent.click(save());
-    await waitFor(() => expect(navigate).toHaveBeenCalledWith("/dashboard"));
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith("/panel"));
   });
 
   it("from the menu: shows the server's reason when it refuses", async () => {

@@ -24,7 +24,7 @@ export interface NavSections {
   settings: NavItem[];
 }
 
-const PANEL: NavItem = { label: "Panel", href: "/dashboard", icon: LayoutDashboard };
+const PANEL: NavItem = { label: "Panel", href: "/panel", icon: LayoutDashboard };
 const ORDERS: NavItem = { label: "Órdenes", href: "/ordenes", icon: ClipboardList };
 const QUOTES: NavItem = { label: "Presupuestos", href: "/presupuestos", icon: FileText };
 const RATES: NavItem = { label: "Tarifas", href: "/tarifas", icon: Tags };
@@ -54,7 +54,7 @@ export function navFor(role: Role): NavSections {
  * Older screens a section still owns: an order opens on /serviceOrders/... until
  * its new screen exists.
  */
-const ALSO_UNDER: Record<string, string[]> = { "/ordenes": ["/serviceOrders"] };
+const ALSO_UNDER: Record<string, string[]> = { "/ordenes": ["/serviceOrders"], "/panel": ["/dashboard"] };
 
 const isUnder = (href: string, pathname: string): boolean =>
   pathname === href || pathname.startsWith(`${href}/`);

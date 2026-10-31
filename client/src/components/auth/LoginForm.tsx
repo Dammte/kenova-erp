@@ -9,7 +9,7 @@ import { AuthLayout, authStyles as styles } from "./AuthLayout";
 /** Only same-site relative paths are accepted as a post-login destination. */
 export function safeNext(next: string | null): string {
   if (!next || !next.startsWith("/") || next.startsWith("//") || next.startsWith("/login")) {
-    return "/dashboard";
+    return "/panel";
   }
   return next;
 }

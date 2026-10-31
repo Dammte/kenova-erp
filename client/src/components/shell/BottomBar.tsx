@@ -12,7 +12,7 @@ import styles from "./BottomBar.module.css";
 export const OPEN_SEARCH_EVENT = "kenova:open-search";
 
 /** Sections that get their own tab; the rest live under «Menú». */
-const TABS = ["/dashboard", "/ordenes"];
+const TABS = ["/panel", "/ordenes"];
 
 /**
  * Design 1.2, phone: the side bar becomes a bottom bar with the daily
