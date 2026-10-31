@@ -36,4 +36,8 @@ describe("isActive", () => {
     expect(isActive("/clientes", "/clientes")).toBe(true);
     expect(isActive("/clientes", "/clients/42")).toBe(true);
   });
+
+  it("Inventario stays lit on the older part screens", () => {
+    expect(isActive("/inventario", "/inventory/add-part")).toBe(true);
+  });
 });

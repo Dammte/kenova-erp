@@ -175,7 +175,7 @@ export function TodayPage() {
               ))}
             </Card>
             {data.lowStock && (
-              <Card title="Stock bajo" total={data.lowStock.total} empty="Todo por encima del mínimo." more="/inventory">
+              <Card title="Stock bajo" total={data.lowStock.total} empty="Todo por encima del mínimo." more="/inventario?bajo=1">
                 {data.lowStock.rows.map((r) => (
                   <Row
                     key={r.id}

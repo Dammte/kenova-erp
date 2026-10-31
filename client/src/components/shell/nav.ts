@@ -31,7 +31,7 @@ const QUOTES: NavItem = { label: "Presupuestos", href: "/presupuestos", icon: Fi
 const RATES: NavItem = { label: "Tarifas", href: "/tarifas", icon: Tags };
 const CLIENTS: NavItem = { label: "Clientes", href: "/clientes", icon: Users };
 const MONEY: NavItem = { label: "Dinero", href: "/dinero", icon: Coins };
-const INVENTORY: NavItem = { label: "Inventario", href: "/inventory", icon: Package };
+const INVENTORY: NavItem = { label: "Inventario", href: "/inventario", icon: Package };
 const SERVICES: NavItem = { label: "Servicios", href: "/services", icon: Wrench };
 const TEMPLATES: NavItem = { label: "Plantillas", href: "/plantillas", icon: MessageSquareText };
 const USERS: NavItem = { label: "Usuarios", href: "/usuarios", icon: UserCog };
@@ -60,6 +60,7 @@ const ALSO_UNDER: Record<string, string[]> = {
   "/ordenes": ["/serviceOrders"],
   "/panel": ["/dashboard"],
   "/clientes": ["/clients"],
+  "/inventario": ["/inventory"],
 };
 
 const isUnder = (href: string, pathname: string): boolean =>
