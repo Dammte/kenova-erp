@@ -8,6 +8,7 @@ import { Inventory } from './entities/inventory.entity';
 import { StockMovement } from './entities/stock-movement.entity';
 import { PurchaseInvoicesController } from './invoices/purchase-invoices.controller';
 import { PurchaseInvoicesService } from './invoices/purchase-invoices.service';
+import { InvoiceReaderService } from './invoices/invoice-reader.service';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Inventory, StockMovement])],
@@ -16,6 +17,7 @@ import { PurchaseInvoicesService } from './invoices/purchase-invoices.service';
     InventoryService,
     InventoryImportService,
     PurchaseInvoicesService,
+    InvoiceReaderService,
     InventoryListService,
   ],
 })

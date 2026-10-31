@@ -232,6 +232,28 @@ describe('Supplier invoices into stock (/api/purchase-invoices)', () => {
     expect(await stockOf(battery)).toBe(before);
   });
 
+  it('reads only PDFs and photos, and says when the AI is not set up', async () => {
+    const send = (file: Buffer, name: string) =>
+      t
+        .http()
+        .post('/api/purchase-invoices/read')
+        .set('Cookie', sa)
+        .set('Origin', ORIGIN)
+        .attach('file', file, {
+          filename: name,
+          contentType: 'application/pdf',
+        });
+    const html = await send(Buffer.from('<html>no</html>'), 'factura.pdf');
+    expect(html.status).toBe(400);
+    expect((html.body as { message: string }).message).toBe(
+      'Solo se aceptan PDF, JPG o PNG',
+    );
+    // Tests run without GEMINI_API_KEY: the screen offers typing the lines.
+    const pdf = await send(Buffer.from('%PDF-1.4\n'), 'factura.pdf');
+    expect(pdf.status).toBe(503);
+    expect((pdf.body as { message: string }).message).toMatch(/a mano/);
+  });
+
   it('is for the partners only', async () => {
     const store = await t.login(t.storeAdmin.email);
     const res = await t
