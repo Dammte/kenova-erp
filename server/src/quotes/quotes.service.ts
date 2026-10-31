@@ -58,10 +58,13 @@ export interface QuoteList {
   counts: Record<QuoteTab, number>;
 }
 
-export interface QuoteDetail extends Omit<Quote, 'status' | 'createdBy'> {
+export interface QuoteDetail
+  extends Omit<Quote, 'status' | 'createdBy' | 'order'> {
   status: QuoteStatus;
   lines: QuoteLine[];
   createdBy: { fullName: string } | null;
+  /** The order it became, once accepted. */
+  order: { id: string; code: string } | null;
 }
 
 /** A line whose price moved when the quote was renewed. */
@@ -182,12 +185,13 @@ export class QuotesService {
       where: { quoteId: id },
       order: { position: 'ASC' },
     });
-    const { createdBy, ...rest } = quote;
+    const { createdBy, order, ...rest } = quote;
     return {
       ...rest,
       status: effectiveStatus(quote),
       lines,
       createdBy: createdBy ? { fullName: createdBy.fullName } : null,
+      order: order ? { id: order.id, code: order.code } : null,
     };
   }
 
@@ -325,7 +329,7 @@ export class QuotesService {
     const storeId = scopedStoreId(actor);
     const quote = await m.getRepository(Quote).findOne({
       where: { id, ...(storeId ? { storeId } : {}) },
-      relations: lock ? {} : { createdBy: true },
+      relations: lock ? {} : { createdBy: true, order: true },
       ...(lock ? { lock: { mode: 'pessimistic_write' as const } } : {}),
     });
     if (!quote) throw new NotFoundException('Presupuesto no encontrado');

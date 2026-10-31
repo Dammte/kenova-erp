@@ -249,4 +249,52 @@ describe('Quotes (presupuestos)', () => {
     expect(res.status).toBe(409);
     expect(res.body.message).toContain('desde la orden');
   });
+  it('becomes an order through the intake, once, in the store that gave it', async () => {
+    const q = await create(vc, {
+      lines: [
+        { serviceId: battery, description: 'Batería', unitPrice: 99 },
+        { description: 'Limpieza', unitPrice: 20 },
+      ],
+    });
+    await send('post', vc, `/api/quotes/${q.id}/send`);
+    const intake = (quoteId: string, cookie = sa) =>
+      send('post', cookie, '/api/service-orders/intake', {
+        quoteId,
+        client: { firstName: 'Aitor', phoneNumber: '688450117' },
+        device: { type: 'movil', brand: 'Apple', model: 'MacBook Air M1' },
+        order: {
+          status: 'en_progreso',
+          reportedFaults: ['liquid_damage'],
+          serviceIds: [battery],
+          totalPrice: 119,
+        },
+      });
+    // A partner, from the workshop, accepts the store's quote.
+    const res = await intake(q.id);
+    expect(res.status).toBe(201);
+    expect(res.body.code).toMatch(/^VC-/);
+    expect(Number(res.body.totalPrice)).toBe(119);
+
+    const accepted = (await get(vc, `/api/quotes/${q.id}`)).body;
+    expect(accepted).toMatchObject({
+      status: 'accepted',
+      order: { id: res.body.id, code: res.body.code },
+    });
+    const again = await intake(q.id);
+    expect(again.status).toBe(409);
+    expect(again.body.message).toContain('ya se convirtió');
+
+    const old = await create(sa);
+    await expire(old.id);
+    expect((await intake(old.id)).body.message).toContain('caducado');
+    const other = await create(sa);
+    const before = Number(
+      (await t.db.query(`SELECT count(*)::int AS n FROM service_orders`))[0].n,
+    );
+    expect((await intake(other.id, vc)).status).toBe(404);
+    const after = Number(
+      (await t.db.query(`SELECT count(*)::int AS n FROM service_orders`))[0].n,
+    );
+    expect(after).toBe(before);
+  });
 });
