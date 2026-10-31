@@ -15,6 +15,7 @@ import { InventoryModule } from './inventory/inventory.module';
 import { ModelsModule } from './models/models.module';
 import { ServiceHistoryModule } from './service-history/service-history.module';
 import { ServiceOrderModule } from './service-order/service-order.module';
+import { QuotesModule } from './quotes/quotes.module';
 import { SearchModule } from './search/search.module';
 import { ServicesModule } from './services/services.module';
 import { ShipmentsModule } from './shipments/shipments.module';
@@ -56,6 +57,7 @@ import { UsersModule } from './users/users.module';
     StickyNotesModule,
     ShipmentsModule,
     SearchModule,
+    QuotesModule,
   ],
   controllers: [AppController],
 })

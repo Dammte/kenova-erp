@@ -25,6 +25,7 @@ import { ServiceHistory } from '../service-history/entities/service-history.enti
     OrderPaymentsService,
     OrderListService,
   ],
+  exports: [ServiceOrderService],
   imports: [
     ClientsModule,
     DevicesModule,

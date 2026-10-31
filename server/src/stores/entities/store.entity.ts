@@ -100,6 +100,10 @@ export class Store {
   @Column({ type: 'int', default: 1 })
   nextOrderNumber: number;
 
+  /** Next quote number, handed out the same way (MP-P0031). */
+  @Column({ type: 'int', default: 1 })
+  nextQuoteNumber: number;
+
   /** An inactive store takes no new orders and its users cannot sign in. */
   @Column({ default: true })
   isActive: boolean;
