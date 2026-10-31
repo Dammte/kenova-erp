@@ -4,11 +4,15 @@ import { useEffect, useState } from "react";
 import { Button, TextField } from "@/components/ui";
 import { API_URL, apiFetch } from "@/lib/api";
 import { DEVICE_TYPE_LABEL } from "@/components/orders/orderDetail";
-import { DEVICE_TYPES, EMPTY_DEVICE, cleanImei, isKnown, type KnownDevice, type NewDevice } from "./intake";
+import PatternLock from "@/components/serviceOrders/PatternLock";
+import { DEVICE_TYPES, EMPTY_DEVICE, UNLOCKS, cleanImei, isKnown, type KnownDevice, type NewDevice } from "./intake";
 import styles from "./Intake.module.css";
 
 /** Previous devices shown as one-tap chips; the newest first. */
 const SHOWN = 4;
+
+/** "159" or "1 5 9" typed by hand become the stored "1-5-9". */
+export const dashDots = (s: string) => s.replace(/[^1-9]/g, "").split("").slice(0, 9).join("-");
 
 const shortDate = new Intl.DateTimeFormat("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" });
 
@@ -121,14 +125,44 @@ export function DevicePicker({
           value={value.imei}
           onChange={(e) => set({ imei: cleanImei(e.target.value) })}
         />
-        <TextField
-          label="Código de desbloqueo · opcional"
-          hint="Se guarda cifrado. El patrón se añade desde la orden."
-          autoComplete="off"
-          value={value.code}
-          onChange={(e) => set({ code: e.target.value })}
-        />
       </div>
+      <fieldset className={styles.group}>
+        <legend className={styles.label}>
+          Desbloqueo <span className={styles.muted}>· se guarda cifrado</span>
+        </legend>
+        <div className={styles.chips}>
+          {UNLOCKS.map(([u, label]) => (
+            <label key={u} className={styles.chip}>
+              <input type="radio" name="device-unlock" checked={value.unlock === u} onChange={() => set({ unlock: u })} />
+              {label}
+            </label>
+          ))}
+        </div>
+        {value.unlock === "code" && (
+          <TextField
+            name="device-code"
+            label="PIN o contraseña"
+            autoComplete="off"
+            maxLength={64}
+            value={value.code}
+            onChange={(e) => set({ code: e.target.value })}
+          />
+        )}
+        {value.unlock === "pattern" && (
+          <div className={styles.pattern}>
+            <PatternLock value={value.pattern} onChange={(pattern) => set({ pattern })} />
+            <TextField
+              name="device-pattern"
+              label="O escribe los puntos"
+              hint="Del 1 al 9, de izquierda a derecha y de arriba abajo: 1-5-9-6."
+              autoComplete="off"
+              inputMode="numeric"
+              value={value.pattern}
+              onChange={(e) => set({ pattern: dashDots(e.target.value) })}
+            />
+          </div>
+        )}
+      </fieldset>
       {devices.length > 0 && (
         <p>
           <Button size="sm" variant="ghost" onClick={() => onChange(null)}>

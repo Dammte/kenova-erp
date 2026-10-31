@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { EMPTY_DEVICE, intakePayload, missing, newClientFrom, orderTotal, toggleWord, type IntakeState } from "./intake";
 import { matchServices } from "./ServicePicker";
+import { dashDots } from "./DevicePicker";
 import { withClient } from "./IntakeForm";
 
 const BASE: IntakeState = {
@@ -79,11 +80,11 @@ describe("intakePayload", () => {
       },
     });
   });
-  it("sends a new client and device, cleaning the IMEI and skipping an empty code", () => {
+  it("sends a new client and device, cleaning the IMEI and leaving out an unused secret", () => {
     const p = intakePayload({
       ...BASE,
       client: { firstName: " Ana ", lastName: "", phoneNumber: "612345678", email: "" },
-      device: { type: "tablet", brand: "Apple", model: "iPad", imei: "35 6789-10", code: " " },
+      device: { type: "tablet", brand: "Apple", model: "iPad", imei: "35 6789-10", unlock: "none", code: "1234", pattern: "" },
       faults: ["battery"],
       accessories: "Funda",
       observations: "Urge",
@@ -128,5 +129,28 @@ describe("matchServices", () => {
     expect(matchServices(ALL, "pantalla", "iPhone 13", []).map((x) => x.id)).toEqual(["b", "a"]);
     expect(matchServices(ALL, "", "iphone 13", ["b"]).map((x) => x.id)).toEqual(["c"]);
     expect(matchServices(ALL, "bateria", "", []).map((x) => x.id)).toEqual(["c"]);
+  });
+});
+
+describe("unlock", () => {
+  const NEW = { ...EMPTY_DEVICE, brand: "Samsung", model: "A54" };
+  const READY = { ...BASE, client: LUCIA, faults: ["battery"] };
+
+  it("asks for the chosen secret only", () => {
+    expect(missing({ ...READY, device: NEW })).toEqual([]);
+    expect(missing({ ...READY, device: { ...NEW, unlock: "code" } }).map((m) => m.field)).toEqual(["device-code"]);
+    expect(missing({ ...READY, device: { ...NEW, unlock: "pattern", pattern: "1-2-3" } }).map((m) => m.field)).toEqual([
+      "device-pattern",
+    ]);
+    expect(missing({ ...READY, device: { ...NEW, unlock: "pattern", pattern: "1-2-3-6" } })).toEqual([]);
+  });
+  it("sends the pattern and not a code left from switching", () => {
+    const p = intakePayload({ ...READY, device: { ...NEW, unlock: "pattern", code: "1234", pattern: "1-5-9-6" } });
+    expect("device" in p && p.device).toMatchObject({ pattern: "1-5-9-6" });
+    expect("device" in p && p.device).not.toHaveProperty("code");
+  });
+  it("turns typed dots into the stored format", () => {
+    expect(dashDots("1596")).toBe("1-5-9-6");
+    expect(dashDots("1 5-0 9")).toBe("1-5-9");
   });
 });

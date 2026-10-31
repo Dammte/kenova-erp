@@ -340,3 +340,33 @@ li[aria-selected="true"] > .result {
   font: var(--k-text-md);
   font-variant-numeric: tabular-nums;
 }
+
+.pattern {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--k-space-4);
+}
+
+/* Same IMEI already in the workshop: warns, never blocks. */
+.warning {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-2);
+  padding: var(--k-space-3) var(--k-space-4);
+  border: var(--k-border-w) solid var(--k-warning);
+  border-radius: var(--k-radius-md);
+  background: var(--k-status-pendiente-cliente-bg);
+}
+.warning p,
+.warning ul {
+  margin: 0;
+}
+.warning ul {
+  padding-left: var(--k-space-4);
+}
+.warning a {
+  color: var(--k-accent);
+  font-weight: 500;
+  text-decoration: underline;
+}

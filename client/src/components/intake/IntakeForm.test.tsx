@@ -163,4 +163,31 @@ describe("IntakeForm", () => {
       paymentMethod: "card",
     });
   });
+
+  it("warns about an open order with the same IMEI without blocking", async () => {
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.includes("/clients/search")) return json([LUCIA]);
+      if (url.includes("/devices/client/c1")) return json([IPHONE]);
+      if (url.includes("/by-imei"))
+        return json({
+          openOrders: [{ id: "o1", code: "MP-0098", status: "en_progreso", createdAt: "2026-10-12T10:00:00Z" }],
+          deliveries: [],
+        });
+      return json([]);
+    });
+    render(<IntakeForm />);
+    await search("lucía");
+    fireEvent.click(screen.getByRole("button", { name: /Lucía Fernández/ }));
+    await act(async () => {});
+    fireEvent.click(screen.getByRole("button", { name: /Apple iPhone 13/ }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+    expect(fetchMock.mock.calls.map((c) => c[0])).toContain("/api/service-orders/by-imei?imei=356789104521337");
+    expect(screen.getByRole("status").textContent).toContain("Tiene abierta la orden MP-0098 (En progreso, 12/10/2026)");
+    expect(screen.getByRole("link", { name: "MP-0098" }).getAttribute("href")).toBe("/ordenes?orden=o1");
+
+    fireEvent.click(screen.getByRole("button", { name: "Es otro caso, seguir con el alta" }));
+    expect(screen.queryByRole("status")).toBeNull();
+  });
 });
