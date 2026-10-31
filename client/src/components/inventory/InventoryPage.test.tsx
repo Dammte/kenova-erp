@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { InventoryPage } from "./InventoryPage";
-import { margin, signed, stockFill, stockLabel, type PartPage } from "./inventory";
+import { arrival, margin, signed, stockFill, stockLabel, type PartPage } from "./inventory";
 
 let params = new URLSearchParams();
 const replace = vi.fn((url: string) => {
@@ -75,6 +75,9 @@ describe("inventory helpers", () => {
     expect(margin("59.00", "18.50")).toBe("69 %");
     expect(margin(null, "0.90")).toBe("—");
     expect([signed(4), signed(-1)]).toEqual(["+4", "−1"]);
+    expect(arrival({ expectedAt: null, waitingDays: 9, late: true })).toBe("Sin fecha · 9 días");
+    expect(arrival({ expectedAt: "2026-10-31", waitingDays: 1, late: false })).toBe("31/10/2026");
+    expect(arrival({ expectedAt: "2026-10-30", waitingDays: 4, late: true })).toBe("30/10/2026 · retrasado");
   });
 });
 
@@ -156,5 +159,53 @@ describe("InventoryPage", () => {
     screen.getByText(/El inventario lo gestionan los socios/);
     expect(screen.getByRole("link", { name: "Volver al Panel" }).getAttribute("href")).toBe("/panel");
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("lists the part orders and receives one", async () => {
+    params = new URLSearchParams("vista=pedidos");
+    const order = {
+      id: "po1",
+      orderId: "o9",
+      orderCode: "MP-0129",
+      orderStatus: "pendiente_piezas",
+      assignedTo: "Javier M.",
+      inventoryId: "BAT-SGA54",
+      partName: "Batería Galaxy A54",
+      provider: "RecambiosNorte",
+      quantity: 1,
+      orderedAt: "2026-10-20",
+      expectedAt: null,
+      receivedAt: null,
+      receivedBy: null,
+      waitingDays: 11,
+      late: true,
+    };
+    const done = { ...order, id: "po2", orderCode: "MP-0120", partName: "Flex iPad 9", receivedAt: "2026-10-28T09:00:00Z", receivedBy: "Ana Rojo", late: false };
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
+      if (url.endsWith("/part-orders/po1/receive") && init?.method === "POST")
+        return json({ ...order, receivedAt: "2026-10-31T10:00:00Z", receivedBy: "Ana Rojo", late: false });
+      if (url.endsWith("/api/part-orders")) return json([order, done]);
+      return json({}, 404);
+    });
+    render(<InventoryPage />);
+    await act(async () => {});
+    expect(screen.getByRole("tab", { name: "Pedidos" }).getAttribute("aria-selected")).toBe("true");
+    const row = screen.getByRole("row", { name: /Batería Galaxy A54/ });
+    within(row).getByText("Para Javier M.");
+    within(row).getByText("Sin fecha · 11 días");
+    expect(within(row).getByRole("link", { name: "MP-0129" }).getAttribute("href")).toBe("/ordenes?orden=o9");
+    within(screen.getByRole("row", { name: /Flex iPad 9/ })).getByText("Recibido 28/10/2026 · Ana Rojo");
+    screen.getByText("1 pendiente");
+
+    await act(async () => {
+      fireEvent.click(within(row).getByRole("button", { name: "Marcar recibido" }));
+    });
+    expect(fetchMock.mock.calls.some((c) => (c[0] as string).endsWith("/po1/receive"))).toBe(true);
+    expect(screen.getByRole("status").textContent).toContain(
+      "Batería Galaxy A54 recibido y sumado al stock. MP-0129 sigue en «Pendiente de piezas»",
+    );
+
+    fireEvent.click(screen.getByRole("tab", { name: "Repuestos" }));
+    expect(replace).toHaveBeenLastCalledWith("/inventario", { scroll: false });
   });
 });

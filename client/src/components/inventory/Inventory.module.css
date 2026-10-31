@@ -477,3 +477,66 @@
     white-space: nowrap;
   }
 }
+
+/* Tabs: Repuestos / Pedidos. */
+.tabs {
+  display: flex;
+  gap: var(--k-space-2);
+}
+.tab {
+  padding: var(--k-space-1) var(--k-space-3);
+  border: var(--k-border-w) solid var(--k-border-strong);
+  border-radius: var(--k-radius-full);
+  background: var(--k-surface);
+  color: var(--k-text);
+  font: var(--k-text-sm);
+  cursor: pointer;
+}
+.tab[aria-selected="true"] {
+  border-color: var(--k-accent);
+  background: var(--k-accent-subtle);
+  font-weight: 600;
+}
+.tab:focus-visible {
+  outline: none;
+  box-shadow: var(--k-focus-ring);
+}
+
+/* Part orders. */
+.notice {
+  align-self: flex-start;
+  padding: var(--k-space-1) var(--k-space-3);
+  border: var(--k-border-w) solid var(--k-success-border);
+  border-radius: var(--k-radius-md);
+  background: var(--k-success-subtle);
+  font: var(--k-text-sm);
+}
+.sub {
+  display: block;
+  font: var(--k-text-sm);
+}
+.late {
+  color: var(--k-danger);
+  font-weight: 600;
+}
+.orders tbody tr {
+  cursor: default;
+}
+.doneRow td {
+  color: var(--k-text-muted);
+}
+/* On a phone each order is a small card: part and order, arrival and action. */
+@media (max-width: 640px) {
+  .orders thead {
+    display: none;
+  }
+  .orders tbody tr {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    border-bottom: var(--k-border-w) solid var(--k-border);
+  }
+  .orders tbody td {
+    border: 0;
+  }
+}

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui";
 import { API_URL, apiFetch } from "@/lib/api";
 import { formatEur } from "@/lib/format";
 import { PartCard } from "./PartCard";
+import { PartOrders } from "./PartOrders";
 import { StockBadge } from "./StockBadge";
 import { skuTag, type PartPage } from "./inventory";
 import styles from "./Inventory.module.css";
@@ -32,7 +33,62 @@ export function InventoryPage() {
       </div>
     );
   }
-  return <PartsList />;
+  return <Inventory />;
+}
+
+type View = "repuestos" | "pedidos";
+
+function Inventory() {
+  const view: View = useSearchParams().get("vista") === "pedidos" ? "pedidos" : "repuestos";
+  if (view === "repuestos") return <PartsList />;
+  return (
+    <div className={styles.page}>
+      <section className={styles.listPane} aria-label="Pedidos de piezas">
+        <Header view={view} />
+        <PartOrders />
+      </section>
+    </div>
+  );
+}
+
+/** Title, actions and the Repuestos / Pedidos tabs; switching starts clean. */
+function Header({ view }: { view: View }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  return (
+    <>
+      <header className={styles.top}>
+        <h1 className={styles.title}>Inventario</h1>
+        <div className={styles.headActions}>
+          <Link href="/inventory" className={styles.secondaryLink}>
+            Importar factura (PDF)
+          </Link>
+          <Link href="/inventory/add-part" className={styles.primaryLink}>
+            + Nuevo repuesto
+          </Link>
+        </div>
+      </header>
+      <div className={styles.tabs} role="tablist" aria-label="Vista">
+        {(
+          [
+            ["repuestos", "Repuestos"],
+            ["pedidos", "Pedidos"],
+          ] as const
+        ).map(([v, label]) => (
+          <button
+            key={v}
+            type="button"
+            role="tab"
+            aria-selected={view === v}
+            className={styles.tab}
+            onClick={() => router.replace(v === "pedidos" ? `${pathname}?vista=pedidos` : pathname, { scroll: false })}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+    </>
+  );
 }
 
 function PartsList() {
@@ -99,17 +155,7 @@ function PartsList() {
   return (
     <div className={`${styles.page} ${openId ? styles.withCard : ""}`}>
       <section className={styles.listPane} aria-label="Repuestos">
-        <header className={styles.top}>
-          <h1 className={styles.title}>Inventario</h1>
-          <div className={styles.headActions}>
-            <Link href="/inventory" className={styles.secondaryLink}>
-              Importar factura (PDF)
-            </Link>
-            <Link href="/inventory/add-part" className={styles.primaryLink}>
-              + Nuevo repuesto
-            </Link>
-          </div>
-        </header>
+        <Header view="repuestos" />
 
         <input
           type="search"
