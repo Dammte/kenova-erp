@@ -12,6 +12,7 @@ import { buildDatabaseOptions } from './config/database.config';
 import { DevicesModule } from './devices/devices.module';
 import { EmailModule } from './email/email.module';
 import { InventoryModule } from './inventory/inventory.module';
+import { PartOrdersModule } from './part-orders/part-orders.module';
 import { ModelsModule } from './models/models.module';
 import { ServiceHistoryModule } from './service-history/service-history.module';
 import { ServiceOrderModule } from './service-order/service-order.module';
@@ -54,6 +55,7 @@ import { UsersModule } from './users/users.module';
     ServiceHistoryModule,
     ServiceOrderModule,
     InventoryModule,
+    PartOrdersModule,
     ServicesModule,
     BrandsModule,
     ModelsModule,
