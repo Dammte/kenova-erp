@@ -1,8 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import type { AuthUser } from '../auth/auth.types';
-import { scopedStoreId } from '../common/store-scope';
+import { isClientVisible, scopedStoreId } from '../common/store-scope';
 import { ListClientsDto } from './dto/list-clients.dto';
 
 export const CLIENT_PAGE_SIZE = 50;
@@ -20,6 +20,40 @@ export interface ClientRow {
   balance: string;
   /** Another client the actor sees has the same phone or document. */
   duplicate: boolean;
+}
+
+/** Orders shown in a client's history; the total says how many there are. */
+export const CLIENT_HISTORY = 10;
+
+export interface ClientSummary {
+  stats: {
+    orders: number;
+    /** What the client has paid (charges minus refunds), not what was quoted. */
+    spent: string;
+    balance: string;
+    open: number;
+    lastVisit: string | null;
+  };
+  devices: {
+    id: string;
+    type: string;
+    brand: string;
+    model: string;
+    imei: string | null;
+    orders: number;
+  }[];
+  history: {
+    total: number;
+    rows: {
+      id: string;
+      code: string;
+      model: string | null;
+      faults: string[];
+      date: string;
+      status: string;
+      totalPrice: string;
+    }[];
+  };
 }
 
 /** Last nine digits of a phone column, so "+34 612 345 678" matches "612345678". */
@@ -108,6 +142,63 @@ export class ClientListService {
         void _total;
         return row;
       }),
+    };
+  }
+
+  /**
+   * The figures, devices and order history of the client card. A store
+   * counts only its own orders.
+   */
+  async summary(id: string, actor: AuthUser): Promise<ClientSummary> {
+    if (!(await isClientVisible(this.db.manager, id, actor))) {
+      throw new NotFoundException('Cliente no encontrado');
+    }
+    const p = [id, scopedStoreId(actor)];
+    const mine = `so."clientId" = $1 AND so."deletedAt" IS NULL
+      AND ($2::uuid IS NULL OR so."storeId" = $2)`;
+    const local = (col: string) =>
+      `to_char(${col} AT TIME ZONE 'Europe/Madrid', 'YYYY-MM-DD')`;
+    const [stats] = await this.db.query<ClientSummary['stats'][]>(
+      `SELECT count(*)::int AS orders,
+              coalesce(sum(so."amountPaid"), 0)::numeric(12,2)::text AS spent,
+              coalesce(sum(so.balance) FILTER (WHERE so.status <> 'cancelado' AND so.balance > 0), 0)::numeric(12,2)::text AS balance,
+              (count(*) FILTER (WHERE so.status NOT IN ('entregado', 'cancelado')))::int AS open,
+              ${local('max(so."createdAt")')} AS "lastVisit"
+         FROM service_orders so WHERE ${mine}`,
+      p,
+    );
+    const devices = await this.db.query<ClientSummary['devices']>(
+      `SELECT d.id, d.type, d.brand, d.model, d.imei,
+              (SELECT count(*)::int FROM service_orders so
+                WHERE so."deviceId" = d.id AND ${mine}) AS orders
+         FROM devices d
+        WHERE d.client_id = $1
+        ORDER BY orders DESC, d."createdAt" DESC`,
+      p,
+    );
+    const rows = await this.db.query<
+      (ClientSummary['history']['rows'][number] & { total: string })[]
+    >(
+      `SELECT so.id, so.code, d.model, so."reportedFaults" AS faults,
+              ${local('so."createdAt"')} AS date, so.status,
+              coalesce(so."totalPrice", 0)::numeric(12,2)::text AS "totalPrice",
+              count(*) OVER () AS total
+         FROM service_orders so LEFT JOIN devices d ON d.id = so."deviceId"
+        WHERE ${mine}
+        ORDER BY so."createdAt" DESC, so.id
+        LIMIT ${CLIENT_HISTORY}`,
+      p,
+    );
+    return {
+      stats,
+      devices,
+      history: {
+        total: Number(rows[0]?.total ?? 0),
+        rows: rows.map(({ total: _total, ...row }) => {
+          void _total;
+          return row;
+        }),
+      },
     };
   }
 }

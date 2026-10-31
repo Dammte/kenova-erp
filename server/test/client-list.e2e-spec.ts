@@ -184,4 +184,110 @@ describe('Lista de clientes (GET /api/clients/list)', () => {
       (await t.http().get('/api/clients/list?page=0').set('Cookie', sa)).status,
     ).toBe(400);
   });
+
+  describe('ficha (GET /api/clients/:id/summary)', () => {
+    interface Summary {
+      stats: Record<string, string | number | null>;
+      devices: { model: string; imei: string | null; orders: number }[];
+      history: {
+        total: number;
+        rows: {
+          code: string;
+          model: string;
+          faults: string[];
+          status: string;
+          totalPrice: string;
+        }[];
+      };
+    }
+    const summary = async (cookie: string, id: string) => {
+      const res = await t
+        .http()
+        .get(`/api/clients/${id}/summary`)
+        .set('Cookie', cookie);
+      expect(res.status).toBe(200);
+      return res.body as Summary;
+    };
+
+    it('adds up what the client paid and owes, their devices and last orders', async () => {
+      const first = await intake(
+        sa,
+        { firstName: 'Nerea', phoneNumber: '622731004' },
+        {
+          amountPaid: 40,
+          paymentMethod: 'card',
+        },
+      );
+      const second = await post(sa, '/api/service-orders/intake', {
+        clientId: first.clientId,
+        device: {
+          type: 'tablet',
+          brand: 'Apple',
+          model: 'iPad 9',
+          imei: '356789012345678',
+        },
+        order: {
+          status: 'en_progreso',
+          reportedFaults: ['broken_screen'],
+          totalPrice: 79,
+        },
+      });
+      expect(second.status).toBe(201);
+      await t.db.query(
+        `UPDATE service_orders SET status = 'entregado' WHERE id = $1`,
+        [first.id],
+      );
+
+      const s = await summary(sa, first.clientId);
+      expect(s.stats).toMatchObject({
+        orders: 2,
+        spent: '40.00',
+        balance: '139.00',
+        open: 1,
+      });
+      // Newest device first when both have one order.
+      expect(s.devices.map((d) => [d.model, d.orders])).toEqual([
+        ['iPad 9', 1],
+        ['iPhone 13', 1],
+      ]);
+      expect(s.history.total).toBe(2);
+      expect(s.history.rows[0]).toMatchObject({
+        model: 'iPad 9',
+        faults: ['broken_screen'],
+        status: 'en_progreso',
+        totalPrice: '79.00',
+      });
+    });
+
+    it("hides another store's client and counts only the store's own orders", async () => {
+      const theirs = await intake(sa, {
+        firstName: 'Pablo',
+        phoneNumber: '611004532',
+      });
+      expect(
+        (
+          await t
+            .http()
+            .get(`/api/clients/${theirs.clientId}/summary`)
+            .set('Cookie', vc)
+        ).status,
+      ).toBe(404);
+
+      const shared = await intake(vc, {
+        firstName: 'Jon',
+        phoneNumber: '688450117',
+      });
+      await post(sa, '/api/service-orders/intake', {
+        clientId: shared.clientId,
+        device: { type: 'movil', brand: 'Apple', model: 'iPhone 11' },
+        order: {
+          status: 'en_progreso',
+          reportedFaults: ['battery'],
+          totalPrice: 50,
+        },
+      });
+      expect((await summary(vc, shared.clientId)).stats.orders).toBe(1);
+      expect((await summary(sa, shared.clientId)).stats.orders).toBe(2);
+    });
+  });
 });
