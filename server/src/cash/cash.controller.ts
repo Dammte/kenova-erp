@@ -1,8 +1,9 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { IsOptional, IsUUID, Matches } from 'class-validator';
 import type { AuthUser } from '../auth/auth.types';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CashService } from './cash.service';
+import { CreateCashMovementDto } from './dto/create-cash-movement.dto';
 
 class CashDayQueryDto {
   @IsOptional()
@@ -22,5 +23,14 @@ export class CashController {
   @Get('day')
   day(@Query() query: CashDayQueryDto, @CurrentUser() user: AuthUser) {
     return this.cash.day(user, query.storeId, query.date);
+  }
+
+  /** Cash put into or taken out of the till by hand. */
+  @Post('movements')
+  addMovement(
+    @Body() dto: CreateCashMovementDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.cash.addMovement(user, dto);
   }
 }

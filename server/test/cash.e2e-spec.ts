@@ -6,15 +6,22 @@ interface Day {
   status: 'open' | 'closed';
   byMethod: Record<string, { amount: string; count: number }>;
   total: string;
-  cash: { float: string; charges: string; refunds: string; expected: string };
+  cash: {
+    float: string;
+    charges: string;
+    refunds: string;
+    manual: string;
+    expected: string;
+  };
   movements: {
     id: string;
     kind: string;
     method: string;
     amount: string;
     offHours: boolean;
-    orderCode: string;
-    clientName: string;
+    note: string | null;
+    orderCode: string | null;
+    clientName: string | null;
     userName: string | null;
   }[];
 }
@@ -104,6 +111,7 @@ describe('Movimientos de dinero (GET /api/cash/day)', () => {
       float: '100.00',
       charges: '0.00',
       refunds: '0.00',
+      manual: '0.00',
       expected: '100.00',
     });
     expect(d.movements).toEqual([]);
@@ -139,6 +147,7 @@ describe('Movimientos de dinero (GET /api/cash/day)', () => {
       float: '100.00',
       charges: '35.00',
       refunds: '-20.00',
+      manual: '0.00',
       expected: '115.00',
     });
     // All share one time here, so the order is not checked.
@@ -192,5 +201,75 @@ describe('Movimientos de dinero (GET /api/cash/day)', () => {
     expect((await day(sa, `?storeId=${vcStore}&date=2026-10-29`)).total).toBe(
       '144.00',
     );
+  });
+
+  it('records cash put in or taken out by hand in the expected cash, not in the takings', async () => {
+    const add = (cookie: string, body: object) =>
+      send(cookie, '/api/cash/movements', body);
+    expect(
+      (await add(vc, { kind: 'out', amount: 12.5, reason: '  ' })).status,
+    ).toBe(400);
+    expect(
+      (await add(vc, { kind: 'out', amount: 0, reason: 'Adhesivo' })).status,
+    ).toBe(400);
+    expect(
+      (await add(vc, { kind: 'sideways', amount: 5, reason: 'x' })).status,
+    ).toBe(400);
+
+    const before = await day(vc);
+    const out = await add(vc, {
+      kind: 'out',
+      amount: 12.5,
+      reason: 'Compra de adhesivo en ferretería',
+    });
+    expect(out.status).toBe(201);
+    expect((out.body as { date: string }).date).toBe(before.date);
+    await add(vc, {
+      kind: 'in',
+      amount: 50,
+      reason: 'Cambio traído del banco',
+    });
+
+    const d = await day(vc);
+    expect(d.total).toBe(before.total);
+    expect(d.cash.manual).toBe('37.50');
+    expect(Number(d.cash.expected)).toBeCloseTo(
+      Number(before.cash.expected) + 37.5,
+    );
+    expect(d.movements).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'out',
+          method: 'cash',
+          amount: '-12.50',
+          note: 'Compra de adhesivo en ferretería',
+          orderId: null,
+          userName: 'Marta Ibáñez',
+        }),
+      ]),
+    );
+
+    // A store cannot write in another store's till; a partner can.
+    expect(
+      (
+        await add(vc, {
+          storeId: '00000000-0000-4000-8000-000000000000',
+          kind: 'in',
+          amount: 1,
+          reason: 'x',
+        })
+      ).status,
+    ).toBe(404);
+    expect(
+      (
+        await add(sa, {
+          storeId: vcStore,
+          kind: 'in',
+          amount: 1,
+          reason: 'Fondo',
+        })
+      ).status,
+    ).toBe(201);
+    expect((await day(vc)).cash.manual).toBe('38.50');
   });
 });

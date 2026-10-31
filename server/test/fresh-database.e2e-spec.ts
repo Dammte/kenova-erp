@@ -58,6 +58,7 @@ describe('Migrations on an empty database', () => {
       'QuoteOrder1763800000000',
       'MessageTemplates1763900000000',
       'OrderNotices1764000000000',
+      'CashMovements1764100000000',
     ]);
   });
 

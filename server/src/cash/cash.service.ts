@@ -8,6 +8,8 @@ import { DataSource } from 'typeorm';
 import type { AuthUser } from '../auth/auth.types';
 import { scopedStoreId } from '../common/store-scope';
 import { Store } from '../stores/entities/store.entity';
+import { CreateCashMovementDto } from './dto/create-cash-movement.dto';
+import { CashMovement as CashMovementEntity } from './entities/cash-movement.entity';
 
 const TZ = 'Europe/Madrid';
 export const CASH_METHODS = ['cash', 'card', 'transfer', 'other'] as const;
@@ -33,19 +35,23 @@ const offHours = (ts: string) =>
  */
 const TILL = `p.method <> 'credit' AND p.origin <> 'migrated'`;
 const signed = `CASE WHEN p.kind = 'refund' THEN -p.amount ELSE p.amount END`;
+const manualSigned = `CASE WHEN m.kind = 'out' THEN -m.amount ELSE m.amount END`;
 
-export interface CashMovement {
+/** One line of a cash day: a payment of an order, or cash put in or taken out by hand. */
+export interface CashLine {
   id: string;
-  kind: 'charge' | 'refund';
+  kind: 'charge' | 'refund' | 'in' | 'out';
   at: string;
   offHours: boolean;
   method: CashMethod;
-  /** Signed: refunds are negative. */
+  /** Signed: refunds and exits are negative. */
   amount: string;
+  /** A payment's note, or the reason for an entry or exit. */
   note: string | null;
-  orderId: string;
-  orderCode: string;
-  clientName: string;
+  /** Null for an entry or exit. */
+  orderId: string | null;
+  orderCode: string | null;
+  clientName: string | null;
   userName: string | null;
 }
 
@@ -55,23 +61,25 @@ export interface CashDay {
   /** open: the current cash day; closed: an earlier one. */
   status: 'open' | 'closed';
   byMethod: Record<CashMethod, { amount: string; count: number }>;
-  /** Net of refunds, every method. */
+  /** Payments only, net of refunds, every method; entries and exits are not takings. */
   total: string;
   cash: {
     /** Expected cash when the day opened: the store's float plus every earlier cash day. */
     float: string;
     charges: string;
     refunds: string;
+    /** Entries minus exits. */
+    manual: string;
     expected: string;
   };
-  movements: CashMovement[];
+  movements: CashLine[];
 }
 
 /**
  * Design 3.2 «Movimientos de dinero»: a record of the money that came in and
  * went out of a store's till, per cash day. Nobody opens or closes the day:
- * the store's cash hours do. Read-only for now; manual entries and exits,
- * the optional count and corrections come in later changes.
+ * the store's cash hours do. The optional count and the corrections of a
+ * closed day come in later changes.
  */
 @Injectable()
 export class CashService {
@@ -113,26 +121,40 @@ export class CashService {
       throw new BadRequestException('Ese día de caja todavía no ha empezado');
     }
 
-    const movements = await this.db.query<CashMovement[]>(
-      `SELECT p.id, p.kind, p."createdAt" AS at, ${offHours('p."createdAt"')} AS "offHours",
-              p.method, (${signed})::numeric(12,2)::text AS amount, p.note,
-              o.id AS "orderId", o.code AS "orderCode",
-              trim(c."firstName" || ' ' || coalesce(c."lastName", '')) AS "clientName",
-              u."fullName" AS "userName"
-         FROM order_payments p
-         JOIN stores s ON s.id = p."storeId"
-         JOIN service_orders o ON o.id = p."orderId"
-         JOIN client c ON c.id = o."clientId"
-         LEFT JOIN users u ON u.id = p."createdById"
-        WHERE p."storeId" = $1 AND ${TILL} AND ${cashDay('p."createdAt"')} = $2::date
-        ORDER BY p."createdAt", p.id`,
+    const movements = await this.db.query<CashLine[]>(
+      `SELECT * FROM (
+         SELECT p.id, p.kind, p."createdAt" AS at, ${offHours('p."createdAt"')} AS "offHours",
+                p.method, (${signed})::numeric(12,2)::text AS amount, p.note,
+                o.id AS "orderId", o.code AS "orderCode",
+                trim(c."firstName" || ' ' || coalesce(c."lastName", '')) AS "clientName",
+                u."fullName" AS "userName"
+           FROM order_payments p
+           JOIN stores s ON s.id = p."storeId"
+           JOIN service_orders o ON o.id = p."orderId"
+           JOIN client c ON c.id = o."clientId"
+           LEFT JOIN users u ON u.id = p."createdById"
+          WHERE p."storeId" = $1 AND ${TILL} AND ${cashDay('p."createdAt"')} = $2::date
+         UNION ALL
+         SELECT m.id, m.kind, m."createdAt", ${offHours('m."createdAt"')},
+                'cash', (${manualSigned})::numeric(12,2)::text, m.reason,
+                NULL, NULL, NULL, u."fullName"
+           FROM cash_movements m
+           JOIN stores s ON s.id = m."storeId"
+           LEFT JOIN users u ON u.id = m."createdById"
+          WHERE m."storeId" = $1 AND ${cashDay('m."createdAt"')} = $2::date
+       ) t ORDER BY t.at, t.id`,
       [store.id, day],
     );
     const [before] = await this.db.query<{ cash: string }[]>(
-      `SELECT coalesce(sum(${signed}), 0)::numeric(12,2)::text AS cash
-         FROM order_payments p JOIN stores s ON s.id = p."storeId"
-        WHERE p."storeId" = $1 AND ${TILL} AND p.method = 'cash'
-          AND ${cashDay('p."createdAt"')} < $2::date`,
+      `SELECT (
+         (SELECT coalesce(sum(${signed}), 0)
+            FROM order_payments p JOIN stores s ON s.id = p."storeId"
+           WHERE p."storeId" = $1 AND ${TILL} AND p.method = 'cash'
+             AND ${cashDay('p."createdAt"')} < $2::date)
+         + (SELECT coalesce(sum(${manualSigned}), 0)
+              FROM cash_movements m JOIN stores s ON s.id = m."storeId"
+             WHERE m."storeId" = $1 AND ${cashDay('m."createdAt"')} < $2::date)
+       )::numeric(12,2)::text AS cash`,
       [store.id, day],
     );
 
@@ -143,8 +165,13 @@ export class CashService {
     ) as Record<CashMethod, { amount: number; count: number }>;
     let charges = 0;
     let refunds = 0;
+    let manual = 0;
     for (const m of movements) {
       const amount = cents(m.amount);
+      if (m.kind === 'in' || m.kind === 'out') {
+        manual += amount;
+        continue;
+      }
       byMethod[m.method].amount += amount;
       byMethod[m.method].count += 1;
       if (m.method === 'cash') {
@@ -173,9 +200,33 @@ export class CashService {
         float: eur(float),
         charges: eur(charges),
         refunds: eur(refunds),
-        expected: eur(float + charges + refunds),
+        manual: eur(manual),
+        expected: eur(float + charges + refunds + manual),
       },
       movements,
     };
+  }
+
+  /**
+   * Cash put in or taken out by hand. It goes to the cash day running now
+   * (after closing, the next one), like a payment taken at the same time.
+   */
+  async addMovement(
+    actor: AuthUser,
+    dto: CreateCashMovementDto,
+  ): Promise<{ id: string; date: string }> {
+    const store = await this.storeFor(actor, dto.storeId);
+    const saved = await this.db.getRepository(CashMovementEntity).save({
+      storeId: store.id,
+      kind: dto.kind,
+      amount: dto.amount.toFixed(2),
+      reason: dto.reason,
+      createdById: actor.id,
+    });
+    const [{ date }] = await this.db.query<{ date: string }[]>(
+      `SELECT ${cashDay('$2::timestamptz')}::text AS date FROM stores s WHERE s.id = $1`,
+      [store.id, saved.createdAt],
+    );
+    return { id: saved.id, date };
   }
 }
