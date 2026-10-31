@@ -182,6 +182,12 @@ export class InventoryController {
     return this.inventoryService.findAll();
   }
 
+  /** Why the stock is what it is: the last 50 movements, newest first. */
+  @Get(':id/movements')
+  movements(@Param('id', ParseUUIDPipe) id: string) {
+    return this.inventoryService.movements(id);
+  }
+
   @Get(':id')
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.inventoryService.findOneOrFail(id);

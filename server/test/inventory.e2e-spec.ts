@@ -292,4 +292,65 @@ describe('Inventory and parts consumption', () => {
     expect((await asStore('get', '/api/inventory')).status).toBe(403);
     expect((await asStore('post', '/api/inventory')).status).toBe(403);
   });
+
+  it('keeps a history of every stock change, newest first', async () => {
+    const p = await part('MOV1', 4);
+    const patch = (body: object) =>
+      t
+        .http()
+        .patch(`/api/inventory/${p.id}`)
+        .set('Cookie', cookie)
+        .set('Origin', ORIGIN)
+        .send(body);
+    expect(
+      (
+        await post(`/api/service-orders/${orderId}/consume-parts`, {
+          parts: [{ inventoryId: p.id, quantity: 1 }],
+        })
+      ).status,
+    ).toBe(200);
+    expect(
+      (
+        await post('/api/inventory/bulk', [
+          { sku: 'MOV1', name: 'Pieza MOV1', stock: 5, costPrice: '3' },
+        ])
+      ).status,
+    ).toBe(201);
+    expect((await patch({ stock: 6 })).status).toBe(200);
+    // Editing other fields, or typing the same stock, adds nothing.
+    expect((await patch({ ubication: 'Estante B2', stock: 6 })).status).toBe(
+      200,
+    );
+
+    const res = await t
+      .http()
+      .get(`/api/inventory/${p.id}/movements`)
+      .set('Cookie', cookie);
+    expect(res.status).toBe(200);
+    const [{ code }] = await t.db.query(
+      `SELECT code FROM service_orders WHERE id = $1`,
+      [orderId],
+    );
+    expect(
+      res.body.map((m: any) => [m.kind, m.quantity, m.stockAfter, m.orderCode]),
+    ).toEqual([
+      ['adjust', -2, 6, null],
+      ['purchase', 5, 8, null],
+      ['order', -1, 3, code],
+      ['initial', 4, 4, null],
+    ]);
+    expect(res.body[0].userName).toEqual(expect.any(String));
+  });
+
+  it('records nothing when a consumption fails', async () => {
+    const p = await part('MOV2', 1);
+    await post(`/api/service-orders/${orderId}/consume-parts`, {
+      parts: [{ inventoryId: p.id, quantity: 2 }],
+    });
+    const rows = await t.db.query(
+      `SELECT kind FROM stock_movements WHERE "inventoryId" = $1`,
+      [p.id],
+    );
+    expect(rows).toEqual([{ kind: 'initial' }]);
+  });
 });

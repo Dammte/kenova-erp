@@ -8,6 +8,8 @@ import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, In, IsNull, Repository } from 'typeorm';
 import { AuditService } from '../audit/audit.service';
 import { Inventory } from '../inventory/entities/inventory.entity';
+import { StockMovementKind } from '../inventory/entities/stock-movement.entity';
+import { recordStock } from '../inventory/inventory.service';
 import { ConsumePartsDto, ConsumedPartDto } from './dto/consume-parts.dto';
 import {
   ORDER_FAULTS,
@@ -816,6 +818,14 @@ export class ServiceOrderService {
           `Stock insuficiente de "${part.name}": quedan ${part.stock ?? 0}, se necesitan ${quantity}`,
         );
       }
+      await recordStock(manager, {
+        inventoryId,
+        kind: StockMovementKind.ORDER,
+        quantity: -quantity,
+        stockAfter: Number(rows[0].stock),
+        orderId,
+        userId: actorUserId,
+      });
       result.push({
         inventoryId,
         name: rows[0].name,
