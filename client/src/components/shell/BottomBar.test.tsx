@@ -48,6 +48,7 @@ describe("BottomBar", () => {
       "Tarifas",
       "Clientes",
       "Inventario",
+      "Dinero",
       "Servicios",
       "Plantillas",
       "Usuarios",
@@ -60,7 +61,7 @@ describe("BottomBar", () => {
     fireEvent.click(screen.getByRole("button", { name: "Menú" }));
     expect(
       within(screen.getByRole("dialog")).getAllByRole("link").map((a) => a.textContent),
-    ).toEqual(["Presupuestos", "Tarifas", "Clientes", "Plantillas"]);
+    ).toEqual(["Presupuestos", "Tarifas", "Clientes", "Dinero", "Plantillas"]);
   });
 
   it("marks «Menú» when the current section lives in it", () => {
