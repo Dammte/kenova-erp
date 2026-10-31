@@ -13,6 +13,12 @@ interface Day {
     manual: string;
     expected: string;
   };
+  count: {
+    cash: string | null;
+    terminal: string | null;
+    note: string | null;
+    countedBy: string | null;
+  } | null;
   movements: {
     id: string;
     kind: string;
@@ -271,5 +277,47 @@ describe('Movimientos de dinero (GET /api/cash/day)', () => {
       ).status,
     ).toBe(201);
     expect((await day(vc)).cash.manual).toBe('38.50');
+  });
+
+  it('saves an optional count of the day running now, and starts the next day from the counted cash', async () => {
+    const put = (cookie: string, body: object) =>
+      t
+        .http()
+        .put('/api/cash/count')
+        .set('Cookie', cookie)
+        .set('Origin', ORIGIN)
+        .send(body);
+    expect((await day(vc)).count).toBeNull();
+    expect((await put(vc, {})).status).toBe(400);
+    expect((await put(vc, { cash: -1 })).status).toBe(400);
+
+    let res = await put(vc, { cash: 200, note: 'Contado por Marta' });
+    expect(res.status).toBe(200);
+    res = await put(vc, { cash: 210.5, terminal: 129 });
+    expect(res.status).toBe(200);
+    expect((res.body as Day).count).toMatchObject({
+      cash: '210.50',
+      terminal: '129.00',
+      note: null,
+      countedBy: 'Marta Ibáñez',
+    });
+
+    // A count of cash on a closed day resets where the following days start.
+    await t.db.query(
+      `INSERT INTO cash_counts ("storeId", date, cash) VALUES ($1, '2026-10-29', 110)`,
+      [vcStore],
+    );
+    const d29 = await day(vc, '?date=2026-10-29');
+    expect(d29.cash.expected).toBe('115.00');
+    expect(d29.count?.cash).toBe('110.00');
+    // 30/10 had only a transfer, so it starts and ends with the 110 counted.
+    expect((await day(vc, '?date=2026-10-30')).cash.float).toBe('110.00');
+
+    // A count with only the card terminal does not change the cash.
+    await t.db.query(
+      `UPDATE cash_counts SET cash = NULL, terminal = 129 WHERE "storeId" = $1 AND date = '2026-10-29'`,
+      [vcStore],
+    );
+    expect((await day(vc, '?date=2026-10-30')).cash.float).toBe('115.00');
   });
 });

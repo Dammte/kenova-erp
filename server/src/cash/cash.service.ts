@@ -9,6 +9,8 @@ import type { AuthUser } from '../auth/auth.types';
 import { scopedStoreId } from '../common/store-scope';
 import { Store } from '../stores/entities/store.entity';
 import { CreateCashMovementDto } from './dto/create-cash-movement.dto';
+import { SaveCashCountDto } from './dto/save-cash-count.dto';
+import { CashCount } from './entities/cash-count.entity';
 import { CashMovement as CashMovementEntity } from './entities/cash-movement.entity';
 
 const TZ = 'Europe/Madrid';
@@ -64,7 +66,10 @@ export interface CashDay {
   /** Payments only, net of refunds, every method; entries and exits are not takings. */
   total: string;
   cash: {
-    /** Expected cash when the day opened: the store's float plus every earlier cash day. */
+    /**
+     * Cash when the day opened: the last counted cash before it (or the
+     * store's float if never counted) plus every cash day since.
+     */
     float: string;
     charges: string;
     refunds: string;
@@ -72,14 +77,21 @@ export interface CashDay {
     manual: string;
     expected: string;
   };
+  /** The optional count; null when nobody counted. */
+  count: {
+    cash: string | null;
+    terminal: string | null;
+    note: string | null;
+    countedBy: string | null;
+    countedAt: string;
+  } | null;
   movements: CashLine[];
 }
 
 /**
  * Design 3.2 «Movimientos de dinero»: a record of the money that came in and
  * went out of a store's till, per cash day. Nobody opens or closes the day:
- * the store's cash hours do. The optional count and the corrections of a
- * closed day come in later changes.
+ * the store's cash hours do. Correcting a closed day comes in a later change.
  */
 @Injectable()
 export class CashService {
@@ -145,16 +157,34 @@ export class CashService {
        ) t ORDER BY t.at, t.id`,
       [store.id, day],
     );
+    // The day starts from the last count of cash before it, or the store's
+    // float, plus the cash of every day in between.
+    const [last] = await this.db.query<{ date: string; cash: string }[]>(
+      `SELECT k.date::text AS date, k.cash::text AS cash FROM cash_counts k
+        WHERE k."storeId" = $1 AND k.cash IS NOT NULL AND k.date < $2::date
+        ORDER BY k.date DESC LIMIT 1`,
+      [store.id, day],
+    );
+    const since = last?.date ?? null;
     const [before] = await this.db.query<{ cash: string }[]>(
       `SELECT (
          (SELECT coalesce(sum(${signed}), 0)
             FROM order_payments p JOIN stores s ON s.id = p."storeId"
            WHERE p."storeId" = $1 AND ${TILL} AND p.method = 'cash'
-             AND ${cashDay('p."createdAt"')} < $2::date)
+             AND ${cashDay('p."createdAt"')} < $2::date
+             AND ($3::date IS NULL OR ${cashDay('p."createdAt"')} > $3::date))
          + (SELECT coalesce(sum(${manualSigned}), 0)
               FROM cash_movements m JOIN stores s ON s.id = m."storeId"
-             WHERE m."storeId" = $1 AND ${cashDay('m."createdAt"')} < $2::date)
+             WHERE m."storeId" = $1 AND ${cashDay('m."createdAt"')} < $2::date
+               AND ($3::date IS NULL OR ${cashDay('m."createdAt"')} > $3::date))
        )::numeric(12,2)::text AS cash`,
+      [store.id, day, since],
+    );
+    const [count] = await this.db.query<NonNullable<CashDay['count']>[]>(
+      `SELECT k.cash::text AS cash, k.terminal::text AS terminal, k.note,
+              u."fullName" AS "countedBy", k."countedAt"
+         FROM cash_counts k LEFT JOIN users u ON u.id = k."countedById"
+        WHERE k."storeId" = $1 AND k.date = $2::date`,
       [store.id, day],
     );
 
@@ -179,7 +209,7 @@ export class CashService {
         else charges += amount;
       }
     }
-    const float = cents(store.cashFloat) + cents(before.cash);
+    const float = cents(last?.cash ?? store.cashFloat) + cents(before.cash);
     return {
       store: {
         id: store.id,
@@ -203,6 +233,7 @@ export class CashService {
         manual: eur(manual),
         expected: eur(float + charges + refunds + manual),
       },
+      count: count ?? null,
       movements,
     };
   }
@@ -228,5 +259,36 @@ export class CashService {
       [store.id, saved.createdAt],
     );
     return { id: saved.id, date };
+  }
+
+  /**
+   * Saves the optional count of the cash day running now. It can be saved
+   * again until the day closes; a closed day's count is not changed here.
+   */
+  async saveCount(actor: AuthUser, dto: SaveCashCountDto): Promise<CashDay> {
+    const store = await this.storeFor(actor, dto.storeId);
+    const cash = dto.cash ?? null;
+    const terminal = dto.terminal ?? null;
+    if (cash === null && terminal === null) {
+      throw new BadRequestException(
+        'Escribe el efectivo contado o el total del datáfono',
+      );
+    }
+    const [{ current }] = await this.db.query<{ current: string }[]>(
+      `SELECT ${cashDay('now()')}::text AS current FROM stores s WHERE s.id = $1`,
+      [store.id],
+    );
+    await this.db.getRepository(CashCount).upsert(
+      {
+        storeId: store.id,
+        date: current,
+        cash: cash === null ? null : cash.toFixed(2),
+        terminal: terminal === null ? null : terminal.toFixed(2),
+        note: dto.note ?? null,
+        countedById: actor.id,
+      },
+      ['storeId', 'date'],
+    );
+    return this.day(actor, store.id, current);
   }
 }
