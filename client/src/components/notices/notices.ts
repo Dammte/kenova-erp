@@ -119,3 +119,28 @@ export function templateWarnings(body: string, tienda: string): string[] {
   }
   return out;
 }
+
+/** GET /api/service-orders/:id/notices. */
+export interface OrderNotice {
+  id: string;
+  trigger: TemplateTrigger;
+  name: string;
+  channel: "whatsapp";
+  body: string;
+  sentAt: string;
+  sentBy: { fullName: string } | null;
+}
+
+/**
+ * The notice that fits the order now (design 2.5): parts on order, ready to
+ * collect (then the 15- and 30-day reminders), or received for anything else.
+ */
+export function suggestedTrigger(status: string, daysWaiting: number | null): TemplateTrigger {
+  if (status === "pendiente_piezas") return "waiting_parts";
+  if (status === "finalizado") {
+    if ((daysWaiting ?? 0) >= 30) return "reminder_30";
+    if ((daysWaiting ?? 0) >= 15) return "reminder_15";
+    return "ready";
+  }
+  return "received";
+}
