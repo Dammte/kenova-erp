@@ -114,16 +114,11 @@ export function Receipt({
 
       <section className={`${styles.section} ${styles.small}`}>
         {quote && <p>Presupuesto válido durante {QUOTE_DAYS} días desde la fecha de este resguardo.</p>}
-        {order.waivesQuote && <p>El cliente renuncia por escrito al presupuesto previo.</p>}
+        {order.waivesQuote && <p>El cliente renuncia al presupuesto previo.</p>}
         {store && <p>Garantía de la reparación: {store.warrantyDays} días desde la entrega.</p>}
         <p>Presenta este resguardo para recoger el equipo.</p>
         {d?.unlockSecretType && <p>Código de desbloqueo: registrado (no se imprime).</p>}
       </section>
-
-      <div className={styles.signatures}>
-        <div className={styles.sign}>Firma del cliente</div>
-        {a4 && <div className={styles.sign}>Por Kenova</div>}
-      </div>
 
       {a4 && <p className={`${styles.small} ${styles.foot}`}>Documento de uso interno. No es una factura.</p>}
     </article>

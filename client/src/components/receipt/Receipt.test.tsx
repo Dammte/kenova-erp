@@ -88,15 +88,17 @@ describe("Receipt", () => {
     expect(text).toContain("Código de desbloqueo: registrado (no se imprime).");
     expect(text).not.toContain("Nota interna");
     expect(text).not.toContain("12345678Z");
+    // Leaving the device is the consent: no signature lines on paper.
+    expect(text).not.toContain("Firma");
   });
 
   it("on A4 adds the client's id and the waiver instead of the quote", () => {
     render(<Receipt order={{ ...ORDER, waivesQuote: true }} payments={PAYMENTS} store={STORE} format="a4" />);
     const text = screen.getByRole("article", { name: "Resguardo" }).textContent ?? "";
     expect(text).toContain("NIF 12345678Z");
-    expect(text).toContain("El cliente renuncia por escrito al presupuesto previo.");
+    expect(text).toContain("El cliente renuncia al presupuesto previo.");
     expect(text).not.toContain("Presupuesto válido");
-    expect(text).toContain("Por Kenova");
+    expect(text).not.toContain("Por Kenova");
   });
 });
 
