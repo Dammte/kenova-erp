@@ -294,7 +294,7 @@ describe("OrderPanel next step", () => {
   it("does not deliver while money is owed", async () => {
     await open({ status: "finalizado", finishedAt: "2026-10-30T10:00:00Z" });
     expect(screen.getByRole("button", { name: "Entregar…" }).hasAttribute("disabled")).toBe(true);
-    screen.getByText(/Cobra antes los 90,00\s€ pendientes/);
+    screen.getByText(/Registra antes el cobro de los 90,00\s€ pendientes/);
   });
 
   it("delivers a paid order after confirming", async () => {
@@ -320,6 +320,69 @@ describe("OrderPanel next step", () => {
   it("offers nothing on a delivered or cancelled order", async () => {
     await open({ status: "entregado" });
     expect(screen.queryByText("Siguiente paso")).toBeNull();
+  });
+});
+
+describe("OrderPanel charge", () => {
+  const posts = () =>
+    fetchMock.mock.calls
+      .filter(([url, init]) => String(url).endsWith("/payments") && (init as RequestInit | undefined)?.method === "POST")
+      .map(([, init]) => JSON.parse((init as RequestInit).body as string));
+
+  it("charges what is pending with the chosen method", async () => {
+    await open();
+    fireEvent.click(screen.getByRole("button", { name: "Registrar cobro" }));
+    expect((screen.getByLabelText("Importe") as HTMLInputElement).value).toBe("90,00");
+    expect(screen.getByRole("button", { name: /^Cobrar 90,00\s€$/ }).hasAttribute("disabled")).toBe(true);
+    screen.getByText("Elige la forma de pago.");
+    fireEvent.click(screen.getByLabelText("Tarjeta"));
+    fireEvent.click(screen.getByRole("button", { name: /^Cobrar 90,00\s€$/ }));
+    await act(async () => {});
+    const [body] = posts();
+    expect(body).toEqual({ id: expect.stringMatching(/^[0-9a-f-]{36}$/), kind: "charge", amount: 90, method: "card", note: null });
+    expect(onChanged).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("form", { name: "Registrar cobro" })).toBeNull();
+  });
+
+  it("offers half the pending amount and works out the change in cash", async () => {
+    await open();
+    fireEvent.click(screen.getByRole("button", { name: "Registrar cobro" }));
+    fireEvent.click(screen.getByRole("button", { name: /^50 % · 45,00\s€$/ }));
+    expect((screen.getByLabelText("Importe") as HTMLInputElement).value).toBe("45,00");
+    fireEvent.click(screen.getByLabelText("Efectivo"));
+    fireEvent.change(screen.getByLabelText("Entrega el cliente · opcional"), { target: { value: "50" } });
+    screen.getByText(/^Cambio: 5,00\s€$/);
+  });
+
+  it("retries a lost charge with the same id, so it is never recorded twice", async () => {
+    await open();
+    fireEvent.click(screen.getByRole("button", { name: "Registrar cobro" }));
+    fireEvent.click(screen.getByLabelText("Efectivo"));
+    fetchMock.mockImplementationOnce(async () => {
+      throw new TypeError("Failed to fetch");
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^Cobrar 90,00\s€$/ }));
+    await act(async () => {});
+    expect(screen.getByRole("alert").textContent).toContain("No cobres otra vez en el datáfono");
+    fireEvent.click(screen.getByRole("button", { name: /^Cobrar 90,00\s€$/ }));
+    await act(async () => {});
+    const [first, second] = posts();
+    expect(second.id).toBe(first.id);
+    expect(onChanged).toHaveBeenCalledTimes(1);
+  });
+
+  it("closes the form with Esc and leaves the panel open", async () => {
+    await open();
+    fireEvent.click(screen.getByRole("button", { name: "Registrar cobro" }));
+    fireEvent.keyDown(screen.getByLabelText("Importe"), { key: "Escape" });
+    expect(screen.queryByLabelText("Importe")).toBeNull();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("says when the order is already paid", async () => {
+    await open({ balance: "0.00", amountPaid: "149.00", paymentStatus: "paid" });
+    expect(screen.getByRole("button", { name: "Registrar cobro" }).hasAttribute("disabled")).toBe(true);
+    screen.getByText("Esta orden ya está pagada.");
   });
 });
 
