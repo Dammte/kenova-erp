@@ -22,6 +22,9 @@ export interface OrderDetail {
   cancelReason: string | null;
   workDone: string | null;
   warrantyOfId: string | null;
+  storeId?: string;
+  /** The customer waived a written quote; prints skip "presupuesto válido". */
+  waivesQuote?: boolean;
   client: {
     id: string;
     firstName: string;

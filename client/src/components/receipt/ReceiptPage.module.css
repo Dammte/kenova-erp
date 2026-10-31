@@ -1,0 +1,79 @@
+.page {
+  min-height: 100vh;
+  padding: var(--k-space-4);
+  background: var(--k-subtle);
+  color: var(--k-text);
+  font: var(--k-text-base);
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--k-space-3);
+  margin: 0 auto var(--k-space-4);
+  max-width: 210mm;
+}
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--k-space-1);
+  margin-right: auto;
+  color: var(--k-accent);
+}
+.formats {
+  display: flex;
+  gap: var(--k-space-2);
+}
+.format {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--k-space-2);
+  min-height: 32px;
+  padding: 0 var(--k-space-3);
+  border: var(--k-border-w) solid var(--k-border-strong);
+  border-radius: var(--k-radius-full);
+  background: var(--k-surface);
+  font: var(--k-text-sm);
+  cursor: pointer;
+}
+.format:has(input:checked) {
+  border-color: var(--k-accent);
+  background: var(--k-accent-subtle);
+  font-weight: 500;
+}
+
+/* On screen the receipt sits on a sheet; on paper only the receipt prints. */
+.paper {
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto;
+  padding: 6mm;
+  overflow-x: auto;
+  background: #fff;
+  box-shadow: var(--k-shadow-pop);
+}
+
+.error {
+  color: var(--k-danger);
+  text-align: center;
+}
+.muted {
+  color: var(--k-text-muted);
+  text-align: center;
+}
+
+@media print {
+  .page {
+    min-height: 0;
+    padding: 0;
+    background: #fff;
+  }
+  .toolbar {
+    display: none;
+  }
+  .paper {
+    padding: 0;
+    box-shadow: none;
+  }
+}

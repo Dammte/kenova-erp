@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { AlertTriangle, Banknote, ExternalLink, Eye, EyeOff, MessageCircle, Phone, X } from "lucide-react";
+import { AlertTriangle, Banknote, ExternalLink, Eye, EyeOff, MessageCircle, Phone, Printer, X } from "lucide-react";
 import { Button, StatusChip } from "@/components/ui";
 import { API_URL, apiFetch, errorMessage } from "@/lib/api";
 import { formatEur } from "@/lib/format";
@@ -130,10 +130,16 @@ export default function OrderPanel({
             </button>
           </div>
           {order && <p className={styles.sub}>{headline(order)}</p>}
-          <Link href={fullHref} className={styles.full}>
-            <ExternalLink size={14} aria-hidden />
-            Abrir la orden completa para editar o imprimir
-          </Link>
+          <p className={styles.headLinks}>
+            <Link href={`/ordenes/${id}/resguardo`} className={styles.full}>
+              <Printer size={14} aria-hidden />
+              Imprimir resguardo
+            </Link>
+            <Link href={fullHref} className={styles.full}>
+              <ExternalLink size={14} aria-hidden />
+              Abrir la orden completa para editar
+            </Link>
+          </p>
         </header>
 
         <div className={styles.body} aria-busy={!data && !error}>
