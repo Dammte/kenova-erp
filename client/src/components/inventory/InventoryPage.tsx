@@ -8,6 +8,7 @@ import { Button } from "@/components/ui";
 import { API_URL, apiFetch } from "@/lib/api";
 import { formatEur } from "@/lib/format";
 import { PartCard } from "./PartCard";
+import { InvoiceImport } from "./InvoiceImport";
 import { PartOrders } from "./PartOrders";
 import { StockBadge } from "./StockBadge";
 import { skuTag, type PartPage } from "./inventory";
@@ -36,16 +37,28 @@ export function InventoryPage() {
   return <Inventory />;
 }
 
-type View = "repuestos" | "pedidos";
+type View = "repuestos" | "importar" | "pedidos";
+const VIEWS: [View, string][] = [
+  ["repuestos", "Repuestos"],
+  ["importar", "Importar factura"],
+  ["pedidos", "Pedidos"],
+];
 
 function Inventory() {
-  const view: View = useSearchParams().get("vista") === "pedidos" ? "pedidos" : "repuestos";
+  const router = useRouter();
+  const pathname = usePathname();
+  const asked = useSearchParams().get("vista");
+  const view: View = VIEWS.some(([v]) => v === asked) ? (asked as View) : "repuestos";
   if (view === "repuestos") return <PartsList />;
   return (
     <div className={styles.page}>
-      <section className={styles.listPane} aria-label="Pedidos de piezas">
+      <section className={styles.listPane} aria-label={view === "pedidos" ? "Pedidos de piezas" : "Importar factura"}>
         <Header view={view} />
-        <PartOrders />
+        {view === "pedidos" ? (
+          <PartOrders />
+        ) : (
+          <InvoiceImport onDone={() => router.replace(pathname, { scroll: false })} />
+        )}
       </section>
     </div>
   );
@@ -60,28 +73,20 @@ function Header({ view }: { view: View }) {
       <header className={styles.top}>
         <h1 className={styles.title}>Inventario</h1>
         <div className={styles.headActions}>
-          <Link href="/inventory" className={styles.secondaryLink}>
-            Importar factura (PDF)
-          </Link>
           <Link href="/inventory/add-part" className={styles.primaryLink}>
             + Nuevo repuesto
           </Link>
         </div>
       </header>
       <div className={styles.tabs} role="tablist" aria-label="Vista">
-        {(
-          [
-            ["repuestos", "Repuestos"],
-            ["pedidos", "Pedidos"],
-          ] as const
-        ).map(([v, label]) => (
+        {VIEWS.map(([v, label]) => (
           <button
             key={v}
             type="button"
             role="tab"
             aria-selected={view === v}
             className={styles.tab}
-            onClick={() => router.replace(v === "pedidos" ? `${pathname}?vista=pedidos` : pathname, { scroll: false })}
+            onClick={() => router.replace(v === "repuestos" ? pathname : `${pathname}?vista=${v}`, { scroll: false })}
           >
             {label}
           </button>
