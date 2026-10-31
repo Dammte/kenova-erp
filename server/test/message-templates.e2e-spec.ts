@@ -229,4 +229,84 @@ describe('Message templates (avisos)', () => {
       ).toBe(404);
     });
   });
+
+  describe('pickup reminders', () => {
+    const finished = async (
+      cookie: string,
+      firstName: string,
+      daysAgo: number,
+    ) => {
+      const res = await send('post', cookie, '/api/service-orders/intake', {
+        client: {
+          firstName,
+          phoneNumber: '611000' + String(daysAgo).padStart(3, '0'),
+        },
+        device: { type: 'movil', brand: 'Apple', model: 'iPad 9' },
+        order: {
+          status: 'en_progreso',
+          reportedFaults: ['battery'],
+          totalPrice: 80,
+        },
+      });
+      const id = res.body.id as string;
+      await t.db.query(
+        `UPDATE service_orders SET status = 'finalizado', "finishedAt" = now() - make_interval(days => $2) WHERE id = $1`,
+        [id, daysAgo],
+      );
+      return id;
+    };
+    const due = async (cookie: string) =>
+      (await t.http().get('/api/notices/reminders').set('Cookie', cookie))
+        .body as {
+        id: string;
+        clientName: string;
+        days: number;
+        trigger: string;
+        balance: string;
+        storeName: string;
+      }[];
+
+    it('lists the 15- and 30-day reminders due, oldest first, until sent', async () => {
+      const fresh = await finished(vc, 'Reciente', 5);
+      const r15 = await finished(vc, 'Rubén', 16);
+      const r30 = await finished(vc, 'Alba', 31);
+      const mine = (await due(vc)).filter((r) =>
+        [fresh, r15, r30].includes(r.id),
+      );
+      expect(
+        mine.map((r) => [
+          r.clientName,
+          r.days,
+          r.trigger,
+          r.balance,
+          r.storeName,
+        ]),
+      ).toEqual([
+        ['Alba', 31, 'reminder_30', '80.00', 'Villarcayo'],
+        ['Rubén', 16, 'reminder_15', '80.00', 'Villarcayo'],
+      ]);
+      // The workshop sees them too; another store would not.
+      expect((await due(sa)).map((r) => r.id)).toEqual(
+        expect.arrayContaining([r15, r30]),
+      );
+
+      // A 15-day notice sent before the order was finished does not count.
+      await t.db.query(
+        `INSERT INTO order_notices ("serviceOrderId", trigger, body, "sentAt") VALUES ($1, 'reminder_15', 'viejo', now() - interval '40 days')`,
+        [r15],
+      );
+      expect((await due(vc)).map((r) => r.id)).toContain(r15);
+      await send('post', vc, `/api/service-orders/${r15}/notices`, {
+        trigger: 'reminder_15',
+        body: 'Hola Rubén',
+      });
+      expect((await due(vc)).map((r) => r.id)).not.toContain(r15);
+    });
+
+    it('keeps each store to its own reminders', async () => {
+      const workshop = await finished(sa, 'Taller', 20);
+      expect((await due(vc)).map((r) => r.id)).not.toContain(workshop);
+      expect((await due(sa)).map((r) => r.id)).toContain(workshop);
+    });
+  });
 });
