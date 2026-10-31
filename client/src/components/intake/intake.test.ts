@@ -17,6 +17,7 @@ const BASE: IntakeState = {
   total: null,
   deposit: null,
   method: null,
+  waivesQuote: false,
 };
 const LUCIA = { id: "c1", firstName: "Lucía", lastName: "Fernández", phoneNumber: "612345678" };
 const IPHONE = { id: "d1", type: "movil", brand: "Apple", model: "iPhone 13", imei: null, createdAt: "2026-10-01T10:00:00Z" };
@@ -110,6 +111,8 @@ describe("money", () => {
   });
   it("sends services, total and deposit only when there are any", () => {
     expect(intakePayload(READY).order).not.toHaveProperty("totalPrice");
+    expect(intakePayload(READY).order).not.toHaveProperty("waivesQuote");
+    expect(intakePayload({ ...READY, waivesQuote: true }).order).toMatchObject({ waivesQuote: true });
     expect(intakePayload({ ...READY, services: [PANTALLA], total: 140, deposit: 40, method: "cash" }).order).toMatchObject({
       serviceIds: ["s2"],
       totalPrice: 140,

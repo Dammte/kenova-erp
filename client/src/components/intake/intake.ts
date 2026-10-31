@@ -80,6 +80,8 @@ export interface IntakeState {
   /** Paid on account at intake. */
   deposit: number | null;
   method: Method | null;
+  /** The customer waives a written quote (RD 58/1988); the receipt says so. */
+  waivesQuote: boolean;
 }
 
 export const EMPTY_CLIENT: NewClient = { firstName: "", lastName: "", phoneNumber: "", email: "" };
@@ -209,6 +211,7 @@ export function intakePayload(s: IntakeState) {
       ...(s.services.length ? { serviceIds: s.services.map((x) => x.id) } : {}),
       ...(s.services.length || s.total !== null ? { totalPrice: orderTotal(s) } : {}),
       ...(s.deposit ? { amountPaid: s.deposit, paymentMethod: s.method } : {}),
+      ...(s.waivesQuote ? { waivesQuote: true } : {}),
     },
   };
 }
