@@ -190,4 +190,18 @@ describe("IntakeForm", () => {
     fireEvent.click(screen.getByRole("button", { name: "Es otro caso, seguir con el alta" }));
     expect(screen.queryByRole("status")).toBeNull();
   });
+
+  it("starts with the rate chosen in Tarifas when it comes in the address", async () => {
+    window.history.replaceState(null, "", "/ordenes/nueva?servicio=s2");
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.endsWith("/services/s2")) return json(SERVICES[1]);
+      if (url.includes("/services")) return json(SERVICES);
+      return json([]);
+    });
+    render(<IntakeForm />);
+    await act(async () => {});
+    expect(screen.getByRole("button", { name: "Quitar Cambio de pantalla iPhone 13" })).toBeTruthy();
+    expect(screen.getByLabelText("Total acordado")).toHaveProperty("value", "149,00");
+    window.history.replaceState(null, "", "/");
+  });
 });
