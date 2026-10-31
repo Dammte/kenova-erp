@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { AlertTriangle, ExternalLink, Eye, EyeOff, MessageCircle, Phone, X } from "lucide-react";
+import { AlertTriangle, Banknote, ExternalLink, Eye, EyeOff, MessageCircle, Phone, X } from "lucide-react";
 import { Button, StatusChip } from "@/components/ui";
 import { API_URL, apiFetch, errorMessage } from "@/lib/api";
 import { formatEur } from "@/lib/format";
@@ -18,6 +18,7 @@ import {
   type OrderPayment,
 } from "./orderDetail";
 import { FAULT_LABEL, PRIORITY_LABEL } from "./orderList";
+import { ChargeForm } from "./ChargeForm";
 import { OrderActions } from "./OrderActions";
 import { OrderNotes } from "./OrderNotes";
 import styles from "./OrderPanel.module.css";
@@ -98,6 +99,10 @@ export default function OrderPanel({
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  const changed = () => {
+    retry();
+    onChanged?.();
+  };
   const order = data?.order;
   const title = order?.code ?? code ?? "Orden";
 
@@ -127,7 +132,7 @@ export default function OrderPanel({
           {order && <p className={styles.sub}>{headline(order)}</p>}
           <Link href={fullHref} className={styles.full}>
             <ExternalLink size={14} aria-hidden />
-            Abrir la orden para editar, cobrar o entregar
+            Abrir la orden completa para editar o imprimir
           </Link>
         </header>
 
@@ -147,14 +152,8 @@ export default function OrderPanel({
             <p className={styles.loading}>Cargando…</p>
           ) : (
             <>
-              <OrderActions
-                order={data.order}
-                onChanged={() => {
-                  retry();
-                  onChanged?.();
-                }}
-              />
-              <Sections {...data} />
+              <OrderActions order={data.order} onChanged={changed} />
+              <Sections {...data} onChanged={changed} />
             </>
           )}
         </div>
@@ -198,7 +197,9 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-function Sections({ order, payments, notes }: Loaded) {
+function Sections({ order, payments, notes, onChanged }: Loaded & { onChanged: () => void }) {
+  const [charging, setCharging] = useState(false);
+  const pending = Number(order.balance ?? 0);
   const faults = order.reportedFaults.map((f) => FAULT_LABEL[f] ?? f);
   const signed = (p: OrderPayment) => (p.kind === "refund" ? -1 : 1) * Number(p.amount);
   const { client, device } = order;
@@ -286,6 +287,28 @@ function Sections({ order, payments, notes }: Loaded) {
             <dd>{formatEur(order.balance)}</dd>
           </div>
         </dl>
+        {order.status !== "cancelado" &&
+          (charging ? (
+            <ChargeForm
+              orderId={order.id}
+              pending={pending}
+              onCancel={() => setCharging(false)}
+              onDone={() => {
+                setCharging(false);
+                onChanged();
+              }}
+            />
+          ) : (
+            <p className={styles.actions}>
+              <Button
+                icon={<Banknote size={16} aria-hidden />}
+                onClick={() => setCharging(true)}
+                disabledReason={pending > 0 ? undefined : "Esta orden ya está pagada."}
+              >
+                Registrar cobro
+              </Button>
+            </p>
+          ))}
       </Section>
 
       <Section title="Dispositivo">

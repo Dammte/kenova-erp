@@ -113,7 +113,7 @@ export function OrderActions({ order, onChanged }: { order: OrderDetail; onChang
           variant="primary"
           onClick={() => setStep("deliver")}
           disabledReason={
-            owed > 0 ? `Cobra antes los ${formatEur(owed)} pendientes desde la orden.` : undefined
+            owed > 0 ? `Registra antes el cobro de los ${formatEur(owed)} pendientes.` : undefined
           }
         >
           Entregar…

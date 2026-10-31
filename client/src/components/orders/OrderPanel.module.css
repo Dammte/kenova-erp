@@ -404,3 +404,19 @@
     gap: 0;
   }
 }
+button.chip {
+  background: var(--k-surface);
+  color: var(--k-text);
+}
+button.chip:hover {
+  background: var(--k-subtle);
+}
+button.chip:focus-visible {
+  outline: none;
+  box-shadow: var(--k-focus-ring);
+}
+.charge {
+  margin-top: var(--k-space-4);
+  padding-top: var(--k-space-4);
+  border-top: var(--k-border-w) solid var(--k-border);
+}
