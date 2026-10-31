@@ -180,6 +180,45 @@ describe("OrderList", () => {
     screen.getByText("Lucía Fernández");
   });
 
+  it("changes a status on the spot and can undo it", async () => {
+    vi.useFakeTimers();
+    await show();
+    fetchMock.mockClear();
+    fireEvent.click(screen.getByRole("button", { name: /cambiar estado de MP-0142/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Pendiente cliente" }));
+    await act(async () => {});
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("/api/service-orders/o1");
+    expect(init.method).toBe("PATCH");
+    expect(init.body).toBe(JSON.stringify({ status: "pendiente_cliente" }));
+    expect(fetchMock.mock.calls[1][0]).toBe("/api/service-orders/list");
+    screen.getByText("MP-0142 pasa a Pendiente cliente.");
+
+    fireEvent.click(screen.getByRole("button", { name: "Deshacer" }));
+    await act(async () => {});
+    expect(fetchMock.mock.calls[2][1].body).toBe(JSON.stringify({ status: "en_progreso" }));
+    screen.getByText("MP-0142 vuelve a En progreso.");
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("says why a status change was refused and keeps the old status", async () => {
+    await show();
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ message: "Orden no encontrada" }), { status: 404 }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: /cambiar estado de MP-0142/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Pendiente de piezas" }));
+    await act(async () => {});
+    screen.getByText(
+      "No se ha podido cambiar MP-0142 a Pendiente de piezas. Orden no encontrada",
+    );
+    screen.getByRole("button", { name: /^En progreso: cambiar estado/ });
+    expect(screen.queryByRole("button", { name: "Deshacer" })).toBeNull();
+  });
+
   it("pages 50 at a time", async () => {
     respond({ ...PAGE, total: 120, page: 2 });
     await show();
