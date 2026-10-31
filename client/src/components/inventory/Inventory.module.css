@@ -1,0 +1,479 @@
+/* Design 3.3: the list on the left, the open client's card on the right. */
+.page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--k-space-4);
+  padding: var(--k-space-6);
+  font: var(--k-text-base);
+  color: var(--k-text);
+  background: var(--k-bg);
+  min-height: 100%;
+  align-items: start;
+}
+.page p {
+  margin: 0;
+}
+.withCard {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+}
+
+.listPane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-3);
+  min-width: 0;
+}
+.title {
+  margin: 0;
+  font: var(--k-text-xl);
+}
+.search {
+  height: var(--k-control-h);
+  padding: 0 var(--k-space-3);
+  border: var(--k-border-w) solid var(--k-border-strong);
+  border-radius: var(--k-radius-md);
+  background: var(--k-surface);
+  color: var(--k-text);
+  font: inherit;
+}
+.search:focus-visible {
+  outline: none;
+  box-shadow: var(--k-focus-ring);
+}
+.rowName:focus-visible,
+.close:focus-visible,
+.linkButton:focus-visible {
+  outline: none;
+  box-shadow: var(--k-focus-ring);
+}
+
+.error {
+  color: var(--k-danger);
+}
+.muted {
+  color: var(--k-text-muted);
+  font: var(--k-text-sm);
+}
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--k-space-2);
+  padding: var(--k-space-6);
+  border: var(--k-border-w) dashed var(--k-border-strong);
+  border-radius: var(--k-radius-lg);
+  background: var(--k-surface);
+}
+.link,
+.linkButton {
+  color: var(--k-accent);
+  font: var(--k-text-sm);
+  font-weight: 500;
+  text-decoration: none;
+}
+.linkButton {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+.link:hover,
+.linkButton:hover {
+  text-decoration: underline;
+}
+
+.table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  border: var(--k-border-w) solid var(--k-border);
+  border-radius: var(--k-radius-lg);
+  background: var(--k-surface);
+  overflow: hidden;
+}
+.table th {
+  padding: var(--k-space-2) var(--k-space-3);
+  background: var(--k-subtle);
+  color: var(--k-text-muted);
+  font: var(--k-text-xs);
+  text-align: left;
+  white-space: nowrap;
+}
+.table td {
+  padding: var(--k-space-3);
+  border-top: var(--k-border-w) solid var(--k-border);
+  vertical-align: top;
+  font: var(--k-text-sm);
+}
+.table tbody tr {
+  cursor: pointer;
+}
+.table tbody tr:hover td {
+  background: var(--k-bg);
+}
+.table .num {
+  text-align: right;
+  white-space: nowrap;
+}
+.table td > .muted {
+  display: block;
+}
+.selected td {
+  background: var(--k-accent-subtle);
+}
+.selected td:first-child {
+  box-shadow: inset 3px 0 0 var(--k-accent);
+}
+.rowName {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--k-text);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.num {
+  font-variant-numeric: tabular-nums;
+}
+.pager {
+  display: flex;
+  align-items: center;
+  gap: var(--k-space-3);
+}
+
+/* The card. */
+.card {
+  position: sticky;
+  top: var(--k-space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-4);
+  min-width: 0;
+  max-height: calc(100vh - var(--k-space-8));
+  overflow-y: auto;
+  padding: var(--k-space-4);
+  border: var(--k-border-w) solid var(--k-border);
+  border-radius: var(--k-radius-lg);
+  background: var(--k-surface);
+}
+.cardHead {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--k-space-3);
+}
+.cardTitle {
+  flex: 1;
+  min-width: 0;
+}
+.cardTitle h2 {
+  margin: 0;
+  font: var(--k-text-lg);
+}
+.close {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: var(--k-radius-md);
+  background: none;
+  color: var(--k-text-muted);
+  cursor: pointer;
+}
+.close:hover {
+  background: var(--k-subtle);
+}
+.primaryLink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--k-space-1);
+  height: 32px;
+  padding: 0 var(--k-space-3);
+  border: var(--k-border-w) solid var(--k-border-strong);
+  border-radius: var(--k-radius-md);
+  background: var(--k-surface);
+  color: var(--k-text);
+  font: var(--k-text-sm);
+  font-weight: 500;
+  text-decoration: none;
+}
+.primaryLink {
+  margin-left: auto;
+  border-color: var(--k-accent);
+  background: var(--k-accent);
+  color: var(--k-surface);
+}
+.primaryLink:hover {
+  background: var(--k-accent-hover);
+}
+.primaryLink:focus-visible {
+  outline: none;
+  box-shadow: var(--k-focus-ring);
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--k-space-2);
+  margin: 0;
+}
+.stats > div {
+  padding: var(--k-space-2) var(--k-space-3);
+  border-radius: var(--k-radius-md);
+  background: var(--k-bg);
+}
+.stats dt {
+  color: var(--k-text-muted);
+  font: var(--k-text-xs);
+}
+.stats dd {
+  margin: 0;
+  font: var(--k-text-md);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.sectionTitle {
+  display: flex;
+  align-items: baseline;
+  gap: var(--k-space-2);
+  margin: 0 0 var(--k-space-2);
+  font: var(--k-text-sm);
+  font-weight: 600;
+}
+/* Fields read as text until hovered or focused. */
+
+/* Inventory additions. */
+.top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--k-space-3);
+}
+.headActions,
+.cardActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--k-space-2);
+}
+.secondaryLink {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 var(--k-space-3);
+  border: var(--k-border-w) solid var(--k-border-strong);
+  border-radius: var(--k-radius-md);
+  background: var(--k-surface);
+  color: var(--k-text);
+  font: var(--k-text-sm);
+  font-weight: 500;
+  text-decoration: none;
+}
+.secondaryLink:hover {
+  background: var(--k-subtle);
+}
+.secondaryLink:focus-visible,
+.chip:focus-visible {
+  outline: none;
+  box-shadow: var(--k-focus-ring);
+}
+.headActions .primaryLink {
+  margin-left: 0;
+}
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--k-space-2);
+}
+.chips,
+.menus {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--k-space-2);
+}
+.chip {
+  padding: var(--k-space-1) var(--k-space-3);
+  border: var(--k-border-w) solid var(--k-border-strong);
+  border-radius: var(--k-radius-full);
+  background: var(--k-surface);
+  color: var(--k-text);
+  font: var(--k-text-sm);
+  cursor: pointer;
+}
+.chip[aria-pressed="true"] {
+  border-color: var(--k-accent);
+  background: var(--k-accent-subtle);
+  font-weight: 600;
+}
+.count {
+  color: var(--k-text-muted);
+}
+.lowChip {
+  border-color: var(--k-status-pendiente-cliente);
+  color: var(--k-warning);
+}
+.lowChip[aria-pressed="true"] {
+  border-color: var(--k-warning);
+  background: var(--k-status-pendiente-cliente-bg);
+}
+.menus select {
+  height: 32px;
+  padding: 0 var(--k-space-2);
+  border: var(--k-border-w) solid var(--k-border-strong);
+  border-radius: var(--k-radius-md);
+  background: var(--k-surface);
+  color: var(--k-text);
+  font: var(--k-text-sm);
+}
+.tag,
+.bigTag {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 28px;
+  border-radius: var(--k-radius-sm);
+  background: var(--k-subtle);
+  color: var(--k-text-muted);
+  font: var(--k-text-xs);
+  font-weight: 700;
+}
+.bigTag {
+  flex: none;
+  width: 44px;
+  height: 44px;
+}
+.sku {
+  font: var(--k-text-code);
+  white-space: nowrap;
+}
+.narrow,
+.table td > .narrow {
+  display: none;
+}
+/* With a part open, the list keeps only what fits beside it. */
+.withCard .wide {
+  display: none;
+}
+.withCard .table td > .narrow {
+  display: block;
+}
+
+/* «Sin stock» red, «Bajo» amber; the word always says it too. */
+.badge {
+  display: inline-grid;
+  grid-template-columns: auto 48px;
+  align-items: center;
+  column-gap: var(--k-space-2);
+  white-space: nowrap;
+}
+.badgeText {
+  grid-column: 1 / -1;
+  font: var(--k-text-xs);
+  color: var(--k-text-muted);
+}
+.bar {
+  display: block;
+  height: 4px;
+  border-radius: var(--k-radius-full);
+  background: var(--k-subtle);
+  overflow: hidden;
+}
+.bar > span {
+  display: block;
+  height: 100%;
+  background: var(--k-text-muted);
+}
+.out strong,
+.out .badgeText {
+  color: var(--k-danger);
+  font-weight: 600;
+}
+.low strong,
+.low .badgeText {
+  color: var(--k-warning);
+  font-weight: 600;
+}
+.low .bar > span {
+  background: var(--k-status-pendiente-cliente);
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--k-space-1) var(--k-space-4);
+  margin: 0;
+  font: var(--k-text-sm);
+}
+.facts dt {
+  color: var(--k-text-muted);
+}
+.facts dd {
+  margin: 0;
+}
+.stats dd .badge {
+  font: var(--k-text-sm);
+}
+.moves {
+  width: 100%;
+  border-collapse: collapse;
+  font: var(--k-text-sm);
+}
+.moves th,
+.moves td {
+  padding: var(--k-space-2);
+  border-top: var(--k-border-w) solid var(--k-border);
+  text-align: left;
+  vertical-align: top;
+}
+.moves th {
+  border-top: 0;
+  color: var(--k-text-muted);
+  font: var(--k-text-xs);
+}
+.moves .num {
+  text-align: right;
+}
+.moveKind {
+  font-weight: 600;
+}
+.k_purchase,
+.plus {
+  color: var(--k-success);
+}
+.k_adjust {
+  color: var(--k-warning);
+}
+.k_order {
+  color: var(--k-info);
+}
+
+@media (max-width: 1100px) {
+  .wide {
+    display: none;
+  }
+  .table td > .narrow {
+    display: block;
+  }
+}
+@media (max-width: 640px) {
+  /* The cost is not shown on a phone (design 3.4). */
+  .cost {
+    display: none;
+  }
+  .filters {
+    align-items: stretch;
+  }
+  .chips {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+  .chip {
+    white-space: nowrap;
+  }
+}
