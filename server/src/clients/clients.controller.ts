@@ -20,12 +20,15 @@ import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
 import { ListClientsDto } from './dto/list-clients.dto';
 import { ClientListService } from './client-list.service';
+import { ClientMergeService } from './client-merge.service';
+import { MergeClientsDto, NotDuplicateDto } from './dto/merge-clients.dto';
 
 @Controller('clients')
 export class ClientsController {
   constructor(
     private readonly clientsService: ClientsService,
     private readonly clientList: ClientListService,
+    private readonly clientMerge: ClientMergeService,
   ) {}
 
   @Get()
@@ -70,6 +73,38 @@ export class ClientsController {
     @CurrentUser() user: AuthUser,
   ) {
     return this.clientList.summary(id, user);
+  }
+
+  /** Clients that look like this one (same phone or document). */
+  @Get(':id/duplicates')
+  duplicates(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.clientMerge.duplicates(id, user);
+  }
+
+  /** «No es la misma persona»: the pair is not flagged again. */
+  @Post(':id/not-duplicate')
+  @HttpCode(204)
+  notDuplicate(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: NotDuplicateDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.clientMerge.notDuplicate(id, dto.otherId, user);
+  }
+
+  /** Merges another client into this one; partners only (design 3.3). */
+  @Post(':id/merge')
+  @Roles(UserRole.SUPER_ADMIN)
+  @HttpCode(200)
+  merge(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: MergeClientsDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.clientMerge.merge(id, dto, user);
   }
 
   /** Saldo a favor per store (only the actor's store for a partner store). */

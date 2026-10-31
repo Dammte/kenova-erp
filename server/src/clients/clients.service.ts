@@ -183,12 +183,17 @@ export class ClientsService {
     return [...found, ...byPhone.filter((c) => !seen.has(c.id)).map(limited)];
   }
 
+  /** `manager` lets a merge update the kept client inside its transaction. */
   async update(
     id: string,
     dto: UpdateClientDto,
     actor: AuthUser,
+    manager?: EntityManager,
   ): Promise<Client> {
-    const current = await this.findOne(id, actor);
+    const repo = manager?.getRepository(Client) ?? this.clientRepository;
+    await assertClientVisible(repo.manager, id, actor);
+    const current = await repo.findOne({ where: { id } });
+    if (!current) throw new NotFoundException('Cliente no encontrado');
     if (current.anonymizedAt) throw new BadRequestException(ANONYMIZED_CLIENT);
     const dniType = dto.dniType ?? current.dniType;
     if (dto.dniType !== undefined || dto.dni !== undefined) {
@@ -199,9 +204,9 @@ export class ClientsService {
     }
     const changes = this.normalizeNames(dto, dniType) as Partial<Client>;
     if (Object.keys(changes).length > 0) {
-      await this.clientRepository.update(id, changes);
+      await repo.update(id, changes);
     }
-    return this.findOne(id, actor);
+    return (await repo.findOne({ where: { id } })) as Client;
   }
 
   /** Inline edits from the orders table; city is limited to the two shops. */
