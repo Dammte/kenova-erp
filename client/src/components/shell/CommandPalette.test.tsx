@@ -49,7 +49,7 @@ describe("CommandPalette", () => {
   it("opens focused on the field and lists the sections the role may visit", () => {
     render(<CommandPalette role="STORE_ADMIN" onClose={onClose} />);
     expect(document.activeElement).toBe(field());
-    expect(options()).toEqual(["Nueva orden", "Ir a Panel", "Ir a Órdenes", "Ir a Clientes"]);
+    expect(options()).toEqual(["Nueva orden", "Ir a Panel", "Ir a Órdenes", "Ir a Tarifas"]);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
