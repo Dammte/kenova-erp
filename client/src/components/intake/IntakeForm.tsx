@@ -4,9 +4,11 @@ import { useState, type FormEvent, type KeyboardEvent, type ReactNode } from "re
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui";
 import { API_URL, apiFetch, errorMessage } from "@/lib/api";
+import { formatEur } from "@/lib/format";
 import { FAULT_LABEL } from "@/components/orders/orderList";
 import { ClientPicker } from "./ClientPicker";
 import { DevicePicker } from "./DevicePicker";
+import { ServicePicker } from "./ServicePicker";
 import {
   ACCESSORY_CHIPS,
   CONDITION_CHIPS,
@@ -16,6 +18,7 @@ import {
   intakePayload,
   isKnown,
   missing,
+  orderTotal,
   toggleWord,
   type FoundClient,
   type IntakeState,
@@ -31,6 +34,10 @@ const START: IntakeState = {
   accessories: "",
   priority: "medium",
   observations: "",
+  services: [],
+  total: null,
+  deposit: null,
+  method: null,
 };
 
 /** Moves to the field a "Falta" line names: an input by name, or a chip block. */
@@ -155,7 +162,11 @@ export function IntakeForm() {
             </label>
           </Block>
 
-          <Block n={4} title="Estado físico y accesorios">
+          <Block n={4} title="Servicios y precio">
+            <ServicePicker value={s} model={s.device?.model ?? ""} onChange={set} />
+          </Block>
+
+          <Block n={5} title="Estado físico y accesorios">
             <div className={styles.grid2}>
               <div className={styles.group}>
                 <label className={styles.label} htmlFor="intake-condition">
@@ -212,7 +223,7 @@ export function IntakeForm() {
             </div>
           </Block>
 
-          <Block n={5} title="Prioridad y observaciones">
+          <Block n={6} title="Prioridad y observaciones">
             <div className={styles.chips} role="radiogroup" aria-label="Prioridad">
               {PRIORITIES.map(([p, label]) => (
                 <label key={p} className={styles.chip}>
@@ -253,7 +264,9 @@ export function IntakeForm() {
           ) : (
             <p className={styles.label}>Todo listo para crear la orden.</p>
           )}
-          <p className={styles.muted}>Entra como En progreso. Precio, servicios y cobro se añaden desde la orden.</p>
+          <p className={styles.muted}>
+            Total {formatEur(orderTotal(s))} · A cuenta {formatEur(s.deposit ?? 0)}. Entra como En progreso.
+          </p>
           {problem && (
             <p className={styles.error} role="alert">
               {problem}{" "}

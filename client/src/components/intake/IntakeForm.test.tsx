@@ -10,6 +10,11 @@ const fetchMock = vi.fn();
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
 
 const LUCIA = { id: "c1", firstName: "Lucía", lastName: "Fernández", phoneNumber: "612345678", dniType: null, dni: null };
+const SERVICES = [
+  { id: "s1", name: "Diagnóstico", price: "20.00" },
+  { id: "s2", name: "Cambio de pantalla iPhone 13", price: "149.00" },
+  { id: "s3", name: "Cambio de pantalla Galaxy A54", price: "119.00" },
+];
 const IPHONE = { id: "d1", type: "movil", brand: "Apple", model: "iPhone 13", imei: "356789104521337", createdAt: "2026-10-01T10:00:00Z" };
 
 beforeEach(() => {
@@ -49,6 +54,7 @@ describe("IntakeForm", () => {
     fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
       if (url.includes("/clients/search")) return json([LUCIA]);
       if (url.includes("/devices/client/c1")) return json([IPHONE]);
+      if (url.includes("/services")) return json(SERVICES);
       if (init?.method === "POST") return json({ id: "o9" }, 201);
       return json({});
     });
@@ -99,6 +105,7 @@ describe("IntakeForm", () => {
     fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
       if (url.includes("/clients/search")) return json([LUCIA]);
       if (url.includes("/devices/client/c1")) return json([IPHONE]);
+      if (url.includes("/services")) return json(SERVICES);
       if (init?.method === "POST") return json({ message: "Dispositivo no encontrado" }, 404);
       return json({});
     });
@@ -115,5 +122,45 @@ describe("IntakeForm", () => {
     expect(screen.getByRole("button", { name: "Reintentar" })).toBeTruthy();
     expect(push).not.toHaveBeenCalled();
     expect((screen.getByLabelText("Pantalla rota") as HTMLInputElement).checked).toBe(true);
+  });
+
+  it("adds the model's service first, takes a deposit and sends the money", async () => {
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
+      if (url.includes("/clients/search")) return json([LUCIA]);
+      if (url.includes("/devices/client/c1")) return json([IPHONE]);
+      if (url.includes("/services")) return json(SERVICES);
+      if (init?.method === "POST") return json({ id: "o9" }, 201);
+      return json({});
+    });
+    render(<IntakeForm />);
+    await search("lucía");
+    fireEvent.click(screen.getByRole("button", { name: /Lucía Fernández/ }));
+    await act(async () => {});
+    fireEvent.click(screen.getByRole("button", { name: /Apple iPhone 13/ }));
+    fireEvent.click(screen.getByLabelText("Pantalla rota"));
+
+    const service = screen.getByLabelText(/Añadir servicio o tarifa/);
+    fireEvent.change(service, { target: { value: "pantalla" } });
+    fireEvent.keyDown(service, { key: "Enter" });
+    expect(screen.getByText("Cambio de pantalla iPhone 13")).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText(/^A cuenta/), { target: { value: "200" } });
+    expect(screen.getByText(/A cuenta no puede superar el total/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "A cuenta mayor que el total" })).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText(/^A cuenta/), { target: { value: "59" } });
+    expect(screen.getByRole("button", { name: "Forma de pago de lo que deja a cuenta" })).toBeTruthy();
+    fireEvent.click(screen.getByLabelText("Tarjeta"));
+    expect(screen.getByText(/^Pendiente/).textContent).toMatch(/90,00\s€/);
+
+    await act(async () => {
+      fireEvent.click(create());
+    });
+    expect(posted()?.body.order).toMatchObject({
+      serviceIds: ["s2"],
+      totalPrice: 149,
+      amountPaid: 59,
+      paymentMethod: "card",
+    });
   });
 });

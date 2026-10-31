@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { EMPTY_DEVICE, intakePayload, missing, newClientFrom, toggleWord, type IntakeState } from "./intake";
+import { EMPTY_DEVICE, intakePayload, missing, newClientFrom, orderTotal, toggleWord, type IntakeState } from "./intake";
+import { matchServices } from "./ServicePicker";
 import { withClient } from "./IntakeForm";
 
 const BASE: IntakeState = {
@@ -11,6 +12,10 @@ const BASE: IntakeState = {
   accessories: "",
   priority: "medium",
   observations: "",
+  services: [],
+  total: null,
+  deposit: null,
+  method: null,
 };
 const LUCIA = { id: "c1", firstName: "Lucía", lastName: "Fernández", phoneNumber: "612345678" };
 const IPHONE = { id: "d1", type: "movil", brand: "Apple", model: "iPhone 13", imei: null, createdAt: "2026-10-01T10:00:00Z" };
@@ -86,5 +91,42 @@ describe("intakePayload", () => {
     expect(p).toMatchObject({ client: { firstName: "Ana", lastName: null, phoneNumber: "612345678", email: null } });
     expect("device" in p && p.device).toEqual({ type: "tablet", brand: "Apple", model: "iPad", imei: "35678910" });
     expect(p.order).toMatchObject({ accessories: "Funda", observations: "Urge" });
+  });
+});
+
+describe("money", () => {
+  const PANTALLA = { id: "s2", name: "Cambio de pantalla", price: "149.00" };
+  const FUNDA = { id: "s4", name: "Funda", price: "9.90" };
+  const READY = { ...BASE, client: LUCIA, device: IPHONE, faults: ["broken_screen"] };
+
+  it("sums the services unless a total was agreed", () => {
+    expect(orderTotal({ services: [PANTALLA, FUNDA], total: null })).toBe(158.9);
+    expect(orderTotal({ services: [PANTALLA, FUNDA], total: 150 })).toBe(150);
+  });
+  it("refuses a deposit above the total and one without a payment method", () => {
+    expect(missing({ ...READY, services: [PANTALLA], deposit: 200, method: "cash" }).map((m) => m.field)).toEqual(["deposit"]);
+    expect(missing({ ...READY, services: [PANTALLA], deposit: 50, method: null }).map((m) => m.field)).toEqual(["method"]);
+  });
+  it("sends services, total and deposit only when there are any", () => {
+    expect(intakePayload(READY).order).not.toHaveProperty("totalPrice");
+    expect(intakePayload({ ...READY, services: [PANTALLA], total: 140, deposit: 40, method: "cash" }).order).toMatchObject({
+      serviceIds: ["s2"],
+      totalPrice: 140,
+      amountPaid: 40,
+      paymentMethod: "cash",
+    });
+  });
+});
+
+describe("matchServices", () => {
+  const ALL = [
+    { id: "a", name: "Cambio de pantalla Galaxy A54", price: 119 },
+    { id: "b", name: "Cambio de pantalla iPhone 13", price: 149 },
+    { id: "c", name: "Batería iPhone 13", price: 69 },
+  ];
+  it("puts the device model's services first and skips chosen ones", () => {
+    expect(matchServices(ALL, "pantalla", "iPhone 13", []).map((x) => x.id)).toEqual(["b", "a"]);
+    expect(matchServices(ALL, "", "iphone 13", ["b"]).map((x) => x.id)).toEqual(["c"]);
+    expect(matchServices(ALL, "bateria", "", []).map((x) => x.id)).toEqual(["c"]);
   });
 });

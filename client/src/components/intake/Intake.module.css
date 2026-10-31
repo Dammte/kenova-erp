@@ -285,3 +285,58 @@ li[aria-selected="true"] > .result {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Services of the order and the money summary. */
+.lines {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.lines li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--k-space-3);
+  padding: var(--k-space-2) 0;
+  border-bottom: var(--k-border-w) solid var(--k-border);
+}
+.lineEnd {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--k-space-2);
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+.remove {
+  display: inline-flex;
+  padding: var(--k-space-1);
+  border: 0;
+  border-radius: var(--k-radius-md);
+  background: none;
+  color: var(--k-text-muted);
+  cursor: pointer;
+}
+.remove:hover {
+  background: var(--k-subtle);
+  color: var(--k-text);
+}
+.remove:focus-visible {
+  outline: none;
+  box-shadow: var(--k-focus-ring);
+}
+.totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--k-space-6);
+  margin: 0;
+  font: var(--k-text-sm);
+  color: var(--k-text-muted);
+}
+.totals strong {
+  display: block;
+  color: var(--k-text);
+  font: var(--k-text-md);
+  font-variant-numeric: tabular-nums;
+}
