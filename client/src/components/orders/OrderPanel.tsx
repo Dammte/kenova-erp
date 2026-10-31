@@ -152,7 +152,7 @@ export default function OrderPanel({
             <p className={styles.loading}>Cargando…</p>
           ) : (
             <>
-              <OrderActions order={data.order} onChanged={changed} />
+              <OrderActions order={data.order} payments={data.payments} onChanged={changed} />
               <Sections {...data} onChanged={changed} />
             </>
           )}

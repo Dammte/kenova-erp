@@ -424,3 +424,6 @@ button.chip:focus-visible {
   padding-top: var(--k-space-4);
   border-top: var(--k-border-w) solid var(--k-border);
 }
+.secondary {
+  margin-top: var(--k-space-2) !important;
+}
