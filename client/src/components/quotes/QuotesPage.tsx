@@ -179,7 +179,9 @@ export function QuotesPage() {
         </section>
 
         <section className={styles.detailCol} aria-label="Presupuesto abierto">
-          {openId === NEW_QUOTE && <QuoteForm onSaved={saved} onCancel={() => open(null)} />}
+          {openId === NEW_QUOTE && (
+            <QuoteForm serviceId={params.get("servicio")} onSaved={saved} onCancel={() => open(null)} />
+          )}
           {quote && editing && <QuoteForm quote={quote} onSaved={saved} onCancel={() => setEditing(false)} />}
           {quote && !editing && (
             <QuoteView

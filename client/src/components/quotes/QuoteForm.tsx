@@ -94,10 +94,13 @@ function RateSearch({ onPick }: { onPick: (rate: Rate) => void }) {
  */
 export function QuoteForm({
   quote,
+  serviceId,
   onSaved,
   onCancel,
 }: {
   quote?: QuoteDetail;
+  /** A rate to start with, from «Crear presupuesto» in Tarifas. */
+  serviceId?: string | null;
   onSaved: (q: QuoteDetail) => void;
   onCancel: () => void;
 }) {
@@ -112,6 +115,25 @@ export function QuoteForm({
   );
   const [saving, setSaving] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!serviceId) return;
+    const controller = new AbortController();
+    apiFetch(`${API_URL}/services/${encodeURIComponent(serviceId)}`, { signal: controller.signal })
+      .then(async (res) => {
+        if (!res.ok) return;
+        const r = (await res.json()) as Omit<Rate, "model">;
+        setLines((ls) =>
+          ls.some((l) => l.serviceId === r.id)
+            ? ls
+            : [...ls, line({ serviceId: r.id, description: r.name, quality: r.quality ?? null, unitPrice: Number(r.price) })],
+        );
+      })
+      .catch(() => {
+        // The rate is a shortcut; the form works the same without it.
+      });
+    return () => controller.abort();
+  }, [serviceId]);
 
   const change = (key: number, patch: Partial<DraftLine>) =>
     setLines((ls) => ls.map((l) => (l.key === key ? { ...l, ...patch } : l)));

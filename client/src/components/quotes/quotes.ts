@@ -35,6 +35,7 @@ export interface QuoteLine {
 export interface QuoteDetail {
   id: string;
   code: string;
+  storeId: string;
   status: QuoteStatus;
   clientId: string | null;
   clientName: string;

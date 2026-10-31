@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Pencil } from "lucide-react";
+import { Pencil, Printer } from "lucide-react";
 import { Button } from "@/components/ui";
 import { formatEur } from "@/lib/format";
 import { QuoteActions } from "./QuoteActions";
@@ -32,11 +32,16 @@ export function QuoteView({
             {QUOTE_STATUS_LABEL[quote.status]}
           </span>
         </div>
-        {quote.status === "draft" && (
-          <Button variant="secondary" size="sm" icon={<Pencil size={16} aria-hidden />} onClick={onEdit}>
-            Editar
-          </Button>
-        )}
+        <div className={styles.headActions}>
+          <Link className={styles.textLink} href={`/presupuestos/${quote.id}/imprimir`}>
+            <Printer size={16} aria-hidden /> Imprimir / PDF
+          </Link>
+          {quote.status === "draft" && (
+            <Button variant="secondary" size="sm" icon={<Pencil size={16} aria-hidden />} onClick={onEdit}>
+              Editar
+            </Button>
+          )}
+        </div>
       </header>
       {notice && (
         <p role="status" className={styles.notice}>
