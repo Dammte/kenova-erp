@@ -38,6 +38,7 @@ const START: IntakeState = {
   services: [],
   total: null,
   deposit: null,
+  waivesQuote: false,
   method: null,
 };
 
@@ -166,6 +167,15 @@ export function IntakeForm() {
 
           <Block n={4} title="Servicios y precio">
             <ServicePicker value={s} model={s.device?.model ?? ""} onChange={set} />
+            <label className={styles.check}>
+              <input
+                type="checkbox"
+                checked={s.waivesQuote}
+                onChange={(e) => set({ waivesQuote: e.target.checked })}
+              />
+              El cliente renuncia al presupuesto previo
+              <span className={styles.muted}>· el resguardo lo indica en lugar de «presupuesto válido 30 días»</span>
+            </label>
           </Block>
 
           <Block n={5} title="Estado físico y accesorios">

@@ -370,3 +370,12 @@ li[aria-selected="true"] > .result {
   font-weight: 500;
   text-decoration: underline;
 }
+
+.check {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--k-space-2);
+  font: var(--k-text-sm);
+  cursor: pointer;
+}
