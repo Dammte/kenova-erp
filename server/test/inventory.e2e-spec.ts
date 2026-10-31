@@ -219,4 +219,64 @@ describe('Inventory and parts consumption', () => {
     );
     expect(row.deletedAt).not.toBeNull();
   });
+
+  describe('finishing an order with the parts used', () => {
+    const idOf = async (url: string, body: object) =>
+      ((await post(url, body)).body as { id: string }).id;
+    const newPart = async (sku: string, stock: number) =>
+      ((await part(sku, stock)) as { id: string }).id;
+    const stock = async (id: string) =>
+      (
+        await t.db.query<{ stock: number }[]>(
+          `SELECT stock FROM inventory WHERE id = $1`,
+          [id],
+        )
+      )[0].stock;
+    const finish = async (parts: object[]) => {
+      const clientId = await idOf('/api/clients', { firstName: 'f' });
+      const id = await idOf('/api/service-orders', { clientId });
+      const res = await t
+        .http()
+        .patch(`/api/service-orders/${id}`)
+        .set('Cookie', cookie)
+        .set('Origin', ORIGIN)
+        .send({ status: 'finalizado', workDone: 'Pantalla nueva', parts });
+      const [order] = await t.db.query<{ status: string }[]>(
+        `SELECT status FROM service_orders WHERE id = $1`,
+        [id],
+      );
+      return {
+        status: res.status,
+        body: res.body as {
+          message?: string;
+          serviceHistory?: { action: string }[];
+        },
+        orderStatus: order.status,
+      };
+    };
+
+    it('takes the parts out of stock in the same step', async () => {
+      const p = await newPart('FIN1', 3);
+      const res = await finish([{ inventoryId: p, quantity: 2 }]);
+      expect(res.status).toBe(200);
+      expect(res.orderStatus).toBe('finalizado');
+      expect(await stock(p)).toBe(1);
+      expect(res.body.serviceHistory?.map((h) => h.action)).toContain(
+        'piezas_usadas',
+      );
+    });
+
+    it('does not finish the order when a part is short', async () => {
+      const a = await newPart('FIN2', 5);
+      const b = await newPart('FIN3', 0);
+      const res = await finish([
+        { inventoryId: a, quantity: 1 },
+        { inventoryId: b, quantity: 1 },
+      ]);
+      expect(res.status).toBe(409);
+      expect(res.body.message).toMatch(/Stock insuficiente de "Pieza FIN3"/);
+      expect(res.orderStatus).not.toBe('finalizado');
+      expect(await stock(a)).toBe(5);
+    });
+  });
 });

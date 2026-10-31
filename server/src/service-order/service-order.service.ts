@@ -8,7 +8,7 @@ import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, In, IsNull, Repository } from 'typeorm';
 import { AuditService } from '../audit/audit.service';
 import { Inventory } from '../inventory/entities/inventory.entity';
-import { ConsumePartsDto } from './dto/consume-parts.dto';
+import { ConsumePartsDto, ConsumedPartDto } from './dto/consume-parts.dto';
 import {
   ORDER_FAULTS,
   OrderFault,
@@ -64,6 +64,14 @@ export interface ImeiLookup {
     /** "Batería · 59,00 €" */
     summary: string;
   }[];
+}
+
+/** A part taken out of stock for an order, with the stock left. */
+export interface UsedPart {
+  inventoryId: string;
+  name: string;
+  quantity: number;
+  stock: number;
 }
 
 @Injectable()
@@ -546,7 +554,7 @@ export class ServiceOrderService {
     actor: AuthUser,
   ): Promise<ServiceOrder> {
     const actorUserId = actor.id;
-    const { serviceIds, clientId, deviceId, owedReason, ...updateData } =
+    const { serviceIds, clientId, deviceId, owedReason, parts, ...updateData } =
       updateServiceOrderDto;
 
     const serviceOrder = await this.findOne(id, actor);
@@ -681,6 +689,10 @@ export class ServiceOrderService {
         Object.assign(serviceOrder, commissionFor(store, serviceOrder));
       }
       await m.getRepository(ServiceOrder).save(serviceOrder);
+      // Parts used come out of stock in the same transaction: if one is short,
+      // the order is not finished either. After the save, which would detach
+      // a history row it has not loaded.
+      if (parts?.length) await this.takeParts(m, id, parts, actor);
       if (updateData.totalPrice !== undefined || serviceIds !== undefined) {
         await this.syncLines(m, serviceOrder);
       }
@@ -751,91 +763,89 @@ export class ServiceOrderService {
     orderId: string,
     dto: ConsumePartsDto,
     actor: AuthUser,
-  ): Promise<{
-    parts: {
-      inventoryId: string;
-      name: string;
-      quantity: number;
-      stock: number;
-    }[];
-  }> {
-    const actorUserId = actor.id;
-    const merged = new Map<string, number>();
-    for (const p of dto.parts) {
-      merged.set(p.inventoryId, (merged.get(p.inventoryId) ?? 0) + p.quantity);
-    }
-
+  ): Promise<{ parts: UsedPart[] }> {
     return this.dataSource.transaction(async (manager) => {
       const order = await manager.getRepository(ServiceOrder).findOne({
         where: { id: orderId, deletedAt: IsNull(), ...orderScope(actor) },
       });
       if (!order)
         throw new NotFoundException('Orden de servicio no encontrada');
-
-      const result: {
-        inventoryId: string;
-        name: string;
-        quantity: number;
-        stock: number;
-      }[] = [];
-      // Stable order avoids deadlocks between concurrent requests.
-      for (const [inventoryId, quantity] of [...merged.entries()].sort()) {
-        const rows: { id: string; name: string; stock: number }[] =
-          await manager
-            .createQueryBuilder()
-            .update(Inventory)
-            .set({
-              stock: () => `"stock" - ${Number(quantity)}`,
-              updatedBy: actorUserId.slice(0, 50),
-            })
-            .where('id = :id', { id: inventoryId })
-            .andWhere('"deletedAt" IS NULL')
-            .andWhere('"stock" >= :quantity', { quantity })
-            .returning(['id', 'name', 'stock'])
-            .execute()
-            .then((r) => r.raw);
-        if (rows.length === 0) {
-          const part = await manager
-            .getRepository(Inventory)
-            .findOne({ where: { id: inventoryId }, withDeleted: true });
-          if (!part || part.deletedAt) {
-            throw new NotFoundException('Pieza de inventario no encontrada');
-          }
-          throw new ConflictException(
-            `Stock insuficiente de "${part.name}": quedan ${part.stock ?? 0}, se necesitan ${quantity}`,
-          );
-        }
-        result.push({
-          inventoryId,
-          name: rows[0].name,
-          quantity,
-          stock: Number(rows[0].stock),
-        });
-      }
-
-      await manager.getRepository(ServiceHistory).insert({
-        serviceOrderId: orderId,
-        performedBy: { id: actorUserId } as any,
-        action: 'piezas_usadas',
-        description: result.map((p) => `${p.name} x${p.quantity}`).join(', '),
-        partsReplaced: result.map((p) => `${p.name} x${p.quantity}`).join(', '),
-      });
-      await this.audit.record(
-        {
-          action: 'SERVICE_ORDER_PARTS_CONSUMED',
-          actorUserId,
-          entityType: 'service_order',
-          entityId: orderId,
-          metadata: {
-            parts: result.map(({ inventoryId, quantity }) => ({
-              inventoryId,
-              quantity,
-            })),
-          },
-        },
-        manager,
-      );
-      return { parts: result };
+      return {
+        parts: await this.takeParts(manager, orderId, dto.parts, actor),
+      };
     });
+  }
+
+  /** The stock side of consumeParts, inside the caller's transaction. */
+  private async takeParts(
+    manager: EntityManager,
+    orderId: string,
+    parts: ConsumedPartDto[],
+    actor: AuthUser,
+  ): Promise<UsedPart[]> {
+    const actorUserId = actor.id;
+    const merged = new Map<string, number>();
+    for (const p of parts) {
+      merged.set(p.inventoryId, (merged.get(p.inventoryId) ?? 0) + p.quantity);
+    }
+
+    const result: UsedPart[] = [];
+    // Stable order avoids deadlocks between concurrent requests.
+    for (const [inventoryId, quantity] of [...merged.entries()].sort()) {
+      const rows: { id: string; name: string; stock: number }[] = await manager
+        .createQueryBuilder()
+        .update(Inventory)
+        .set({
+          stock: () => `"stock" - ${Number(quantity)}`,
+          updatedBy: actorUserId.slice(0, 50),
+        })
+        .where('id = :id', { id: inventoryId })
+        .andWhere('"deletedAt" IS NULL')
+        .andWhere('"stock" >= :quantity', { quantity })
+        .returning(['id', 'name', 'stock'])
+        .execute()
+        .then((r) => r.raw);
+      if (rows.length === 0) {
+        const part = await manager
+          .getRepository(Inventory)
+          .findOne({ where: { id: inventoryId }, withDeleted: true });
+        if (!part || part.deletedAt) {
+          throw new NotFoundException('Pieza de inventario no encontrada');
+        }
+        throw new ConflictException(
+          `Stock insuficiente de "${part.name}": quedan ${part.stock ?? 0}, se necesitan ${quantity}`,
+        );
+      }
+      result.push({
+        inventoryId,
+        name: rows[0].name,
+        quantity,
+        stock: Number(rows[0].stock),
+      });
+    }
+
+    await manager.getRepository(ServiceHistory).insert({
+      serviceOrderId: orderId,
+      performedBy: { id: actorUserId } as any,
+      action: 'piezas_usadas',
+      description: result.map((p) => `${p.name} x${p.quantity}`).join(', '),
+      partsReplaced: result.map((p) => `${p.name} x${p.quantity}`).join(', '),
+    });
+    await this.audit.record(
+      {
+        action: 'SERVICE_ORDER_PARTS_CONSUMED',
+        actorUserId,
+        entityType: 'service_order',
+        entityId: orderId,
+        metadata: {
+          parts: result.map(({ inventoryId, quantity }) => ({
+            inventoryId,
+            quantity,
+          })),
+        },
+      },
+      manager,
+    );
+    return result;
   }
 }

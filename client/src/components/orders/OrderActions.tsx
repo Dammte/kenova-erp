@@ -3,9 +3,11 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 import { Check, PackageCheck, PackageOpen, PhoneIncoming } from "lucide-react";
 import { Button } from "@/components/ui";
+import { useAuth } from "@/components/auth/AuthProvider";
 import { API_URL, apiFetch, errorMessage } from "@/lib/api";
 import { DeliverForm } from "./DeliverForm";
 import type { OrderDetail } from "./orderDetail";
+import { PartsPicker, shortParts, type UsedPart } from "./PartsPicker";
 import styles from "./OrderPanel.module.css";
 
 /** The server's ORDER_TESTS, in the order the technician runs them. */
@@ -21,13 +23,21 @@ type Test = (typeof TESTS)[number][0];
 type Result = "repaired" | "not_repaired";
 
 /** The PATCH that finishes an order; the work done is printed on the delivery receipt. */
-export function finishPayload(workDone: string, tests: Test[], result: Result, reason: string) {
+export function finishPayload(
+  workDone: string,
+  tests: Test[],
+  result: Result,
+  reason: string,
+  used: UsedPart[] = [],
+) {
   return {
     status: "finalizado" as const,
     workDone: workDone.trim(),
     testsDone: TESTS.map(([t]) => t).filter((t) => tests.includes(t)),
     result,
     notRepairedReason: result === "not_repaired" ? reason.trim() : null,
+    // Taken out of stock by the server in the same step as finishing.
+    ...(used.length ? { parts: used.map((u) => ({ inventoryId: u.part.id, quantity: u.quantity })) } : {}),
   };
 }
 
@@ -36,6 +46,7 @@ export function finishPayload(workDone: string, tests: Test[], result: Result, r
  * panel. Other moves stay in the list's status menu.
  */
 export function OrderActions({ order, onChanged }: { order: OrderDetail; onChanged: () => void }) {
+  const { user } = useAuth();
   const [step, setStep] = useState<"idle" | "finish" | "deliver">("idle");
   const [saving, setSaving] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
@@ -84,6 +95,7 @@ export function OrderActions({ order, onChanged }: { order: OrderDetail; onChang
         <FinishForm
           initialWork={order.workDone ?? ""}
           saving={saving}
+          withParts={user?.role === "SUPER_ADMIN"}
           onCancel={() => setStep("idle")}
           onSubmit={(payload) => patch(payload)}
         />
@@ -121,11 +133,14 @@ export function OrderActions({ order, onChanged }: { order: OrderDetail; onChang
 function FinishForm({
   initialWork,
   saving,
+  withParts,
   onCancel,
   onSubmit,
 }: {
   initialWork: string;
   saving: boolean;
+  /** Only the partners see and use stock. */
+  withParts: boolean;
   onCancel: () => void;
   onSubmit: (payload: ReturnType<typeof finishPayload>) => void;
 }) {
@@ -133,16 +148,19 @@ function FinishForm({
   const [tests, setTests] = useState<Test[]>([]);
   const [result, setResult] = useState<Result>("repaired");
   const [reason, setReason] = useState("");
+  const [used, setUsed] = useState<UsedPart[]>([]);
 
   const missing = !work.trim()
     ? "Escribe el trabajo realizado."
     : result === "not_repaired" && !reason.trim()
       ? "Indica por qué no se repara."
-      : undefined;
+      : shortParts(used).length
+        ? "Corrige las piezas sin stock."
+        : undefined;
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (!missing) onSubmit(finishPayload(work, tests, result, reason));
+    if (!missing) onSubmit(finishPayload(work, tests, result, reason, used));
   };
   const toggle = (t: Test) => setTests((s) => (s.includes(t) ? s.filter((x) => x !== t) : [...s, t]));
 
@@ -190,6 +208,8 @@ function FinishForm({
           </label>
         </div>
       </fieldset>
+      {withParts && <PartsPicker used={used} onChange={setUsed} />}
+
       {result === "not_repaired" && (
         <>
           <label className={styles.label} htmlFor="finish-reason">
