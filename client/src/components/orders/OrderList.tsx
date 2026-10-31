@@ -26,7 +26,7 @@ import styles from "./OrderList.module.css";
 
 /** The order's own page, for what the panel cannot do yet. */
 export const orderHref = (id: string) => `/serviceOrders/${id}`;
-export const NEW_ORDER_HREF = "/serviceOrders/newServiceOrder";
+export const NEW_ORDER_HREF = "/ordenes/nueva";
 
 const SEARCH_DELAY_MS = 300;
 /** How long "Deshacer" stays on screen after a status change. */
