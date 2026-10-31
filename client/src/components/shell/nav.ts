@@ -22,7 +22,7 @@ export interface NavSections {
 }
 
 const PANEL: NavItem = { label: "Panel", href: "/dashboard", icon: LayoutDashboard };
-const ORDERS: NavItem = { label: "Órdenes", href: "/serviceOrders", icon: ClipboardList };
+const ORDERS: NavItem = { label: "Órdenes", href: "/ordenes", icon: ClipboardList };
 const CLIENTS: NavItem = { label: "Clientes", href: "/clients", icon: Users };
 const INVENTORY: NavItem = { label: "Inventario", href: "/inventory", icon: Package };
 const SERVICES: NavItem = { label: "Servicios", href: "/services", icon: Wrench };
@@ -44,6 +44,15 @@ export function navFor(role: Role): NavSections {
   return { main: [PANEL, ORDERS, CLIENTS], settings: [] };
 }
 
+/**
+ * Older screens a section still owns: an order opens on /serviceOrders/... until
+ * its new screen exists.
+ */
+const ALSO_UNDER: Record<string, string[]> = { "/ordenes": ["/serviceOrders"] };
+
+const isUnder = (href: string, pathname: string): boolean =>
+  pathname === href || pathname.startsWith(`${href}/`);
+
 /** Whether a menu entry is the section the user is in. */
 export const isActive = (href: string, pathname: string): boolean =>
-  pathname === href || pathname.startsWith(`${href}/`);
+  [href, ...(ALSO_UNDER[href] ?? [])].some((h) => isUnder(h, pathname));
