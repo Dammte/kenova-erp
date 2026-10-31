@@ -1,5 +1,6 @@
 import {
   ClipboardList,
+  FileText,
   LayoutDashboard,
   Package,
   Tags,
@@ -24,6 +25,7 @@ export interface NavSections {
 
 const PANEL: NavItem = { label: "Panel", href: "/dashboard", icon: LayoutDashboard };
 const ORDERS: NavItem = { label: "Órdenes", href: "/ordenes", icon: ClipboardList };
+const QUOTES: NavItem = { label: "Presupuestos", href: "/presupuestos", icon: FileText };
 const RATES: NavItem = { label: "Tarifas", href: "/tarifas", icon: Tags };
 const CLIENTS: NavItem = { label: "Clientes", href: "/clients", icon: Users };
 const INVENTORY: NavItem = { label: "Inventario", href: "/inventory", icon: Package };
@@ -32,18 +34,18 @@ const USERS: NavItem = { label: "Usuarios", href: "/usuarios", icon: UserCog };
 
 /**
  * The menu approved for each role. Sections whose screen does not exist yet
- * (Presupuestos, Envíos, Dinero, Tienda, Catálogo, Plantillas,
+ * (Envíos, Dinero, Tienda, Catálogo, Plantillas,
  * Papelera, Copia de seguridad) are added as each screen is built. Stock and
  * settings belong to the partners only.
  */
 export function navFor(role: Role): NavSections {
   if (role === "SUPER_ADMIN") {
     return {
-      main: [PANEL, ORDERS, RATES, CLIENTS, INVENTORY],
+      main: [PANEL, ORDERS, QUOTES, RATES, CLIENTS, INVENTORY],
       settings: [SERVICES, USERS],
     };
   }
-  return { main: [PANEL, ORDERS, RATES, CLIENTS], settings: [] };
+  return { main: [PANEL, ORDERS, QUOTES, RATES, CLIENTS], settings: [] };
 }
 
 /**
