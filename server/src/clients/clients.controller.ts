@@ -63,6 +63,15 @@ export class ClientsController {
     return this.clientsService.findOne(id, user);
   }
 
+  /** Design 3.3: figures, devices and the last orders of the client card. */
+  @Get(':id/summary')
+  summary(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.clientList.summary(id, user);
+  }
+
   /** Saldo a favor per store (only the actor's store for a partner store). */
   @Get(':id/credit')
   credit(
