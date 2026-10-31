@@ -126,6 +126,9 @@ describe("QuotesPage", () => {
     expect(within(detail).getByText("Reparación de placa base")).toBeTruthy();
     expect(within(detail).getByText("Original")).toBeTruthy();
     expect(within(detail).getByText(/Si no se acepta, se cobra el diagnóstico \(20,00\s€\)/)).toBeTruthy();
+    expect(within(detail).getByRole("link", { name: /convertir en orden/ }).getAttribute("href")).toBe(
+      "/ordenes/nueva?presupuesto=q1",
+    );
     // Only a draft can be edited.
     expect(within(detail).queryByRole("button", { name: "Editar" })).toBeNull();
 
