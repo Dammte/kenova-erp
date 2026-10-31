@@ -13,6 +13,7 @@ import {
   ParseArrayPipe,
   ParseUUIDPipe,
   HttpCode,
+  Query,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
@@ -25,6 +26,8 @@ import {
 import { CreateInventoryDto } from './dto/create-inventory.dto';
 import { UpdateInventoryDto } from './dto/update-inventory.dto';
 import { BulkImportItemDto } from './dto/bulk-import-item.dto';
+import { ListInventoryDto } from './dto/list-inventory.dto';
+import { InventoryListService } from './inventory-list.service';
 import type { AuthUser } from '../auth/auth.types';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -39,6 +42,7 @@ export class InventoryController {
   constructor(
     private readonly inventoryService: InventoryService,
     private readonly inventoryImportService: InventoryImportService,
+    private readonly inventoryList: InventoryListService,
   ) {}
 
   // ── IMPORT: Analyze PDF with Claude ─────────────────────────────────────────
@@ -175,6 +179,12 @@ export class InventoryController {
       createdBy: user.id,
       updatedBy: user.id,
     });
+  }
+
+  /** Design 3.4: the parts list, filtered and paged, with the chip counts. */
+  @Get('list')
+  list(@Query() dto: ListInventoryDto) {
+    return this.inventoryList.list(dto);
   }
 
   @Get()
