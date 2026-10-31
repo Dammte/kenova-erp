@@ -423,6 +423,73 @@
   box-shadow: var(--k-focus-ring);
 }
 
+/* «Revisar y fusionar». */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgb(0 0 0 / 0.35);
+  z-index: var(--k-z-modal);
+}
+.dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-4);
+  width: min(720px, calc(100vw - 2 * var(--k-space-4)));
+  max-height: calc(100vh - 2 * var(--k-space-4));
+  overflow-y: auto;
+  padding: var(--k-space-6);
+  border-radius: var(--k-radius-lg);
+  background: var(--k-surface);
+  box-shadow: var(--k-shadow-modal);
+  color: var(--k-text);
+  font: var(--k-text-base);
+  z-index: calc(var(--k-z-modal) + 1);
+}
+.dialog p {
+  margin: 0;
+}
+.mergeTable {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font: var(--k-text-sm);
+}
+.mergeTable th,
+.mergeTable td {
+  padding: var(--k-space-2);
+  border-top: var(--k-border-w) solid var(--k-border);
+  text-align: left;
+  vertical-align: top;
+}
+.mergeTable thead th {
+  border-top: 0;
+  font-weight: 600;
+}
+.mergeTable tr > :first-child {
+  width: 8.5em;
+}
+.mergeTable tbody th {
+  color: var(--k-text-muted);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.choice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--k-space-2);
+  cursor: pointer;
+  overflow-wrap: break-word;
+  min-width: 0;
+}
+.choice input {
+  margin-top: 2px;
+  accent-color: var(--k-accent);
+}
+
 @media (max-width: 1100px) {
   .withCard {
     grid-template-columns: minmax(0, 1fr);
@@ -456,6 +523,16 @@
   }
   .historyLink > :nth-child(3) {
     justify-self: start;
+  }
+  .dialog {
+    padding: var(--k-space-4);
+  }
+  .mergeTable tr > :first-child {
+    width: 6.5em;
+  }
+  .mergeTable th,
+  .mergeTable td {
+    padding: var(--k-space-2) var(--k-space-1);
   }
   /* The phone keeps name, phone, last visit and balance. */
   .wide {

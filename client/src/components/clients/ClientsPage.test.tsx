@@ -2,6 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { ClientsPage } from "./ClientsPage";
 import { documentProblem, formatDoc, formatPhone, initials } from "./clients";
+import { mergeData, preselect } from "./MergeDialog";
+
+let role: "SUPER_ADMIN" | "STORE_ADMIN" = "SUPER_ADMIN";
+vi.mock("@/components/auth/AuthProvider", () => ({ useAuth: () => ({ user: { id: "u1", role, storeId: null } }) }));
 
 let params = new URLSearchParams();
 const replace = vi.fn((url: string) => {
@@ -39,9 +43,20 @@ const SUMMARY = {
     rows: [{ id: "o1", code: "MP-0142", model: "iPhone 13", faults: ["battery"], date: "2026-10-28", status: "en_progreso", totalPrice: "89.00" }],
   },
 };
-const TWIN = { ...DATA, id: "c2", firstName: "Lucia", lastName: "Fernandez", orders: 1, firstVisit: "2024-05-01", samePhone: true };
+const TWIN = {
+  ...DATA,
+  id: "c2",
+  firstName: "Lucia",
+  lastName: "Fernandez",
+  dni: null,
+  email: "lucia@correo.es",
+  orders: 1,
+  firstVisit: "2024-05-01",
+  samePhone: true,
+};
 
 beforeEach(() => {
+  role = "SUPER_ADMIN";
   params = new URLSearchParams();
   replace.mockClear();
   fetchMock.mockReset();
@@ -160,5 +175,49 @@ describe("ClientsPage", () => {
     expect(put?.[0]).toBe("/api/clients/c1");
     expect(JSON.parse((put?.[1] as RequestInit).body as string)).toEqual({ city: "Valladolid" });
     screen.getByText("Datos guardados");
+  });
+
+  it("lets a partner merge the twin, picking the more complete value of each field", async () => {
+    params = new URLSearchParams("cliente=c1");
+    render(<ClientsPage />);
+    await act(async () => {});
+    fireEvent.click(screen.getByRole("button", { name: "Revisar y fusionar" }));
+    const dialog = screen.getByRole("dialog", { name: "Revisar y fusionar" });
+    // Accents and the document stay from Lucía; the email only the twin has.
+    expect(within(dialog).getByRole("radio", { name: "Nombre: Lucía" })).toHaveProperty("checked", true);
+    expect(within(dialog).getByRole("radio", { name: "Email: lucia@correo.es" })).toHaveProperty("checked", true);
+    within(dialog).getByText(/Medina \(igual en las dos\)/);
+    fireEvent.click(within(dialog).getByRole("radio", { name: "Apellidos: Fernandez" }));
+
+    await act(async () => {
+      fireEvent.click(within(dialog).getByRole("button", { name: "Fusionar" }));
+    });
+    const merge = fetchMock.mock.calls.find((c) => (c[0] as string).endsWith("/c1/merge"));
+    expect(JSON.parse((merge?.[1] as RequestInit).body as string)).toEqual({
+      fromId: "c2",
+      data: { lastName: "Fernandez", email: "lucia@correo.es" },
+    });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    screen.getByText("Fichas fusionadas: todo está ahora en Lucía Fernández.");
+  });
+
+  it("does not offer merging to a store", async () => {
+    role = "STORE_ADMIN";
+    params = new URLSearchParams("cliente=c1");
+    render(<ClientsPage />);
+    await act(async () => {});
+    screen.getByRole("button", { name: "No es la misma persona" });
+    expect(screen.queryByRole("button", { name: "Revisar y fusionar" })).toBeNull();
+  });
+});
+
+describe("merge helpers", () => {
+  const a = { firstName: "Ana", lastName: null, phoneNumber: "6", dniType: "NIF", dni: "12345678Z", email: null, address: null, postalCode: null, city: null };
+  it("keeps the document with its type when it comes from the twin", () => {
+    const b = { ...a, dniType: "NIE", dni: "X1234567LL" };
+    const pick = preselect(a, b);
+    expect(pick.dni).toBe("from");
+    expect(mergeData(a, b, pick)).toEqual({ dniType: "NIE", dni: "X1234567LL" });
+    expect(mergeData(a, a, preselect(a, a))).toEqual({});
   });
 });

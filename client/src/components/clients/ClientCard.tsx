@@ -5,6 +5,7 @@ import { useEffect, useState, type FormEvent, type KeyboardEvent } from "react";
 import { MessageCircle, Phone, X } from "lucide-react";
 import { FAULT_LABEL } from "@/components/orders/orderList";
 import { whatsappHref } from "@/components/orders/orderDetail";
+import { useAuth } from "@/components/auth/AuthProvider";
 import { Button, StatusChip } from "@/components/ui";
 import { API_URL, apiFetch, errorMessage } from "@/lib/api";
 import { formatEur } from "@/lib/format";
@@ -19,6 +20,7 @@ import {
   type ClientSummary,
   type DuplicateOf,
 } from "./clients";
+import { MergeDialog } from "./MergeDialog";
 import styles from "./Clients.module.css";
 
 const DEVICES_SHOWN = 4;
@@ -42,6 +44,8 @@ export function ClientCard({ id, onClose, onChanged }: { id: string; onClose: ()
   const [attempt, setAttempt] = useState(0);
   const [notice, setNotice] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
+  const [merging, setMerging] = useState(false);
+  const { user } = useAuth();
 
   useEffect(() => {
     let live = true;
@@ -184,7 +188,23 @@ export function ClientCard({ id, onClose, onChanged }: { id: string; onClose: ()
           >
             No es la misma persona
           </Button>
+          {user?.role === "SUPER_ADMIN" && (
+            <Button size="sm" variant="secondary" onClick={() => setMerging(true)}>
+              Revisar y fusionar
+            </Button>
+          )}
         </div>
+      )}
+      {dup && merging && (
+        <MergeDialog
+          keep={client}
+          from={dup}
+          onClose={() => setMerging(false)}
+          onMerged={() => {
+            setMerging(false);
+            reload(`Fichas fusionadas: todo está ahora en ${name}.`);
+          }}
+        />
       )}
 
       <dl className={styles.stats}>
