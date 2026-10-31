@@ -155,6 +155,7 @@ export class ClientsService {
     const trimmed = searchTerm.trim().slice(0, 100);
     const term = `%${escapeLike(trimmed)}%`;
     const found = await this.visibleQuery(actor)
+      .andWhere('c."isActive"')
       .andWhere(
         new Brackets((w) =>
           ['firstName', 'lastName', 'email', 'phoneNumber', 'dni'].forEach(
@@ -176,6 +177,7 @@ export class ClientsService {
         `right(regexp_replace(c."phoneNumber", '\\D', '', 'g'), 9) = :phone`,
         { phone },
       )
+      .andWhere('c."isActive"')
       .take(5)
       .getMany();
     return [...found, ...byPhone.filter((c) => !seen.has(c.id)).map(limited)];
@@ -229,6 +231,29 @@ export class ClientsService {
       entityType: 'client',
       entityId: id,
     });
+  }
+
+  /**
+   * Archives a client (design 3.3), or brings them back. An archived client
+   * stops showing in the client list and the searches, but keeps every order;
+   * nothing is deleted.
+   */
+  async setArchived(
+    id: string,
+    archived: boolean,
+    actor: AuthUser,
+  ): Promise<Client> {
+    const client = await this.findOne(id, actor);
+    if (client.anonymizedAt) throw new BadRequestException(ANONYMIZED_CLIENT);
+    if (client.isActive === !archived) return client;
+    await this.clientRepository.update(id, { isActive: !archived });
+    await this.audit.record({
+      action: archived ? 'CLIENT_ARCHIVED' : 'CLIENT_RESTORED',
+      actorUserId: actor.id,
+      entityType: 'client',
+      entityId: id,
+    });
+    return this.findOne(id, actor);
   }
 
   /**

@@ -106,6 +106,7 @@ export class SearchService {
       .createQueryBuilder('c')
       .select(['c.id', 'c.firstName', 'c.lastName', 'c.phoneNumber'])
       .where('c.anonymizedAt IS NULL')
+      .andWhere('c."isActive"')
       .andWhere(
         new Brackets((w) => {
           w.where(`${NAME} LIKE :term`)

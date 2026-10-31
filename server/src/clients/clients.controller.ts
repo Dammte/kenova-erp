@@ -104,6 +104,26 @@ export class ClientsController {
     return this.clientsService.patch(id, dto, user);
   }
 
+  /** Design 3.3: hides the client from lists and searches; nothing is deleted. */
+  @Post(':id/archive')
+  @HttpCode(200)
+  archive(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.clientsService.setArchived(id, true, user);
+  }
+
+  /** Undoes «Archivar». */
+  @Post(':id/restore')
+  @HttpCode(200)
+  restore(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.clientsService.setArchived(id, false, user);
+  }
+
   /** Removes the client's personal data (RGPD); its orders stay. */
   @Post(':id/anonymize')
   @Roles(UserRole.SUPER_ADMIN)

@@ -290,4 +290,51 @@ describe('Lista de clientes (GET /api/clients/list)', () => {
       expect((await summary(sa, shared.clientId)).stats.orders).toBe(2);
     });
   });
+
+  it('archives a client out of lists and searches, and brings them back', async () => {
+    const { clientId } = await intake(sa, {
+      firstName: 'Aitor',
+      lastName: 'Etxeberria',
+      phoneNumber: '688450199',
+    });
+    const act = (cookie: string, what: 'archive' | 'restore') =>
+      t
+        .http()
+        .post(`/api/clients/${clientId}/${what}`)
+        .set('Cookie', cookie)
+        .set('Origin', ORIGIN);
+    const found = async () =>
+      (
+        (
+          await t
+            .http()
+            .get('/api/clients/search?q=Etxeberria')
+            .set('Cookie', sa)
+        ).body as { id: string }[]
+      ).some((c) => c.id === clientId);
+    const inSearch = async () =>
+      (
+        (await t.http().get('/api/search?q=Etxeberria').set('Cookie', sa))
+          .body as { clients: { id: string }[] }
+      ).clients.some((c) => c.id === clientId);
+    expect(await found()).toBe(true);
+    expect(await inSearch()).toBe(true);
+
+    expect((await act(vc, 'archive')).status).toBe(404);
+    const res = await act(sa, 'archive');
+    expect(res.status).toBe(200);
+    expect((res.body as { isActive: boolean }).isActive).toBe(false);
+    expect(await found()).toBe(false);
+    expect(await inSearch()).toBe(false);
+    expect(
+      (await list(sa, '?archived=true')).rows.some((r) => r.id === clientId),
+    ).toBe(true);
+    // Its orders stay.
+    expect((await list(sa, '?archived=true&q=Etxeberria')).rows[0].orders).toBe(
+      1,
+    );
+
+    expect((await act(sa, 'restore')).status).toBe(200);
+    expect(await found()).toBe(true);
+  });
 });
