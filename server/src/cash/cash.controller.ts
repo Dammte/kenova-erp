@@ -1,9 +1,10 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Post, Put, Query } from '@nestjs/common';
 import { IsOptional, IsUUID, Matches } from 'class-validator';
 import type { AuthUser } from '../auth/auth.types';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CashService } from './cash.service';
 import { CreateCashMovementDto } from './dto/create-cash-movement.dto';
+import { SaveCashCountDto } from './dto/save-cash-count.dto';
 
 class CashDayQueryDto {
   @IsOptional()
@@ -32,5 +33,11 @@ export class CashController {
     @CurrentUser() user: AuthUser,
   ) {
     return this.cash.addMovement(user, dto);
+  }
+
+  /** The optional count of the cash day running now. */
+  @Put('count')
+  saveCount(@Body() dto: SaveCashCountDto, @CurrentUser() user: AuthUser) {
+    return this.cash.saveCount(user, dto);
   }
 }
