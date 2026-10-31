@@ -53,4 +53,9 @@ export class CreateIntakeDto {
   @ValidateNested()
   @Type(() => IntakeOrderDto)
   order: IntakeOrderDto;
+
+  /** The quote the client accepted; it is marked accepted and linked to the order. */
+  @IsUUID()
+  @IsOptional()
+  quoteId?: string;
 }

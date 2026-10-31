@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import type { AuthUser } from '../auth/auth.types';
+import { lockQuoteToAccept, markQuoteAccepted } from '../quotes/accept-quote';
 import { ClientsService } from '../clients/clients.service';
 import { DevicesService } from '../devices/devices.service';
 import { CreateIntakeDto } from './dto/create-intake.dto';
@@ -12,7 +13,8 @@ import { ServiceOrderService } from './service-order.service';
  * Creates client (if new), device (if new) and order atomically for the
  * one-screen intake. Reuses the regular create logic of each service, so
  * validation, name normalization and PIN encryption are the same as in the
- * step-by-step wizard, which keeps working unchanged.
+ * step-by-step wizard, which keeps working unchanged. Coming from a quote,
+ * the quote is accepted in the same transaction.
  */
 @Injectable()
 export class IntakeService {
@@ -26,6 +28,9 @@ export class IntakeService {
   async create(dto: CreateIntakeDto, actor: AuthUser): Promise<ServiceOrder> {
     const actorUserId = actor.id;
     const orderId = await this.dataSource.transaction(async (manager) => {
+      const quote = dto.quoteId
+        ? await lockQuoteToAccept(manager, dto.quoteId, actor)
+        : null;
       const clientId =
         dto.clientId ??
         (await this.clients.create(dto.client!, actor, manager)).id;
@@ -41,11 +46,14 @@ export class IntakeService {
       const order = await this.orders.create(
         { ...dto.order, clientId, deviceId },
         {
-          storeId: await this.orders.storeIdFor(actor, manager),
+          // The order belongs to the store that gave the quote.
+          storeId:
+            quote?.storeId ?? (await this.orders.storeIdFor(actor, manager)),
           actor,
         },
         manager,
       );
+      if (quote) await markQuoteAccepted(manager, quote.id, order.id);
       return order.id;
     });
     return this.orders.findOne(orderId);

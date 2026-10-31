@@ -12,6 +12,7 @@ import {
 } from 'typeorm';
 import { Client } from '../../clients/entities/client.entity';
 import { Device } from '../../devices/entities/device.entity';
+import { ServiceOrder } from '../../service-order/entities/service-order.entity';
 import { Store } from '../../stores/entities/store.entity';
 import { User } from '../../users/entities/user.entity';
 import { QuoteLine } from './quote-line.entity';
@@ -123,6 +124,18 @@ export class Quote {
   /** When it was accepted or rejected. */
   @Column({ type: 'timestamptz', nullable: true })
   decidedAt: Date | null;
+
+  /** The order it became when the client accepted. */
+  @ManyToOne(() => ServiceOrder, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({
+    name: 'orderId',
+    foreignKeyConstraintName: 'FK_quotes_order',
+  })
+  order?: ServiceOrder | null;
+
+  @Index('IDX_quotes_order', { unique: true })
+  @Column({ type: 'uuid', nullable: true })
+  orderId: string | null;
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({

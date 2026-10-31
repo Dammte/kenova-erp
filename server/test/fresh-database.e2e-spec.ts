@@ -55,6 +55,7 @@ describe('Migrations on an empty database', () => {
       'StickyNoteAuthor1763500000000',
       'ServiceRates1763600000000',
       'Quotes1763700000000',
+      'QuoteOrder1763800000000',
     ]);
   });
 
