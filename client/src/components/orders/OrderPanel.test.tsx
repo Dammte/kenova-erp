@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import OrderPanel, { REVEAL_MS } from "./OrderPanel";
-import { shopDays, whatsappHref, type OrderDetail, type OrderNote } from "./orderDetail";
+import { shopDays, whatsappHref, type OrderDetail, type OrderNote, type OrderPayment } from "./orderDetail";
 import { sortNotes } from "./OrderNotes";
+import { lastMethod } from "./CancelForm";
 
 const ORDER: OrderDetail = {
   id: "o1",
@@ -488,6 +489,85 @@ describe("OrderPanel parts used", () => {
     screen.getByText("Corrige las piezas sin stock.");
     fireEvent.click(screen.getByRole("button", { name: "Quitar Batería Galaxy A54" }));
     expect(screen.getByRole("button", { name: "Finalizar orden" }).hasAttribute("disabled")).toBe(false);
+  });
+});
+
+describe("OrderPanel cancel", () => {
+  const bodies = (verb: string) =>
+    fetchMock.mock.calls
+      .filter(([, init]) => (init as RequestInit | undefined)?.method === verb)
+      .map(([url, init]) => [url, JSON.parse((init as RequestInit).body as string)]);
+  const start = async (order?: Partial<OrderDetail>) => {
+    await open(order);
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar orden…" }));
+  };
+  const submit = () => screen.getByRole("button", { name: "Cancelar orden" });
+
+  it("asks for a reason and hands the money back the way it was paid", async () => {
+    await start();
+    expect(submit().hasAttribute("disabled")).toBe(true);
+    screen.getByText("Falta: el motivo.");
+    expect((screen.getByLabelText("Tarjeta") as HTMLInputElement).checked).toBe(true);
+    fireEvent.change(screen.getByLabelText("Motivo de la cancelación"), { target: { value: " Pedido duplicado " } });
+    fireEvent.click(submit());
+    await act(async () => {});
+    expect(bodies("POST")).toEqual([
+      [
+        "/api/service-orders/o1/payments",
+        {
+          id: expect.stringMatching(/^[0-9a-f-]{36}$/),
+          kind: "refund",
+          amount: 59,
+          method: "card",
+          note: "Cancelación: Pedido duplicado",
+        },
+      ],
+    ]);
+    expect(bodies("PATCH")).toEqual([
+      ["/api/service-orders/o1", { status: "cancelado", cancelReason: "Pedido duplicado" }],
+    ]);
+    expect(onChanged).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the money as the client's credit", async () => {
+    await start();
+    fireEvent.click(screen.getByLabelText("A cuenta de Lucía para su próxima orden"));
+    fireEvent.change(screen.getByLabelText("Motivo de la cancelación"), { target: { value: "Desiste" } });
+    fireEvent.click(submit());
+    await act(async () => {});
+    expect(bodies("POST")[0][1]).toMatchObject({ kind: "refund", amount: 59, method: "credit" });
+  });
+
+  it("keeps the money as the diagnosis without a refund", async () => {
+    await start();
+    fireEvent.click(screen.getByLabelText("Retener como diagnóstico"));
+    fireEvent.change(screen.getByLabelText("Motivo de la cancelación"), { target: { value: "No acepta presupuesto" } });
+    fireEvent.click(submit());
+    await act(async () => {});
+    expect(bodies("POST")).toEqual([]);
+    expect(bodies("PATCH")).toHaveLength(1);
+  });
+
+  it("only asks for the reason when nothing was charged", async () => {
+    await start({ amountPaid: "0.00", balance: "149.00" });
+    expect(screen.queryByText(/^Cobrado/)).toBeNull();
+    fireEvent.change(screen.getByLabelText("Motivo de la cancelación"), { target: { value: "Error" } });
+    fireEvent.click(submit());
+    await act(async () => {});
+    expect(bodies("POST")).toEqual([]);
+    expect(bodies("PATCH")).toEqual([["/api/service-orders/o1", { status: "cancelado", cancelReason: "Error" }]]);
+  });
+
+  it("is not offered once the order is delivered", async () => {
+    await open({ status: "entregado" });
+    expect(screen.queryByRole("button", { name: "Cancelar orden…" })).toBeNull();
+  });
+
+  it("refunds by the method of the last money charge", () => {
+    const pay = (method: OrderPayment["method"], day: number, kind: OrderPayment["kind"] = "charge") =>
+      ({ id: `${day}`, kind, method, amount: "1", note: null, createdAt: `2026-10-${day}T10:00:00Z`, createdBy: null }) as OrderPayment;
+    expect(lastMethod([pay("cash", 10), pay("card", 12), pay("credit", 14), pay("transfer", 15, "refund")])).toBe("card");
+    expect(lastMethod([])).toBeNull();
   });
 });
 
