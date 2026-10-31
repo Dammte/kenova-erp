@@ -101,7 +101,7 @@ export default function BottomBar() {
 
       <nav className={styles.bar} aria-label="Menú principal">
         {tabs.map(tab)}
-        <Link href="/serviceOrders/newServiceOrder" className={styles.create}>
+        <Link href="/ordenes/nueva" className={styles.create}>
           <span className={styles.createIcon}>
             <Plus size={22} aria-hidden />
           </span>

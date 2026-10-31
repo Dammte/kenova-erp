@@ -91,7 +91,7 @@ export default function Sidebar() {
       <div className={styles.brand}>{collapsed ? "K" : "Kenova"}</div>
 
       <Link
-        href="/serviceOrders/newServiceOrder"
+        href="/ordenes/nueva"
         className={styles.create}
         aria-label={collapsed ? "Nueva orden" : undefined}
         title={collapsed ? "Nueva orden" : undefined}

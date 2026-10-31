@@ -35,7 +35,7 @@ describe("BottomBar", () => {
       "page",
     );
     expect(within(bar()).getByRole("link", { name: "Nueva" }).getAttribute("href")).toBe(
-      "/serviceOrders/newServiceOrder",
+      "/ordenes/nueva",
     );
   });
 

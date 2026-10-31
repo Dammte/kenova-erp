@@ -37,7 +37,7 @@ function actionsFor(role: Role, query: string): Item[] {
       key: "new-order",
       group: "Acciones",
       label: "Nueva orden",
-      href: "/serviceOrders/newServiceOrder",
+      href: "/ordenes/nueva",
       icon: Plus,
     },
     ...[...main, ...settings].map((n) => ({
