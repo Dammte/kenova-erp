@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Copy, Search } from "lucide-react";
 import { Button } from "@/components/ui";
+import { useAuth } from "@/components/auth/AuthProvider";
 import { API_URL, apiFetch } from "@/lib/api";
 import { formatEur } from "@/lib/format";
 import {
@@ -15,6 +16,7 @@ import {
   type RateGroup,
   type RateRow,
 } from "./rates";
+import { RateEditor } from "./RateEditor";
 import styles from "./Rates.module.css";
 
 const DEBOUNCE_MS = 250;
@@ -28,12 +30,17 @@ function Stock({ row }: { row: RateRow }) {
   return <span className={low ? styles.low : styles.stock}>En stock {units}{low && " · bajo"}</span>;
 }
 
-function Price({ row }: { row: RateRow | null }) {
+function Price({ row, onEdit }: { row: RateRow | null; onEdit?: (id: string) => void }) {
   if (!row) return <span className={styles.none} aria-label="No se ofrece">—</span>;
   return (
     <span className={styles.price}>
       <strong>{formatEur(Number(row.price))}</strong>
       <Stock row={row} />
+      {onEdit && (
+        <button type="button" className={styles.edit} aria-label={`Editar ${row.name}`} onClick={() => onEdit(row.id)}>
+          Editar
+        </button>
+      )}
     </span>
   );
 }
@@ -97,6 +104,11 @@ export function RatesPage() {
   const [failed, setFailed] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
   const [recent, setRecent] = useState<string[]>([]);
+  const [editing, setEditing] = useState<string | null>(null);
+  const [reload, setReload] = useState(0);
+  const { user } = useAuth();
+  // Decision: the partners keep the price list; stores only read it.
+  const onEdit = user?.role === "SUPER_ADMIN" ? setEditing : undefined;
   const input = useRef<HTMLInputElement>(null);
 
   useEffect(() => setRecent(readRecent()), []);
@@ -116,7 +128,6 @@ export function RatesPage() {
           const found = (await res.json()) as RateRow[];
           setRows(found);
           setFailed(false);
-          setOpen(null);
           if (found.length) setRecent((list) => pushRecent(list, typed));
         })
         .catch(() => !controller.signal.aborted && setFailed(true));
@@ -125,11 +136,13 @@ export function RatesPage() {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [typed]);
+  }, [typed, reload]);
 
   const groups = rows ? groupRates(rows) : [];
   const search = (q: string) => {
     setQuery(q);
+    setOpen(null);
+    setEditing(null);
     input.current?.focus();
   };
 
@@ -148,7 +161,11 @@ export function RatesPage() {
           autoComplete="off"
           autoFocus
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setOpen(null);
+            setEditing(null);
+          }}
         />
       </div>
 
@@ -203,7 +220,7 @@ export function RatesPage() {
                 <div>
                   <dt>Precio</dt>
                   <dd>
-                    <Price row={g.single} />
+                    <Price row={g.single} onEdit={onEdit} />
                   </dd>
                 </div>
               ) : (
@@ -211,13 +228,13 @@ export function RatesPage() {
                   <div>
                     <dt>Compatible</dt>
                     <dd>
-                      <Price row={g.compatible} />
+                      <Price row={g.compatible} onEdit={onEdit} />
                     </dd>
                   </div>
                   <div>
                     <dt>Original</dt>
                     <dd>
-                      <Price row={g.original} />
+                      <Price row={g.original} onEdit={onEdit} />
                     </dd>
                   </div>
                 </>
@@ -228,6 +245,16 @@ export function RatesPage() {
               </div>
             </dl>
             {open === g.key && <WhatsApp group={g} />}
+            {editing && [g.single, g.compatible, g.original].some((r) => r?.id === editing) && (
+              <RateEditor
+                id={editing}
+                onCancel={() => setEditing(null)}
+                onSaved={() => {
+                  setEditing(null);
+                  setReload((n) => n + 1);
+                }}
+              />
+            )}
           </li>
         ))}
       </ul>
