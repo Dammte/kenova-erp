@@ -20,6 +20,10 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import { Service } from './entities/service.entity';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { AuthUser } from '../auth/auth.types';
+import { UserRole } from '../users/entities/user.entity';
 
 @ApiTags('services')
 @Controller('services')
@@ -27,6 +31,7 @@ export class ServicesController {
   constructor(private readonly servicesService: ServicesService) {}
 
   @Post()
+  @Roles(UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Crear un nuevo servicio' })
   @ApiResponse({
     status: 201,
@@ -70,6 +75,21 @@ export class ServicesController {
     return this.servicesService.findAll();
   }
 
+  /**
+   * Design 2.3: the price list search behind «¿cuánto cuesta…?». Every word
+   * must match the service, its category, model or brand, ignoring accents.
+   * Stock is only for SUPER_ADMIN: partner stores never see it (decision 5).
+   */
+  @Get('rates')
+  @ApiOperation({ summary: 'Buscar tarifas por servicio, modelo o marca' })
+  @ApiQuery({ name: 'q', required: true, description: 'Texto a buscar' })
+  rates(@Query('q') q: string | undefined, @CurrentUser() user: AuthUser) {
+    return this.servicesService.searchRates(
+      q ?? '',
+      user.role === UserRole.SUPER_ADMIN,
+    );
+  }
+
   @Get('name/:name')
   @ApiOperation({ summary: 'Obtener un servicio por nombre' })
   @ApiResponse({
@@ -97,6 +117,7 @@ export class ServicesController {
   }
 
   @Patch(':id')
+  @Roles(UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Actualizar un servicio' })
   @ApiResponse({
     status: 200,
@@ -106,11 +127,15 @@ export class ServicesController {
   @ApiResponse({ status: 404, description: 'Servicio no encontrado' })
   @ApiResponse({ status: 400, description: 'Datos inválidos' })
   @ApiParam({ name: 'id', description: 'ID del servicio' })
-  update(@Param('id', ParseUUIDPipe) id: string, @Body() updateServiceDto: UpdateServiceDto) {
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() updateServiceDto: UpdateServiceDto,
+  ) {
     return this.servicesService.update(id, updateServiceDto);
   }
 
   @Delete(':id')
+  @Roles(UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Eliminar un servicio' })
   @ApiResponse({ status: 200, description: 'Servicio eliminado exitosamente' })
   @ApiResponse({ status: 404, description: 'Servicio no encontrado' })

@@ -5,6 +5,10 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   ManyToMany,
+  ManyToOne,
+  JoinColumn,
+  Check,
+  Index,
 } from 'typeorm';
 import {
   IsString,
@@ -17,8 +21,15 @@ import {
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { ServiceOrder } from '../../service-order/entities/service-order.entity';
+import { Model } from '../../models/entities/model.entity';
+import { Inventory } from '../../inventory/entities/inventory.entity';
+
+/** Part quality of a price list entry (design 2.3). */
+export const SERVICE_QUALITIES = ['compatible', 'original'] as const;
+export type ServiceQuality = (typeof SERVICE_QUALITIES)[number];
 
 @Entity('services')
+@Check('CHK_services_quality', `"quality" IN ('compatible', 'original')`)
 export class Service {
   @PrimaryGeneratedColumn('uuid')
   @ApiProperty({
@@ -88,6 +99,32 @@ export class Service {
     example: true,
   })
   available: boolean;
+
+  /** The model this rate is for; null for general services such as a check-up. */
+  @Index('IDX_services_model')
+  @Column('uuid', { nullable: true })
+  modelId: string | null;
+
+  @ManyToOne(() => Model, { onDelete: 'SET NULL' })
+  @JoinColumn({
+    name: 'modelId',
+    foreignKeyConstraintName: 'FK_services_model',
+  })
+  model?: Model | null;
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  quality: ServiceQuality | null;
+
+  /** The inventory part it uses, so the price list can say whether it is in stock. */
+  @Column('uuid', { nullable: true })
+  inventoryId: string | null;
+
+  @ManyToOne(() => Inventory, { onDelete: 'SET NULL' })
+  @JoinColumn({
+    name: 'inventoryId',
+    foreignKeyConstraintName: 'FK_services_inventory',
+  })
+  inventory?: Inventory | null;
 
   @ManyToMany(() => ServiceOrder, (serviceOrder) => serviceOrder.services)
   serviceOrders: ServiceOrder[];

@@ -6,9 +6,16 @@ import {
   Min,
   MaxLength,
   IsNotEmpty,
+  IsIn,
+  IsUUID,
+  ValidateIf,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
+import {
+  SERVICE_QUALITIES,
+  type ServiceQuality,
+} from '../entities/service.entity';
 
 export class CreateServiceDto {
   @IsString()
@@ -74,4 +81,29 @@ export class CreateServiceDto {
     required: false,
   })
   available: boolean = true;
+
+  @ValidateIf((_, v) => v !== null && v !== undefined)
+  @IsUUID('4', { message: 'El modelo no es válido' })
+  @ApiProperty({
+    description: 'Modelo al que se aplica la tarifa; null si es general',
+    required: false,
+    nullable: true,
+  })
+  modelId?: string | null;
+
+  @ValidateIf((_, v) => v !== null && v !== undefined)
+  @IsIn(SERVICE_QUALITIES, {
+    message: 'La calidad debe ser compatible u original',
+  })
+  @ApiProperty({ enum: SERVICE_QUALITIES, required: false, nullable: true })
+  quality?: ServiceQuality | null;
+
+  @ValidateIf((_, v) => v !== null && v !== undefined)
+  @IsUUID('4', { message: 'La pieza de inventario no es válida' })
+  @ApiProperty({
+    description: 'Pieza de inventario que usa, para mostrar si hay stock',
+    required: false,
+    nullable: true,
+  })
+  inventoryId?: string | null;
 }
