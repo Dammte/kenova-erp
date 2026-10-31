@@ -463,3 +463,19 @@ button.chip:focus-visible {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+/* Ordering a part: provider, arrival and quantity side by side. */
+.fieldRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--k-space-3);
+}
+.field {
+  display: flex;
+  flex: 1 1 140px;
+  flex-direction: column;
+  gap: var(--k-space-1);
+}
+.field:last-child {
+  flex: 0 0 88px;
+}

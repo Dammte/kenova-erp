@@ -492,6 +492,107 @@ describe("OrderPanel parts used", () => {
   });
 });
 
+describe("OrderPanel part orders", () => {
+  const LINE = {
+    id: "po1",
+    inventoryId: "i2",
+    partName: "Batería Galaxy A54",
+    provider: "RecambiosNorte",
+    quantity: 1,
+    expectedAt: "2026-10-30",
+    receivedAt: null,
+    waitingDays: 4,
+    late: true,
+  };
+  const STOCK = [{ ...INVENTORY[1], provider: "RecambiosNorte" }];
+  const posted = (end: string) =>
+    fetchMock.mock.calls
+      .filter(([url, init]) => String(url).endsWith(end) && (init as RequestInit | undefined)?.method === "POST")
+      .map(([, init]) => ((init as RequestInit).body ? JSON.parse((init as RequestInit).body as string) : null));
+
+  it("orders a stock part from an order in progress, with its supplier", async () => {
+    role = "SUPER_ADMIN";
+    serve({
+      "/api/part-orders?orderId=o1": new Response("[]"),
+      "/api/inventory": new Response(JSON.stringify(STOCK)),
+      "/api/part-orders": new Response(JSON.stringify(LINE), { status: 201 }),
+    });
+    render(<OrderPanel id="o1" code="MP-0142" fullHref="/serviceOrders/o1" onClose={onClose} onChanged={onChanged} />);
+    await act(async () => {});
+    fireEvent.click(screen.getByRole("button", { name: "Pedir pieza…" }));
+    await act(async () => {});
+    const create = () => screen.getByRole("button", { name: "Crear pedido y pasar a Pendiente de piezas" });
+    expect(create().hasAttribute("disabled")).toBe(true);
+    fireEvent.change(screen.getByLabelText("Pieza que falta"), { target: { value: "a54" } });
+    fireEvent.click(screen.getByRole("button", { name: "Batería Galaxy A54 · stock 0" }));
+    expect((screen.getByLabelText("Proveedor") as HTMLInputElement).value).toBe("RecambiosNorte");
+    fireEvent.change(screen.getByLabelText("Llegada prevista"), { target: { value: "2099-11-03" } });
+    await act(async () => {
+      fireEvent.click(create());
+    });
+    expect(posted("/api/part-orders")).toEqual([
+      { orderId: "o1", inventoryId: "i2", provider: "RecambiosNorte", quantity: 1, expectedAt: "2099-11-03" },
+    ]);
+    expect(onChanged).toHaveBeenCalled();
+  });
+
+  it("orders a part that is not kept in stock by its name", async () => {
+    role = "SUPER_ADMIN";
+    serve({
+      "/api/part-orders?orderId=o1": new Response("[]"),
+      "/api/inventory": new Response(JSON.stringify(STOCK)),
+      "/api/part-orders": new Response(JSON.stringify(LINE), { status: 201 }),
+    });
+    await open();
+    fireEvent.click(screen.getByRole("button", { name: "Pedir pieza…" }));
+    await act(async () => {});
+    fireEvent.change(screen.getByLabelText("Pieza que falta"), { target: { value: "Flex home iPad 9" } });
+    screen.getByText("No está en el inventario: se pedirá como «Flex home iPad 9», sin sumar stock.");
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Crear pedido y pasar a Pendiente de piezas" }));
+    });
+    expect(posted("/api/part-orders")[0]).toMatchObject({ partName: "Flex home iPad 9", provider: null, expectedAt: null });
+  });
+
+  it("receives the part, then offers to go back to work", async () => {
+    role = "SUPER_ADMIN";
+    serve({
+      "/api/service-orders/o1": new Response(JSON.stringify({ ...ORDER, status: "pendiente_piezas" })),
+      "/api/part-orders?orderId=o1": new Response(JSON.stringify([LINE])),
+      "/api/part-orders/po1/receive": new Response(JSON.stringify({ ...LINE, receivedAt: "2026-10-31T10:00:00Z" })),
+    });
+    render(<OrderPanel id="o1" code="MP-0142" fullHref="/serviceOrders/o1" onClose={onClose} onChanged={onChanged} />);
+    await act(async () => {});
+    screen.getByText(/RecambiosNorte · llegaba 30\/10 · retrasada/);
+    expect(screen.queryByRole("button", { name: "Pieza recibida" })).toBeNull();
+    screen.getByRole("button", { name: "Pedir otra pieza…" });
+
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url === "/api/part-orders?orderId=o1")
+        return new Response(JSON.stringify([{ ...LINE, receivedAt: "2026-10-31T10:00:00Z", late: false }]));
+      if (url.endsWith("/receive")) return new Response(JSON.stringify(LINE));
+      if (url === "/api/service-orders/o1") return new Response(JSON.stringify({ ...ORDER, status: "pendiente_piezas" }));
+      return new Response("[]");
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Marcar recibida" }));
+    });
+    expect(posted("/po1/receive")).toEqual([null]);
+    screen.getByText(/RecambiosNorte · recibida 31\/10/);
+    screen.getByText("Pieza recibida: la reparación puede seguir.");
+    fireEvent.click(screen.getByRole("button", { name: "Volver a En progreso" }));
+    await act(async () => {});
+    expect(patches()).toEqual([["/api/service-orders/o1", { status: "en_progreso" }]]);
+  });
+
+  it("keeps the plain step for a store, which has no stock", async () => {
+    await open({ status: "pendiente_piezas" });
+    screen.getByRole("button", { name: "Pieza recibida" });
+    expect(screen.queryByRole("button", { name: "Pedir otra pieza…" })).toBeNull();
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/part-orders"))).toBe(false);
+  });
+});
+
 describe("OrderPanel cancel", () => {
   const bodies = (verb: string) =>
     fetchMock.mock.calls

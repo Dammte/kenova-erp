@@ -9,6 +9,7 @@ import { DeliverForm } from "./DeliverForm";
 import { CancelForm } from "./CancelForm";
 import type { OrderDetail, OrderPayment } from "./orderDetail";
 import { PartsPicker, shortParts, type UsedPart } from "./PartsPicker";
+import { PartOrderForm, PartOrderList, usePartOrders } from "./PartOrderSection";
 import styles from "./OrderPanel.module.css";
 
 /** The server's ORDER_TESTS, in the order the technician runs them. */
@@ -56,9 +57,17 @@ export function OrderActions({
   onChanged: () => void;
 }) {
   const { user } = useAuth();
-  const [step, setStep] = useState<"idle" | "finish" | "deliver" | "cancel">("idle");
+  const [step, setStep] = useState<"idle" | "finish" | "deliver" | "cancel" | "part">("idle");
   const [saving, setSaving] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+  // Parts are ordered from the partners' stock (decision 5).
+  const partner = user?.role === "SUPER_ADMIN";
+  const [partsSeen, setPartsSeen] = useState(0);
+  const ordered = usePartOrders(order.id, partner, `${order.status}:${partsSeen}`);
+  const partsChanged = () => {
+    setPartsSeen((n) => n + 1);
+    onChanged();
+  };
 
   const patch = async (body: object): Promise<boolean> => {
     setSaving(true);
@@ -96,6 +105,18 @@ export function OrderActions({
   const { status } = order;
   if (status === "pendiente_cliente") {
     body = resume("Cliente respondió", <PhoneIncoming size={16} aria-hidden />, "La orden vuelve a «En progreso».");
+  } else if (status === "pendiente_piezas" && ordered?.length) {
+    const waiting = ordered.some((p) => !p.receivedAt);
+    body = (
+      <>
+        <PartOrderList rows={ordered} onReceived={partsChanged} />
+        {waiting ? (
+          <p className={styles.hint}>Al marcarla recibida se suma al stock.</p>
+        ) : (
+          resume("Volver a En progreso", <PackageCheck size={16} aria-hidden />, "Pieza recibida: la reparación puede seguir.")
+        )}
+      </>
+    );
   } else if (status === "pendiente_piezas") {
     body = resume("Pieza recibida", <PackageCheck size={16} aria-hidden />, "La orden vuelve a «En progreso».");
   } else if (status === "en_progreso") {
@@ -125,14 +146,32 @@ export function OrderActions({
   } else {
     return null;
   }
+  const canOrderPart = partner && (status === "en_progreso" || status === "pendiente_piezas");
   if (step === "cancel") {
     body = <CancelForm order={order} payments={payments} onCancel={() => setStep("idle")} onDone={onChanged} />;
+  } else if (step === "part") {
+    body = (
+      <PartOrderForm
+        orderId={order.id}
+        movesStatus={status !== "pendiente_piezas"}
+        onCancel={() => setStep("idle")}
+        onDone={() => {
+          setStep("idle");
+          partsChanged();
+        }}
+      />
+    );
   } else if (step === "idle") {
     // A delivered order is not cancelled: its money goes back with a refund.
     body = (
       <>
         {body}
         <p className={styles.secondary}>
+          {canOrderPart && (
+            <Button variant="ghost" size="sm" onClick={() => setStep("part")}>
+              {ordered?.length ? "Pedir otra pieza…" : "Pedir pieza…"}
+            </Button>
+          )}
           <Button variant="ghost" size="sm" onClick={() => setStep("cancel")}>
             Cancelar orden…
           </Button>
