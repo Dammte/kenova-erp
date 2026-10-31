@@ -10,6 +10,9 @@ import { AuthProvider, useAuth } from "./AuthProvider";
 /** Pages that render without the sidebar and without a session. */
 const PUBLIC_PATHS = ["/login", "/recuperar-contrasena", "/restablecer-contrasena"];
 
+/** Signed-in pages made for paper: no sidebar or bars around them. */
+const isPrintPage = (pathname: string) => /^\/ordenes\/[^/]+\/resguardo$/.test(pathname);
+
 function ProtectedContent({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const pathname = usePathname();
@@ -20,6 +23,7 @@ function ProtectedContent({ children }: { children: React.ReactNode }) {
   if (user.mustChangePassword) {
     return pathname === "/cuenta/contrasena" ? <>{children}</> : null;
   }
+  if (isPrintPage(pathname)) return <>{children}</>;
   return (
     <div className={styles.adminContainer}>
       <Sidebar />

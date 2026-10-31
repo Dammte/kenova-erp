@@ -82,6 +82,12 @@
   color: var(--k-accent);
   font: 500 13px/18px var(--k-font-sans);
 }
+.headLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--k-space-1) var(--k-space-4);
+  margin: 0;
+}
 .full:focus-visible {
   outline: none;
   box-shadow: var(--k-focus-ring);
