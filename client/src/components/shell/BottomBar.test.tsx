@@ -44,6 +44,7 @@ describe("BottomBar", () => {
     fireEvent.click(screen.getByRole("button", { name: "Menú" }));
     const sheet = screen.getByRole("dialog", { name: "Menú" });
     expect(within(sheet).getAllByRole("link").map((a) => a.textContent)).toEqual([
+      "Tarifas",
       "Clientes",
       "Inventario",
       "Servicios",
@@ -57,7 +58,7 @@ describe("BottomBar", () => {
     fireEvent.click(screen.getByRole("button", { name: "Menú" }));
     expect(
       within(screen.getByRole("dialog")).getAllByRole("link").map((a) => a.textContent),
-    ).toEqual(["Clientes"]);
+    ).toEqual(["Tarifas", "Clientes"]);
     expect(screen.queryByText("Configuración")).toBeNull();
   });
 
