@@ -374,3 +374,14 @@
 .primaryLink:hover {
   background: var(--k-accent-hover);
 }
+.detailHead > .headActions {
+  gap: var(--k-space-3);
+}
+.textLink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--k-space-1);
+  color: var(--k-accent);
+  font: var(--k-text-sm);
+  font-weight: 500;
+}

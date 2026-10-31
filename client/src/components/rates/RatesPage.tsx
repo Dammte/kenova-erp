@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Copy, Plus, Search } from "lucide-react";
+import { Copy, FileText, Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { API_URL, apiFetch } from "@/lib/api";
@@ -97,6 +97,11 @@ function WhatsApp({ group }: { group: RateGroup }) {
         {start && (
           <Link className={styles.intake} href={`/ordenes/nueva?servicio=${start.id}`}>
             <Plus size={16} aria-hidden /> Dar de alta
+          </Link>
+        )}
+        {start && (
+          <Link className={styles.intake} href={`/presupuestos?presupuesto=nuevo&servicio=${start.id}`}>
+            <FileText size={16} aria-hidden /> Crear presupuesto
           </Link>
         )}
         <span role="status" className={styles.muted}>

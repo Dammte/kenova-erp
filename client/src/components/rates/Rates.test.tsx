@@ -121,6 +121,9 @@ describe("RatesPage", () => {
     expect(within(panel).getByRole("link", { name: "Dar de alta" }).getAttribute("href")).toBe(
       "/ordenes/nueva?servicio=r2",
     );
+    expect(within(panel).getByRole("link", { name: "Crear presupuesto" }).getAttribute("href")).toBe(
+      "/presupuestos?presupuesto=nuevo&servicio=r2",
+    );
   });
 
   it("says when nothing matches and does not search one letter", async () => {

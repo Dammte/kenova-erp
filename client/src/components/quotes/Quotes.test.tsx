@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { QuotesPage } from "./QuotesPage";
+import { QuoteDocument } from "./QuoteDocument";
 import { renewNotice } from "./QuoteActions";
 import {
   daysLeft,
@@ -44,6 +45,7 @@ const LIST: QuoteListPage = {
 const DETAIL: QuoteDetail = {
   id: "q1",
   code: "MP-P0031",
+  storeId: "st1",
   status: "sent",
   clientId: null,
   clientName: "Aitor Etxeberria",
@@ -128,6 +130,9 @@ describe("QuotesPage", () => {
     expect(within(detail).getByText(/Si no se acepta, se cobra el diagnóstico \(20,00\s€\)/)).toBeTruthy();
     expect(within(detail).getByRole("link", { name: /convertir en orden/ }).getAttribute("href")).toBe(
       "/ordenes/nueva?presupuesto=q1",
+    );
+    expect(within(detail).getByRole("link", { name: "Imprimir / PDF" }).getAttribute("href")).toBe(
+      "/presupuestos/q1/imprimir",
     );
     // Only a draft can be edited.
     expect(within(detail).queryByRole("button", { name: "Editar" })).toBeNull();
@@ -260,5 +265,40 @@ describe("QuotesPage", () => {
     expect(screen.getByRole("link", { name: "MP-0144" }).getAttribute("href")).toBe("/ordenes?orden=o1");
     expect(screen.queryByRole("button", { name: "Borrar" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Rechazado" })).toBeNull();
+  });
+
+  it("prints the quote with its lines, validity and diagnostic, and no signature", () => {
+    const store = {
+      id: "st1",
+      name: "Kenova Medina",
+      city: "Medina de Pomar",
+      address: "C/ Mayor 1",
+      phone: "947 000 000",
+      legalName: null,
+      taxId: null,
+      warrantyDays: 90,
+    };
+    render(<QuoteDocument quote={DETAIL} store={store} />);
+    const doc = screen.getByRole("article", { name: "Documento MP-P0031" });
+    expect(doc.textContent).toContain("Limpieza por líquido (original)");
+    expect(doc.textContent).toMatch(/Total435,00\s€/);
+    expect(doc.textContent).toContain("Válido hasta el 27/11/2026.");
+    expect(doc.textContent).toMatch(/se cobra el diagnóstico \(20,00\s€\)/);
+    expect(doc.textContent).toContain("Garantía de la reparación: 90 días");
+    expect(doc.textContent).not.toMatch(/firma/i);
+  });
+
+  it("starts a new quote with the rate chosen in Tarifas", async () => {
+    search = "presupuesto=nuevo&servicio=s9";
+    fetchMock.mockImplementation(async (url: string) =>
+      url.endsWith("/services/s9")
+        ? json({ id: "s9", name: "Batería Galaxy A54", price: "55.00", quality: "original" })
+        : json(LIST),
+    );
+    render(<QuotesPage />);
+    await act(async () => {});
+    const form = screen.getByRole("form", { name: "Nuevo presupuesto" });
+    expect((within(form).getByLabelText("Concepto 1") as HTMLInputElement).value).toBe("Batería Galaxy A54");
+    expect(within(form).getByLabelText("Total del presupuesto").textContent).toMatch(/55,00\s€/);
   });
 });
