@@ -18,14 +18,25 @@ import { UserRole } from '../users/entities/user.entity';
 import { ClientsService } from './clients.service';
 import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
+import { ListClientsDto } from './dto/list-clients.dto';
+import { ClientListService } from './client-list.service';
 
 @Controller('clients')
 export class ClientsController {
-  constructor(private readonly clientsService: ClientsService) {}
+  constructor(
+    private readonly clientsService: ClientsService,
+    private readonly clientList: ClientListService,
+  ) {}
 
   @Get()
   findAll(@CurrentUser() user: AuthUser) {
     return this.clientsService.findAll(user);
+  }
+
+  /** Design 3.3: paginated list with orders, last visit, balance and duplicates. */
+  @Get('list')
+  list(@Query() query: ListClientsDto, @CurrentUser() user: AuthUser) {
+    return this.clientList.list(user, query);
   }
 
   @Get('search')
