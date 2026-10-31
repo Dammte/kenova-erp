@@ -1,6 +1,7 @@
 import { OmitType, PartialType } from '@nestjs/mapped-types';
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
   ArrayUnique,
   IsArray,
   IsEnum,
@@ -10,12 +11,14 @@ import {
   IsUUID,
   MaxLength,
   ValidateIf,
+  ValidateNested,
 } from 'class-validator';
 import {
   ORDER_TESTS,
   OrderResult,
   OrderTest,
 } from '../entities/service-order.entity';
+import { ConsumedPartDto } from './consume-parts.dto';
 import { CreateServiceOrderDto } from './create-service-order.dto';
 
 const trimToNull = ({ value }: { value: unknown }) =>
@@ -78,4 +81,15 @@ export class UpdateServiceOrderDto extends PartialType(
   @MaxLength(300)
   @IsOptional()
   owedReason?: string | null;
+
+  /**
+   * Parts used, taken out of stock in the same transaction as the change
+   * (usually finishing the order). Not a column.
+   */
+  @IsArray()
+  @ArrayMaxSize(50)
+  @ValidateNested({ each: true })
+  @Type(() => ConsumedPartDto)
+  @IsOptional()
+  parts?: ConsumedPartDto[];
 }

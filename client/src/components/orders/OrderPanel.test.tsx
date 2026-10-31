@@ -80,6 +80,16 @@ const NOTES = [
   },
 ];
 
+let role: "SUPER_ADMIN" | "STORE_ADMIN" = "STORE_ADMIN";
+vi.mock("@/components/auth/AuthProvider", () => ({
+  useAuth: () => ({ user: { id: "u1", role } }),
+}));
+
+const INVENTORY = [
+  { id: "i1", sku: "SCR-IP13", name: "Pantalla iPhone 13", stock: 3 },
+  { id: "i2", sku: "BAT-A54", name: "Batería Galaxy A54", stock: 0 },
+];
+
 const fetchMock = vi.fn();
 const onClose = vi.fn();
 const onChanged = vi.fn();
@@ -90,6 +100,7 @@ function serve(overrides: Record<string, Response> = {}) {
     if (url.endsWith("/payments")) return new Response(JSON.stringify(PAYMENTS));
     if (url.endsWith("/sticky-notes")) return new Response(JSON.stringify(NOTES));
     if (url.endsWith("/reveal")) return new Response(JSON.stringify({ type: "CODE", value: "4321" }));
+    if (url.endsWith("/inventory")) return new Response(JSON.stringify(INVENTORY));
     return new Response(JSON.stringify(ORDER));
   });
 }
@@ -97,6 +108,7 @@ function serve(overrides: Record<string, Response> = {}) {
 beforeEach(() => {
   onClose.mockReset();
   onChanged.mockReset();
+  role = "STORE_ADMIN";
   fetchMock.mockReset();
   serve();
   vi.stubGlobal("fetch", fetchMock);
@@ -438,6 +450,45 @@ describe("OrderPanel charge", () => {
     await open({ balance: "0.00", amountPaid: "149.00", paymentStatus: "paid" });
     expect(screen.getByRole("button", { name: "Registrar cobro" }).hasAttribute("disabled")).toBe(true);
     screen.getByText("Esta orden ya está pagada.");
+  });
+});
+
+describe("OrderPanel parts used", () => {
+  const startFinish = async () => {
+    await open();
+    fireEvent.click(screen.getByRole("button", { name: "Finalizar…" }));
+    await act(async () => {});
+    fireEvent.change(screen.getByLabelText(/Trabajo realizado/), { target: { value: "Pantalla cambiada" } });
+  };
+
+  it("a store finishes without seeing stock", async () => {
+    await startFinish();
+    expect(screen.queryByText(/Piezas usadas/)).toBeNull();
+    expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith("/inventory"))).toBe(false);
+  });
+
+  it("a partner adds the parts used and they leave stock with the finish", async () => {
+    role = "SUPER_ADMIN";
+    await startFinish();
+    fireEvent.change(screen.getByLabelText("Buscar pieza del inventario"), { target: { value: "pantalla ip" } });
+    fireEvent.click(screen.getByRole("button", { name: /Pantalla iPhone 13 · SCR-IP13 · stock 3/ }));
+    fireEvent.change(screen.getByLabelText("Cantidad de Pantalla iPhone 13"), { target: { value: "2" } });
+    screen.getByText(/stock 3 → 1/);
+    fireEvent.click(screen.getByRole("button", { name: "Finalizar orden" }));
+    await act(async () => {});
+    expect(patches()[0][1]).toMatchObject({ status: "finalizado", parts: [{ inventoryId: "i1", quantity: 2 }] });
+  });
+
+  it("will not finish with a part out of stock", async () => {
+    role = "SUPER_ADMIN";
+    await startFinish();
+    fireEvent.change(screen.getByLabelText("Buscar pieza del inventario"), { target: { value: "BAT" } });
+    fireEvent.click(screen.getByRole("button", { name: /Batería Galaxy A54/ }));
+    screen.getByText(/Sin stock: quedan 0/);
+    expect(screen.getByRole("button", { name: "Finalizar orden" }).hasAttribute("disabled")).toBe(true);
+    screen.getByText("Corrige las piezas sin stock.");
+    fireEvent.click(screen.getByRole("button", { name: "Quitar Batería Galaxy A54" }));
+    expect(screen.getByRole("button", { name: "Finalizar orden" }).hasAttribute("disabled")).toBe(false);
   });
 });
 

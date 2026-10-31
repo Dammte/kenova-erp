@@ -424,6 +424,28 @@ button.chip:focus-visible {
   padding-top: var(--k-space-4);
   border-top: var(--k-border-w) solid var(--k-border);
 }
+.partControls {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--k-space-1);
+  flex-shrink: 0;
+}
+.qty {
+  width: 64px;
+  height: 32px;
+  padding: 0 var(--k-space-2);
+  border: var(--k-border-w) solid var(--k-border-strong);
+  border-radius: var(--k-radius-md);
+  background: var(--k-surface);
+  color: var(--k-text);
+  font: var(--k-text-base);
+  font-variant-numeric: tabular-nums;
+}
+.qty:focus {
+  outline: none;
+  border-color: var(--k-accent);
+  box-shadow: var(--k-focus-ring);
+}
 .secondary {
   margin-top: var(--k-space-2) !important;
 }
