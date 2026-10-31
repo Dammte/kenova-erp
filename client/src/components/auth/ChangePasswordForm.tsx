@@ -50,7 +50,7 @@ export function ChangePasswordForm({
         return;
       }
       if (firstAccess) {
-        navigate("/dashboard");
+        navigate("/panel");
         return;
       }
       setDone(true);

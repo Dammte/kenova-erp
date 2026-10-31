@@ -95,9 +95,9 @@ describe("LoginForm", () => {
 describe("safeNext", () => {
   it("only accepts same-site paths", () => {
     expect(safeNext("/clients")).toBe("/clients");
-    expect(safeNext("//evil.example")).toBe("/dashboard");
-    expect(safeNext("https://evil.example")).toBe("/dashboard");
-    expect(safeNext("/login?next=/x")).toBe("/dashboard");
-    expect(safeNext(null)).toBe("/dashboard");
+    expect(safeNext("//evil.example")).toBe("/panel");
+    expect(safeNext("https://evil.example")).toBe("/panel");
+    expect(safeNext("/login?next=/x")).toBe("/panel");
+    expect(safeNext(null)).toBe("/panel");
   });
 });
