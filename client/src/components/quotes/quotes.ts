@@ -106,3 +106,27 @@ export function validityText(q: Pick<QuoteDetail, "status" | "validUntil">, toda
 export function linesTotal(lines: { unitPrice: number | null }[]): number {
   return lines.reduce((s, l) => s + Math.round((l.unitPrice ?? 0) * 100), 0) / 100;
 }
+
+/** The client's first name, for a friendly greeting. */
+const firstName = (name: string) => name.trim().split(/\s+/)[0] ?? "";
+
+/** Design 2.4: the message that goes with the quote on WhatsApp. */
+export function quoteWhatsappText(q: Pick<QuoteDetail, "code" | "clientName" | "model" | "total" | "validUntil">): string {
+  const eur = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(Number(q.total));
+  return (
+    `Hola ${firstName(q.clientName)}, te enviamos el presupuesto ${q.code} para tu ${q.model}: ${eur}. ` +
+    `Válido hasta el ${formatDay(q.validUntil)}. Responde «Acepto» para empezar la reparación.\nKenova`
+  );
+}
+
+/**
+ * wa.me link for a phone as typed at the counter. A 9-digit number is Spanish
+ * and gets +34; one with its country code keeps it. Null without enough digits.
+ */
+export function whatsappLink(phone: string, text: string): string | null {
+  let digits = phone.replace(/\D/g, "");
+  if (digits.startsWith("00")) digits = digits.slice(2);
+  if (digits.length === 9) digits = `34${digits}`;
+  if (digits.length < 10) return null;
+  return `https://wa.me/${digits}?text=${encodeURIComponent(text)}`;
+}

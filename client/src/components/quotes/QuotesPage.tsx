@@ -78,6 +78,7 @@ export function QuotesPage() {
   const [q, setQ] = useState("");
   const [reload, setReload] = useState(0);
   const [editing, setEditing] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
   const { data, failed } = useQuoteList(tab, q, reload);
   const { quote, failed: quoteFailed } = useQuote(openId, reload);
 
@@ -85,7 +86,10 @@ export function QuotesPage() {
     const timer = setTimeout(() => setQ(draft), SEARCH_DELAY_MS);
     return () => clearTimeout(timer);
   }, [draft]);
-  useEffect(() => setEditing(false), [openId]);
+  useEffect(() => {
+    setEditing(false);
+    setNotice(null);
+  }, [openId]);
 
   const open = (id: string | null) =>
     router.replace(id ? `${pathname}?presupuesto=${id}` : pathname, { scroll: false });
@@ -177,7 +181,21 @@ export function QuotesPage() {
         <section className={styles.detailCol} aria-label="Presupuesto abierto">
           {openId === NEW_QUOTE && <QuoteForm onSaved={saved} onCancel={() => open(null)} />}
           {quote && editing && <QuoteForm quote={quote} onSaved={saved} onCancel={() => setEditing(false)} />}
-          {quote && !editing && <QuoteView quote={quote} onEdit={() => setEditing(true)} />}
+          {quote && !editing && (
+            <QuoteView
+              quote={quote}
+              notice={notice}
+              onEdit={() => setEditing(true)}
+              onChanged={(_, text) => {
+                setNotice(text ?? null);
+                setReload((n) => n + 1);
+              }}
+              onDeleted={() => {
+                open(null);
+                setReload((n) => n + 1);
+              }}
+            />
+          )}
           {quoteFailed && (
             <p role="alert" className={styles.error}>
               No se ha podido abrir el presupuesto.

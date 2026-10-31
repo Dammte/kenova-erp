@@ -1,7 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { QuotesPage } from "./QuotesPage";
-import { daysLeft, formatDay, linesTotal, validityText, type QuoteDetail, type QuoteListPage } from "./quotes";
+import { renewNotice } from "./QuoteActions";
+import {
+  daysLeft,
+  formatDay,
+  linesTotal,
+  quoteWhatsappText,
+  validityText,
+  whatsappLink, type QuoteDetail, type QuoteListPage } from "./quotes";
 
 const replace = vi.fn();
 let search = "";
@@ -78,6 +85,25 @@ describe("quote helpers", () => {
     );
     expect(validityText({ status: "sent", validUntil: "2026-11-27" }, "2026-11-27")).toContain("último día");
     expect(validityText({ status: "expired", validUntil: "2026-10-01" })).toBe("Caducó el 01/10/2026");
+  });
+
+  it("writes the WhatsApp message and links Spanish numbers with +34", () => {
+    const text = quoteWhatsappText(DETAIL);
+    expect(text).toBe(
+      "Hola Aitor, te enviamos el presupuesto MP-P0031 para tu MacBook Air M1: 435,00\u00a0€. " +
+        "Válido hasta el 27/11/2026. Responde «Acepto» para empezar la reparación.\nKenova",
+    );
+    expect(whatsappLink("688 450 117", "hola")).toBe("https://wa.me/34688450117?text=hola");
+    expect(whatsappLink("+351 912 345 678", "x")).toBe("https://wa.me/351912345678?text=x");
+    expect(whatsappLink("0033 6 12 34 56 78", "x")).toBe("https://wa.me/33612345678?text=x");
+    expect(whatsappLink("12345", "x")).toBeNull();
+  });
+
+  it("says which prices moved on renewal", () => {
+    expect(renewNotice([])).toContain("no han cambiado");
+    expect(renewNotice([{ description: "Batería", before: "100.00", after: "120.00" }])).toMatch(
+      /Batería: 100,00\s€ → 120,00\s€/,
+    );
   });
 
   it("adds the lines in cents", () => {
@@ -166,5 +192,70 @@ describe("QuotesPage", () => {
     });
     expect(replace).toHaveBeenCalledWith("/presupuestos?presupuesto=q7", { scroll: false });
     vi.useRealTimers();
+  });
+
+  const posts = () =>
+    fetchMock.mock.calls
+      .filter((c) => ["POST", "DELETE"].includes((c[1] as RequestInit | undefined)?.method ?? ""))
+      .map((c) => `${(c[1] as RequestInit).method} ${c[0]}`);
+
+  it("sends a draft by WhatsApp and marks it as sent", async () => {
+    search = "presupuesto=q1";
+    const draft = { ...DETAIL, status: "draft" as const };
+    const openWindow = vi.fn();
+    vi.stubGlobal("open", openWindow);
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
+      if (init?.method === "POST") return json({ ...DETAIL, status: "sent" });
+      return url.endsWith("/quotes/q1") ? json(draft) : json(LIST);
+    });
+    render(<QuotesPage />);
+    await act(async () => {});
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Enviar por WhatsApp" }));
+    });
+    expect(openWindow.mock.calls[0][0]).toMatch(/^https:\/\/wa\.me\/34688450117\?text=Hola%20Aitor/);
+    expect(posts()).toEqual(["POST /api/quotes/q1/send"]);
+    expect(screen.getByRole("status").textContent).toBe("Marcado como enviado.");
+  });
+
+  it("renews an expired quote, and deletes only after confirming", async () => {
+    search = "presupuesto=q1";
+    const expired = { ...DETAIL, status: "expired" as const };
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
+      if (init?.method === "POST")
+        return json({ quote: { ...DETAIL, status: "draft" }, changes: [{ description: "Limpieza", before: "50.00", after: "55.00" }] });
+      if (init?.method === "DELETE") return new Response(null, { status: 204 });
+      return url.endsWith("/quotes/q1") ? json(expired) : json(LIST);
+    });
+    render(<QuotesPage />);
+    await act(async () => {});
+    expect(screen.queryByRole("button", { name: /WhatsApp/ })).toBeNull();
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Renovar 30 días" }));
+    });
+    expect(posts()).toEqual(["POST /api/quotes/q1/renew"]);
+    expect(screen.getByRole("status").textContent).toContain("Limpieza");
+
+    fireEvent.click(screen.getByRole("button", { name: "Borrar" }));
+    expect(posts()).toHaveLength(1);
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Sí, borrar" }));
+    });
+    expect(posts()).toContain("DELETE /api/quotes/q1");
+    expect(replace).toHaveBeenLastCalledWith("/presupuestos", { scroll: false });
+  });
+
+  it("offers nothing to change on an accepted quote", async () => {
+    search = "presupuesto=q1";
+    fetchMock.mockImplementation(async (url: string) =>
+      url.endsWith("/quotes/q1")
+        ? json({ ...DETAIL, status: "accepted", order: { id: "o1", code: "MP-0144" } })
+        : json(LIST),
+    );
+    render(<QuotesPage />);
+    await act(async () => {});
+    expect(screen.getByRole("link", { name: "MP-0144" }).getAttribute("href")).toBe("/ordenes?orden=o1");
+    expect(screen.queryByRole("button", { name: "Borrar" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Rechazado" })).toBeNull();
   });
 });
