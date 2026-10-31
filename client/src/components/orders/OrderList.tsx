@@ -4,8 +4,8 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { AlertTriangle, ChevronLeft, ChevronRight, Clock, Search } from "lucide-react";
-import { Button, StatusChip } from "@/components/ui";
-import { API_URL, apiFetch } from "@/lib/api";
+import { Button, STATUS_LABEL, type OrderStatus } from "@/components/ui";
+import { API_URL, apiFetch, errorMessage } from "@/lib/api";
 import { formatEur } from "@/lib/format";
 import {
   EMPTY_TAB,
@@ -20,6 +20,7 @@ import {
   type OrderListPage,
   type OrderRow,
 } from "./orderList";
+import { StatusMenu } from "./StatusMenu";
 import styles from "./OrderList.module.css";
 
 /** Where a row leads until the order panel (design 1.5) exists. */
@@ -27,6 +28,28 @@ export const orderHref = (id: string) => `/serviceOrders/${id}`;
 export const NEW_ORDER_HREF = "/serviceOrders/newServiceOrder";
 
 const SEARCH_DELAY_MS = 300;
+/** How long "Deshacer" stays on screen after a status change. */
+const UNDO_MS = 5000;
+
+interface Toast {
+  text: string;
+  undo?: () => void;
+  error?: boolean;
+}
+
+/** PATCHes the status; resolves to the server's message when it refuses. */
+async function saveStatus(id: string, status: OrderStatus): Promise<string | null> {
+  try {
+    const res = await apiFetch(`${API_URL}/service-orders/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+    return res.ok ? null : await errorMessage(res, "El servidor no lo ha aceptado.");
+  } catch {
+    return "Comprueba la conexión.";
+  }
+}
 
 /** Fetches one page for the query; while a new page loads the old one stays. */
 function useOrderPage(query: ListQuery) {
@@ -70,6 +93,15 @@ export default function OrderList() {
   const params = useSearchParams();
   const query = readQuery(new URLSearchParams(params.toString()));
   const { data, loading, failed, retry } = useOrderPage(query);
+  // Statuses just changed here, shown until the list comes back with them.
+  const [moved, setMoved] = useState<Record<string, OrderStatus>>({});
+  const [toast, setToast] = useState<Toast | null>(null);
+  useEffect(() => setMoved({}), [data]);
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(null), UNDO_MS);
+    return () => clearTimeout(timer);
+  }, [toast]);
   const [draft, setDraft] = useState(query.q);
   const searchRef = useRef<HTMLInputElement>(null);
   // The search last sent to the address; anything else there (a menu link to
@@ -118,6 +150,31 @@ export default function OrderList() {
     if (e.key !== "Enter") return;
     const exact = data?.rows.find((r) => r.code.toLowerCase() === draft.trim().toLowerCase());
     if (exact) router.push(orderHref(exact.id));
+  };
+
+  const changeStatus = async (row: OrderRow, from: OrderStatus, to: OrderStatus, undoable = true) => {
+    setMoved((m) => ({ ...m, [row.id]: to }));
+    const refused = await saveStatus(row.id, to);
+    if (refused) {
+      setMoved((m) => ({ ...m, [row.id]: from }));
+      setToast({
+        text: `No se ha podido cambiar ${row.code} a ${STATUS_LABEL[to]}. ${refused}`,
+        error: true,
+      });
+      return;
+    }
+    setToast(
+      undoable
+        ? {
+            text: `${row.code} pasa a ${STATUS_LABEL[to]}.`,
+            undo: () => {
+              setToast(null);
+              void changeStatus(row, to, from, false);
+            },
+          }
+        : { text: `${row.code} vuelve a ${STATUS_LABEL[to]}.` },
+    );
+    retry();
   };
 
   const clearFilters = () => {
@@ -228,18 +285,42 @@ export default function OrderList() {
             </thead>
             <tbody>
               {rows.map((row) => (
-                <Row key={row.id} row={row} onOpen={() => router.push(orderHref(row.id))} />
+                <Row
+                  key={row.id}
+                  row={{ ...row, status: moved[row.id] ?? row.status }}
+                  onOpen={() => router.push(orderHref(row.id))}
+                  onStatus={(from, to) => void changeStatus(row, from, to)}
+                />
               ))}
             </tbody>
           </table>
           {data && <Pager data={data} onPage={(page) => go({ page })} />}
         </div>
       )}
+
+      {toast && (
+        <div className={`${styles.toast} ${toast.error ? styles.toastError : ""}`} role="status">
+          {toast.text}
+          {toast.undo && (
+            <button type="button" className={styles.undo} onClick={toast.undo}>
+              Deshacer
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
-function Row({ row, onOpen }: { row: OrderRow; onOpen: () => void }) {
+function Row({
+  row,
+  onOpen,
+  onStatus,
+}: {
+  row: OrderRow;
+  onOpen: () => void;
+  onStatus: (from: OrderStatus, to: OrderStatus) => void;
+}) {
   const faults = row.faults.map((f) => FAULT_LABEL[f] ?? f).join(", ");
   const [firstService, ...moreServices] = row.services;
   return (
@@ -275,7 +356,12 @@ function Row({ row, onOpen }: { row: OrderRow; onOpen: () => void }) {
         </span>
       </td>
       <td className={styles.status}>
-        <StatusChip status={row.status} />
+        <StatusMenu
+          code={row.code}
+          status={row.status}
+          href={orderHref(row.id)}
+          onChange={(to) => onStatus(row.status, to)}
+        />
       </td>
       <td className={styles.payment}>
         <span>{row.paymentStatus ? PAYMENT_LABEL[row.paymentStatus] : "—"}</span>
