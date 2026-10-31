@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, type FormEvent, type ReactNode } from "react";
-import { Check, PackageCheck, PhoneIncoming } from "lucide-react";
+import { Check, PackageCheck, PackageOpen, PhoneIncoming } from "lucide-react";
 import { Button } from "@/components/ui";
 import { API_URL, apiFetch, errorMessage } from "@/lib/api";
-import { formatEur } from "@/lib/format";
+import { DeliverForm } from "./DeliverForm";
 import type { OrderDetail } from "./orderDetail";
 import styles from "./OrderPanel.module.css";
 
@@ -93,29 +93,11 @@ export function OrderActions({ order, onChanged }: { order: OrderDetail; onChang
         </Button>
       );
   } else if (status === "finalizado") {
-    const owed = Number(order.balance ?? 0);
-    const name = [order.client.firstName, order.client.lastName].filter(Boolean).join(" ");
     body =
       step === "deliver" ? (
-        <>
-          <p>¿Entregar el equipo a {name}?</p>
-          <p className={styles.actions}>
-            <Button variant="primary" loading={saving} onClick={() => patch({ status: "entregado" })}>
-              Confirmar entrega
-            </Button>
-            <Button variant="ghost" onClick={() => setStep("idle")}>
-              Volver
-            </Button>
-          </p>
-        </>
+        <DeliverForm order={order} onCancel={() => setStep("idle")} onDone={onChanged} />
       ) : (
-        <Button
-          variant="primary"
-          onClick={() => setStep("deliver")}
-          disabledReason={
-            owed > 0 ? `Registra antes el cobro de los ${formatEur(owed)} pendientes.` : undefined
-          }
-        >
+        <Button variant="primary" icon={<PackageOpen size={16} aria-hidden />} onClick={() => setStep("deliver")}>
           Entregar…
         </Button>
       );

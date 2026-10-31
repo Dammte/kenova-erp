@@ -33,7 +33,7 @@ import { CREDIT, OrderPayment } from './entities/order-payment.entity';
 import { OrderPaymentsService } from './order-payments.service';
 import { commissionFor, NO_COMMISSION } from './commission';
 import { derivePayment } from './payment-status';
-import { UserRole } from '../users/entities/user.entity';
+import { User, UserRole } from '../users/entities/user.entity';
 
 /** IMEI or serial as typed or scanned: no spaces or dashes, upper case. */
 export function normalizeImei(value: string): string {
@@ -546,7 +546,7 @@ export class ServiceOrderService {
     actor: AuthUser,
   ): Promise<ServiceOrder> {
     const actorUserId = actor.id;
-    const { serviceIds, clientId, deviceId, ...updateData } =
+    const { serviceIds, clientId, deviceId, owedReason, ...updateData } =
       updateServiceOrderDto;
 
     const serviceOrder = await this.findOne(id, actor);
@@ -711,6 +711,18 @@ export class ServiceOrderService {
           performedBy: { id: actorUserId } as any,
           action: 'cambio_estado',
           description: `Estado cambiado de "${STATUS_LABELS[previousStatus] ?? previousStatus}" a "${STATUS_LABELS[updateData.status] ?? updateData.status}"`,
+        }),
+      );
+    }
+    // Handing over with money owed is the exception: it stays on record.
+    const owed = Number(serviceOrder.balance ?? 0);
+    if (delivering && owed > 0) {
+      await this.serviceHistoryRepository.save(
+        this.serviceHistoryRepository.create({
+          serviceOrderId: id,
+          performedBy: { id: actorUserId } as User,
+          action: 'entrega_con_saldo',
+          description: `Entregada con ${owed.toFixed(2).replace('.', ',')} € pendientes${owedReason ? ` · motivo: ${owedReason}` : ''}`,
         }),
       );
     }

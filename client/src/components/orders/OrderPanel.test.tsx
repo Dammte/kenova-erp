@@ -291,19 +291,73 @@ describe("OrderPanel next step", () => {
     expect(onChanged).toHaveBeenCalled();
   });
 
-  it("does not deliver while money is owed", async () => {
-    await open({ status: "finalizado", finishedAt: "2026-10-30T10:00:00Z" });
-    expect(screen.getByRole("button", { name: "Entregar…" }).hasAttribute("disabled")).toBe(true);
-    screen.getByText(/Registra antes el cobro de los 90,00\s€ pendientes/);
+  const FINISHED = { status: "finalizado", finishedAt: "2026-10-30T10:00:00Z", workDone: "Pantalla OLED nueva" } as const;
+  const posts = () =>
+    fetchMock.mock.calls
+      .filter(([, init]) => (init as RequestInit | undefined)?.method === "POST")
+      .map(([url, init]) => [url, JSON.parse((init as RequestInit).body as string)]);
+  const deliverButton = (name: RegExp) => screen.getByRole("button", { name });
+
+  it("charges what is owed and delivers in one step", async () => {
+    await open(FINISHED);
+    fireEvent.click(screen.getByRole("button", { name: "Entregar…" }));
+    expect(screen.getAllByText("Pantalla OLED nueva")).toHaveLength(2);
+    screen.getByText(/devolver: Funda · estado de entrada: Rayas en el marco/);
+    expect(deliverButton(/^Cobrar 90,00\s€ y entregar$/).hasAttribute("disabled")).toBe(true);
+    screen.getByText("Falta: elige la forma de pago, marca «Cliente conforme».");
+    fireEvent.click(screen.getByLabelText("Efectivo"));
+    fireEvent.click(screen.getByLabelText("Cliente conforme · ha revisado el equipo"));
+    fireEvent.click(deliverButton(/^Cobrar 90,00\s€ y entregar$/));
+    await act(async () => {});
+    expect(posts()).toEqual([
+      [
+        "/api/service-orders/o1/payments",
+        { id: expect.stringMatching(/^[0-9a-f-]{36}$/), kind: "charge", amount: 90, method: "cash" },
+      ],
+    ]);
+    expect(patches()).toEqual([["/api/service-orders/o1", { status: "entregado" }]]);
+    expect(onChanged).toHaveBeenCalledTimes(1);
   });
 
-  it("delivers a paid order after confirming", async () => {
-    await open({ status: "finalizado", finishedAt: "2026-10-30T10:00:00Z", balance: "0.00", amountPaid: "149.00" });
+  it("hands over with money owed only with a reason", async () => {
+    await open(FINISHED);
     fireEvent.click(screen.getByRole("button", { name: "Entregar…" }));
-    screen.getByText("¿Entregar el equipo a Lucía Fernández?");
-    fireEvent.click(screen.getByRole("button", { name: "Confirmar entrega" }));
+    fireEvent.click(screen.getByLabelText("Entregar con saldo pendiente"));
+    fireEvent.click(screen.getByLabelText("Cliente conforme · ha revisado el equipo"));
+    expect(deliverButton(/^Entregar con saldo pendiente$/).hasAttribute("disabled")).toBe(true);
+    fireEvent.change(screen.getByLabelText(/^Motivo/), { target: { value: " Pagará mañana " } });
+    fireEvent.click(deliverButton(/^Entregar con saldo pendiente$/));
+    await act(async () => {});
+    expect(posts()).toEqual([]);
+    expect(patches()).toEqual([["/api/service-orders/o1", { status: "entregado", owedReason: "Pagará mañana" }]]);
+  });
+
+  it("delivers a paid order once the client agrees", async () => {
+    await open({ ...FINISHED, balance: "0.00", amountPaid: "149.00" });
+    fireEvent.click(screen.getByRole("button", { name: "Entregar…" }));
+    screen.getByText("Pagado del todo.");
+    fireEvent.click(screen.getByLabelText("Cliente conforme · ha revisado el equipo"));
+    fireEvent.click(deliverButton(/^Entregar$/));
     await act(async () => {});
     expect(patches()).toEqual([["/api/service-orders/o1", { status: "entregado" }]]);
+  });
+
+  it("does not charge twice when the delivery is retried", async () => {
+    await open(FINISHED);
+    fireEvent.click(screen.getByRole("button", { name: "Entregar…" }));
+    fireEvent.click(screen.getByLabelText("Tarjeta"));
+    fireEvent.click(screen.getByLabelText("Cliente conforme · ha revisado el equipo"));
+    fetchMock.mockImplementationOnce(async () => {
+      throw new TypeError("Failed to fetch");
+    });
+    fireEvent.click(deliverButton(/y entregar$/));
+    await act(async () => {});
+    expect(screen.getByRole("alert").textContent).toContain("No cobres otra vez");
+    fireEvent.click(deliverButton(/y entregar$/));
+    await act(async () => {});
+    const [first, second] = posts().map(([, body]) => body.id);
+    expect(second).toBe(first);
+    expect(onChanged).toHaveBeenCalledTimes(1);
   });
 
   it("shows why the server refused the change", async () => {

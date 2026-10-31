@@ -6,13 +6,13 @@ import { API_URL, apiFetch, errorMessage } from "@/lib/api";
 import { formatEur } from "@/lib/format";
 import styles from "./OrderPanel.module.css";
 
-const METHODS = [
+export const METHODS = [
   ["cash", "Efectivo"],
   ["card", "Tarjeta"],
   ["transfer", "Transferencia"],
   ["other", "Otro"],
 ] as const;
-type Method = (typeof METHODS)[number][0];
+export type Method = (typeof METHODS)[number][0];
 
 /** Half the pending amount, rounded down to the cent. */
 const half = (pending: number) => Math.floor(pending * 50) / 100;
