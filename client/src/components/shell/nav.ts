@@ -29,7 +29,7 @@ const PANEL: NavItem = { label: "Panel", href: "/panel", icon: LayoutDashboard }
 const ORDERS: NavItem = { label: "Órdenes", href: "/ordenes", icon: ClipboardList };
 const QUOTES: NavItem = { label: "Presupuestos", href: "/presupuestos", icon: FileText };
 const RATES: NavItem = { label: "Tarifas", href: "/tarifas", icon: Tags };
-const CLIENTS: NavItem = { label: "Clientes", href: "/clients", icon: Users };
+const CLIENTS: NavItem = { label: "Clientes", href: "/clientes", icon: Users };
 const MONEY: NavItem = { label: "Dinero", href: "/dinero", icon: Coins };
 const INVENTORY: NavItem = { label: "Inventario", href: "/inventory", icon: Package };
 const SERVICES: NavItem = { label: "Servicios", href: "/services", icon: Wrench };
@@ -56,7 +56,11 @@ export function navFor(role: Role): NavSections {
  * Older screens a section still owns: an order opens on /serviceOrders/... until
  * its new screen exists.
  */
-const ALSO_UNDER: Record<string, string[]> = { "/ordenes": ["/serviceOrders"], "/panel": ["/dashboard"] };
+const ALSO_UNDER: Record<string, string[]> = {
+  "/ordenes": ["/serviceOrders"],
+  "/panel": ["/dashboard"],
+  "/clientes": ["/clients"],
+};
 
 const isUnder = (href: string, pathname: string): boolean =>
   pathname === href || pathname.startsWith(`${href}/`);

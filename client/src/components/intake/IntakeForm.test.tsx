@@ -205,6 +205,19 @@ describe("IntakeForm", () => {
     window.history.replaceState(null, "", "/");
   });
 
+  it("starts with the client whose card opened it", async () => {
+    window.history.replaceState(null, "", "/ordenes/nueva?cliente=c1");
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.endsWith("/clients/c1")) return json({ ...LUCIA, email: "lucia@correo.es", isActive: true });
+      if (url.includes("/devices/client/c1")) return json([IPHONE]);
+      return json([]);
+    });
+    render(<IntakeForm />);
+    await act(async () => {});
+    expect(screen.getByRole("button", { name: /Apple iPhone 13/ })).toBeTruthy();
+    window.history.replaceState(null, "", "/");
+  });
+
   it("starts filled in from an accepted quote and accepts it with the order", async () => {
     window.history.replaceState(null, "", "/ordenes/nueva?presupuesto=q1");
     fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {

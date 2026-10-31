@@ -31,4 +31,9 @@ describe("isActive", () => {
     expect(isActive("/ordenes", "/serviceOrders/42")).toBe(true);
     expect(isActive("/ordenes", "/services")).toBe(false);
   });
+
+  it("Clientes stays lit on the older client screens", () => {
+    expect(isActive("/clientes", "/clientes")).toBe(true);
+    expect(isActive("/clientes", "/clients/42")).toBe(true);
+  });
 });

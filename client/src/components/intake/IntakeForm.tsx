@@ -108,6 +108,31 @@ export function IntakeForm() {
     return () => controller.abort();
   }, []);
 
+  // «Nueva alta para este cliente» on a client's card opens /ordenes/nueva?cliente=<id>.
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("cliente");
+    if (!id) return;
+    const controller = new AbortController();
+    apiFetch(`${API_URL}/clients/${encodeURIComponent(id)}`, { signal: controller.signal })
+      .then(async (res) => {
+        if (!res.ok) return;
+        const c = (await res.json()) as FoundClient;
+        const client: FoundClient = {
+          id: c.id,
+          firstName: c.firstName,
+          lastName: c.lastName,
+          phoneNumber: c.phoneNumber,
+          dniType: c.dniType,
+          dni: c.dni,
+        };
+        setS((prev) => (prev.client ? prev : withClient(prev, client)));
+      })
+      .catch(() => {
+        // Without it the client is searched as usual.
+      });
+    return () => controller.abort();
+  }, []);
+
   // «Convertir en orden» opens /ordenes/nueva?presupuesto=<id> (decision: prefilled intake).
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get("presupuesto");
