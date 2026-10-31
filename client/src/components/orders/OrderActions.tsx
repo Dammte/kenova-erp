@@ -5,7 +5,8 @@ import { Check, PackageCheck, PackageOpen, PhoneIncoming } from "lucide-react";
 import { Button } from "@/components/ui";
 import { API_URL, apiFetch, errorMessage } from "@/lib/api";
 import { DeliverForm } from "./DeliverForm";
-import type { OrderDetail } from "./orderDetail";
+import { CancelForm } from "./CancelForm";
+import type { OrderDetail, OrderPayment } from "./orderDetail";
 import styles from "./OrderPanel.module.css";
 
 /** The server's ORDER_TESTS, in the order the technician runs them. */
@@ -35,8 +36,16 @@ export function finishPayload(workDone: string, tests: Test[], result: Result, r
  * Design 1.5: the one next step for the order's status, at the top of the
  * panel. Other moves stay in the list's status menu.
  */
-export function OrderActions({ order, onChanged }: { order: OrderDetail; onChanged: () => void }) {
-  const [step, setStep] = useState<"idle" | "finish" | "deliver">("idle");
+export function OrderActions({
+  order,
+  payments,
+  onChanged,
+}: {
+  order: OrderDetail;
+  payments: OrderPayment[];
+  onChanged: () => void;
+}) {
+  const [step, setStep] = useState<"idle" | "finish" | "deliver" | "cancel">("idle");
   const [saving, setSaving] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
 
@@ -103,6 +112,21 @@ export function OrderActions({ order, onChanged }: { order: OrderDetail; onChang
       );
   } else {
     return null;
+  }
+  if (step === "cancel") {
+    body = <CancelForm order={order} payments={payments} onCancel={() => setStep("idle")} onDone={onChanged} />;
+  } else if (step === "idle") {
+    // A delivered order is not cancelled: its money goes back with a refund.
+    body = (
+      <>
+        {body}
+        <p className={styles.secondary}>
+          <Button variant="ghost" size="sm" onClick={() => setStep("cancel")}>
+            Cancelar orden…
+          </Button>
+        </p>
+      </>
+    );
   }
 
   return (
