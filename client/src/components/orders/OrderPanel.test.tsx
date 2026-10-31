@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import OrderPanel, { REVEAL_MS } from "./OrderPanel";
-import { shopDays, whatsappHref, type OrderDetail } from "./orderDetail";
+import { shopDays, whatsappHref, type OrderDetail, type OrderNote } from "./orderDetail";
+import { sortNotes } from "./OrderNotes";
 
 const ORDER: OrderDetail = {
   id: "o1",
@@ -68,7 +69,15 @@ const PAYMENTS = [
   },
 ];
 
-const NOTES = [{ id: 1, content: "No restaurar sin llamar", type: "important", createdAt: "2026-10-29T09:58:00Z" }];
+const NOTES = [
+  {
+    id: 1,
+    content: "No restaurar sin llamar",
+    type: "important",
+    createdAt: "2026-10-29T09:58:00Z",
+    createdBy: { id: "u1", fullName: "Ana Rojo" },
+  },
+];
 
 const fetchMock = vi.fn();
 const onClose = vi.fn();
@@ -160,6 +169,48 @@ describe("OrderPanel", () => {
     screen.getByText("No encontramos la orden MP-0142");
   });
 
+  it("adds an internal note on the spot, with its author", async () => {
+    await open();
+    screen.getByText(/Ana Rojo · 29\/10\/2026 \d\d:58 · importante/);
+    const field = screen.getByLabelText("Nueva nota interna");
+    expect(screen.getByRole("button", { name: "Añadir" }).hasAttribute("disabled")).toBe(true);
+    fireEvent.change(field, { target: { value: "  Pieza pedida a MobileParts  " } });
+    serve({
+      "/api/service-orders/o1/sticky-notes": new Response(
+        JSON.stringify({
+          id: 2,
+          content: "Pieza pedida a MobileParts",
+          type: "normal",
+          createdAt: "2026-10-30T10:00:00Z",
+          createdBy: { id: "u2", fullName: "Diego Sanz" },
+        }),
+        { status: 201 },
+      ),
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Añadir" }));
+    await act(async () => {});
+    const [, init] = fetchMock.mock.calls.at(-1) as [string, RequestInit];
+    expect(init.body).toBe(JSON.stringify({ content: "Pieza pedida a MobileParts", type: "normal" }));
+    screen.getByText("Pieza pedida a MobileParts");
+    screen.getByText(/Diego Sanz/);
+    expect((field as HTMLTextAreaElement).value).toBe("");
+  });
+
+  it("keeps the note typed when it cannot be saved", async () => {
+    await open();
+    const field = screen.getByLabelText("Nueva nota interna");
+    fireEvent.change(field, { target: { value: "Llamar mañana" } });
+    serve({
+      "/api/service-orders/o1/sticky-notes": new Response(JSON.stringify({ message: "boom" }), {
+        status: 500,
+      }),
+    });
+    fireEvent.keyDown(field, { key: "Enter", ctrlKey: true });
+    await act(async () => {});
+    screen.getByRole("alert");
+    expect((field as HTMLTextAreaElement).value).toBe("Llamar mañana");
+  });
+
   it("closes with Esc and with the close button", async () => {
     await open();
     fireEvent.keyDown(window, { key: "Escape" });
@@ -174,6 +225,17 @@ describe("order helpers", () => {
     expect(shopDays(ORDER, now)).toBe(10);
     expect(shopDays({ ...ORDER, status: "finalizado", finishedAt: "2026-11-05T10:00:00Z" }, now)).toBe(3);
     expect(shopDays({ ...ORDER, status: "entregado" }, now)).toBeNull();
+  });
+
+  it("puts important notes first, then the newest", () => {
+    const note = (id: number, type: OrderNote["type"], day: number): OrderNote => ({
+      id,
+      content: "",
+      type,
+      createdAt: `2026-10-${day}T10:00:00Z`,
+      createdBy: null,
+    });
+    expect(sortNotes([note(1, "normal", 20), note(2, "important", 10), note(3, "normal", 25)]).map((n) => n.id)).toEqual([2, 3, 1]);
   });
 
   it("adds Spain's prefix to a national number for WhatsApp", () => {

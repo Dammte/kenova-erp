@@ -9,6 +9,15 @@ import { ServiceOrder } from '../service-order/entities/service-order.entity';
 import { CreateStickyNoteDto } from './dto/create-sticky-note.dto';
 import { UpdateStickyNoteDto } from './dto/update-sticky-note.dto';
 
+/** Only the author's id and name leave the server, never the rest of the user. */
+function withAuthor(note: StickyNote): StickyNote {
+  if (note.createdBy) {
+    const { id, fullName } = note.createdBy;
+    note.createdBy = { id, fullName } as StickyNote['createdBy'];
+  }
+  return note;
+}
+
 @Injectable()
 export class StickyNotesService {
   constructor(
@@ -32,9 +41,16 @@ export class StickyNotesService {
     const stickyNote = this.stickyNotesRepository.create({
       ...createStickyNoteDto,
       orderService: { id: orderId } as ServiceOrder,
+      createdById: actor.id,
     });
 
-    return this.stickyNotesRepository.save(stickyNote);
+    const saved = await this.stickyNotesRepository.save(stickyNote);
+    return withAuthor(
+      await this.stickyNotesRepository.findOneOrFail({
+        where: { id: saved.id },
+        relations: { createdBy: true },
+      }),
+    );
   }
 
   async findAllByOrder(
@@ -46,10 +62,12 @@ export class StickyNotesService {
       orderId,
       actor,
     );
-    return this.stickyNotesRepository.find({
+    const notes = await this.stickyNotesRepository.find({
       where: { orderService: { id: orderId } },
+      relations: { createdBy: true },
       order: { createdAt: 'DESC' },
     });
+    return notes.map(withAuthor);
   }
 
   async findOne(
