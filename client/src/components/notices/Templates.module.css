@@ -1,0 +1,197 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-4);
+  padding: var(--k-space-6);
+  font: var(--k-text-base);
+  color: var(--k-text);
+  background: var(--k-bg);
+  min-height: 100%;
+}
+.page p {
+  margin: 0;
+}
+.top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--k-space-3);
+}
+.title {
+  margin: 0;
+  font: var(--k-text-xl);
+}
+.muted {
+  color: var(--k-text-muted);
+  font: var(--k-text-sm);
+}
+.error {
+  color: var(--k-danger);
+}
+.warning {
+  color: var(--k-warning, var(--k-text));
+  font: var(--k-text-sm);
+}
+.store {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--k-space-2);
+  font: var(--k-text-sm);
+}
+.store select {
+  height: var(--k-control-h);
+  padding: 0 var(--k-space-2);
+  border: var(--k-border-w) solid var(--k-border-strong);
+  border-radius: var(--k-radius-md);
+  background: var(--k-surface);
+  color: var(--k-text);
+  font: inherit;
+}
+
+.split {
+  display: grid;
+  grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
+  gap: var(--k-space-4);
+  align-items: start;
+}
+@media (max-width: 860px) {
+  .split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: var(--k-space-3);
+  border: var(--k-border-w) solid var(--k-border);
+  border-radius: var(--k-radius-md);
+  background: var(--k-surface);
+  color: var(--k-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.row:hover {
+  background: var(--k-subtle);
+}
+.row[aria-current="true"] {
+  border-color: var(--k-accent);
+  background: var(--k-accent-subtle);
+}
+.row:focus-visible,
+.chip:focus-visible {
+  outline: none;
+  box-shadow: var(--k-focus-ring);
+}
+.rowHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--k-space-2);
+}
+.own {
+  padding: 0 var(--k-space-2);
+  border: var(--k-border-w) solid var(--k-accent);
+  border-radius: var(--k-radius-sm);
+  color: var(--k-accent);
+  font: var(--k-text-xs);
+  font-weight: 600;
+  line-height: 20px;
+}
+
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-3);
+  padding: var(--k-space-4);
+  border: var(--k-border-w) solid var(--k-border);
+  border-radius: var(--k-radius-lg);
+  background: var(--k-surface);
+  min-width: 0;
+}
+.editorHead {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.editorHead h2 {
+  margin: 0;
+  font: var(--k-text-lg);
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--k-space-1);
+}
+.chip {
+  height: 28px;
+  padding: 0 var(--k-space-2);
+  border: var(--k-border-w) solid var(--k-border-strong);
+  border-radius: var(--k-radius-full);
+  background: var(--k-surface);
+  color: var(--k-text);
+  font: var(--k-text-sm);
+  font-family: var(--k-font-mono, monospace);
+  cursor: pointer;
+}
+.chip:hover {
+  background: var(--k-subtle);
+}
+.textarea {
+  width: 100%;
+  min-height: 140px;
+  padding: var(--k-space-2) var(--k-space-3);
+  border: var(--k-border-w) solid var(--k-border-strong);
+  border-radius: var(--k-radius-md);
+  background: var(--k-surface);
+  color: var(--k-text);
+  font: var(--k-text-base);
+  resize: vertical;
+}
+.textarea:focus {
+  outline: none;
+  border-color: var(--k-accent);
+  box-shadow: var(--k-focus-ring);
+}
+.textarea[aria-invalid="true"] {
+  border-color: var(--k-danger);
+}
+.preview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-1);
+}
+.bubble {
+  max-width: 420px;
+  padding: var(--k-space-2) var(--k-space-3);
+  border-radius: var(--k-radius-md);
+  background: var(--k-subtle);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--k-space-2);
+}
+.confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--k-space-2);
+  padding: var(--k-space-3);
+  border: var(--k-border-w) solid var(--k-border-strong);
+  border-radius: var(--k-radius-md);
+}

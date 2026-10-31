@@ -158,4 +158,75 @@ describe('Message templates (avisos)', () => {
       ).toBe('Hola {nombre}, tu {modelo} sigue en {tienda}.');
     }
   });
+
+  describe('notices sent on an order', () => {
+    const intake = async (cookie: string) => {
+      const res = await send('post', cookie, '/api/service-orders/intake', {
+        client: { firstName: 'Aitor', phoneNumber: '688450117' },
+        device: { type: 'movil', brand: 'Apple', model: 'iPhone 13' },
+        order: { status: 'en_progreso', reportedFaults: ['battery'] },
+      });
+      expect(res.status).toBe(201);
+      return res.body.id as string;
+    };
+    const notices = (cookie: string, orderId: string) =>
+      t
+        .http()
+        .get(`/api/service-orders/${orderId}/notices`)
+        .set('Cookie', cookie);
+
+    it('keeps the exact text, who sent it and when, newest first', async () => {
+      const order = await intake(vc);
+      const first = await send(
+        'post',
+        vc,
+        `/api/service-orders/${order}/notices`,
+        {
+          trigger: 'received',
+          body: 'Hola Aitor, hemos recibido tu iPhone 13.',
+        },
+      );
+      expect(first.status).toBe(201);
+      expect(first.body).toMatchObject({
+        name: 'Recibido',
+        channel: 'whatsapp',
+        sentBy: { fullName: 'Tienda Villarcayo' },
+      });
+      await send('post', sa, `/api/service-orders/${order}/notices`, {
+        trigger: 'ready',
+        body: 'Hola Aitor, ya está listo.',
+      });
+      const res = await notices(vc, order);
+      expect(
+        (res.body as { name: string; body: string }[]).map((n) => [
+          n.name,
+          n.body,
+        ]),
+      ).toEqual([
+        ['Listo para recoger', 'Hola Aitor, ya está listo.'],
+        ['Recibido', 'Hola Aitor, hemos recibido tu iPhone 13.'],
+      ]);
+    });
+
+    it('refuses an unknown notice and another store’s order', async () => {
+      const order = await intake(sa);
+      expect(
+        (
+          await send('post', sa, `/api/service-orders/${order}/notices`, {
+            trigger: 'factura',
+            body: 'x',
+          })
+        ).status,
+      ).toBe(400);
+      expect((await notices(vc, order)).status).toBe(404);
+      expect(
+        (
+          await send('post', vc, `/api/service-orders/${order}/notices`, {
+            trigger: 'ready',
+            body: 'x',
+          })
+        ).status,
+      ).toBe(404);
+    });
+  });
 });

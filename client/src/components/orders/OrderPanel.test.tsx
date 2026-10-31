@@ -593,4 +593,84 @@ describe("order helpers", () => {
   it("adds Spain's prefix to a national number for WhatsApp", () => {
     expect(whatsappHref("+44 7700 900123")).toBe("https://wa.me/447700900123");
   });
+
+  describe("notices to the client", () => {
+    const TEMPLATES = [
+      { trigger: "received", name: "Recibido", when: "", body: "Hola {nombre}, recibido.", isBase: true, updatedAt: null, updatedBy: null },
+      {
+        trigger: "ready",
+        name: "Listo para recoger",
+        when: "",
+        body: "Hola {nombre}, tu {modelo} ({orden}) está listo.[si saldo] Quedan {saldo}.[/si] {tienda}",
+        isBase: true,
+        updatedAt: null,
+        updatedBy: null,
+      },
+    ];
+    const NOTICE = {
+      id: "n1",
+      trigger: "received",
+      name: "Recibido",
+      channel: "whatsapp",
+      body: "Hola Lucía, recibido.",
+      sentAt: "2026-10-29T10:00:00Z",
+      sentBy: { fullName: "Ana Rojo" },
+    };
+    const extra = (order: Partial<OrderDetail> = {}) => {
+      const base = fetchMock.getMockImplementation()!;
+      fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
+        if (url === "/api/service-orders/o1") return new Response(JSON.stringify({ ...ORDER, storeId: "st1", ...order }));
+        if (url.endsWith("/notices") && init?.method === "POST") return new Response(JSON.stringify(NOTICE), { status: 201 });
+        if (url.endsWith("/notices")) return new Response(JSON.stringify([NOTICE]));
+        if (url.startsWith("/api/message-templates")) return new Response(JSON.stringify(TEMPLATES));
+        if (url === "/api/stores/st1") return new Response(JSON.stringify({ id: "st1", name: "Kenova Medina" }));
+        return base(url, init);
+      });
+    };
+
+    it("suggests «Listo para recoger» on a finished order, opens WhatsApp and keeps it on the order", async () => {
+      const openWindow = vi.fn();
+      vi.stubGlobal("open", openWindow);
+      extra({ status: "finalizado", finishedAt: new Date().toISOString() });
+      render(<OrderPanel id="o1" code="MP-0142" fullHref="/serviceOrders/o1" onClose={onClose} onChanged={onChanged} />);
+      await act(async () => {});
+      fireEvent.click(screen.getByRole("button", { name: "Enviar aviso" }));
+      await act(async () => {});
+      expect(fetchMock.mock.calls.map((c) => c[0])).toContain("/api/message-templates?storeId=st1");
+      expect(screen.getByRole("radio", { name: /Listo para recoger · sugerida/ })).toHaveProperty("checked", true);
+      const text = screen.getByLabelText("Texto que se envía") as HTMLTextAreaElement;
+      expect(text.value).toMatch(/^Hola Lucía, tu iPhone 13 \(MP-0142\) está listo\. Quedan 90,00\s€\. Kenova Medina$/);
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: "Abrir WhatsApp" }));
+      });
+      expect(openWindow).toHaveBeenCalledWith(
+        `https://wa.me/34612345678?text=${encodeURIComponent(text.value)}`,
+        "_blank",
+        "noopener",
+      );
+      const post = fetchMock.mock.calls.find(([u, i]) => u === "/api/service-orders/o1/notices" && (i as RequestInit)?.method === "POST");
+      expect(JSON.parse(String((post?.[1] as RequestInit).body))).toEqual({ trigger: "ready", body: text.value });
+      expect(screen.getByRole("status").textContent).toBe("Aviso «Listo para recoger» apuntado en el historial.");
+      expect(onChanged).toHaveBeenCalled();
+    });
+
+    it("shows each notice sent in the history, with who sent it and the text", async () => {
+      extra();
+      render(<OrderPanel id="o1" code="MP-0142" fullHref="/serviceOrders/o1" onClose={onClose} onChanged={onChanged} />);
+      await act(async () => {});
+      const entry = screen.getByText("Aviso «Recibido» por WhatsApp").closest("li");
+      expect(entry?.textContent).toMatch(/Ana Rojo · 29\/10\/2026 \d\d:00/);
+      expect(screen.getByText("Ver texto").closest("details")?.textContent).toContain("Hola Lucía, recibido.");
+    });
+
+    it("cannot send a notice without a phone and points to adding one", async () => {
+      extra({ client: { ...ORDER.client, phoneNumber: null } });
+      render(<OrderPanel id="o1" code="MP-0142" fullHref="/serviceOrders/o1" onClose={onClose} onChanged={onChanged} />);
+      await act(async () => {});
+      expect(screen.getByRole("button", { name: "Enviar aviso" })).toHaveProperty("disabled", true);
+      screen.getByText("El cliente no tiene teléfono");
+      expect(screen.getByRole("link", { name: "Añadir" }).getAttribute("href")).toBe("/clients/c1");
+    });
+  });
 });
