@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import type { OrderDetail, OrderPayment } from "@/components/orders/orderDetail";
+import { Label } from "./Label";
 import { Receipt } from "./Receipt";
+import { readFormat } from "./ReceiptPage";
 import { clientName, receiptMoney, storeLines, type ReceiptStore } from "./receipt";
 
 afterEach(cleanup);
@@ -95,5 +97,23 @@ describe("Receipt", () => {
     expect(text).toContain("El cliente renuncia por escrito al presupuesto previo.");
     expect(text).not.toContain("Presupuesto válido");
     expect(text).toContain("Por Kenova");
+  });
+});
+
+describe("Label", () => {
+  it("shows the code, its barcode, the device and the client, never the unlock code or prices", () => {
+    render(<Label order={ORDER} />);
+    const text = screen.getByRole("article", { name: "Etiqueta" }).textContent ?? "";
+    expect(text).toContain("MP-0142");
+    expect(text).toContain("29/10/26");
+    expect(screen.getByRole("img", { name: "Código de barras MP-0142" })).toBeTruthy();
+    expect(text).toContain("Apple iPhone 13 · Pantalla rota");
+    expect(text).toContain("Lucía Fernández O. · 612 345 678");
+    expect(text).not.toMatch(/desbloqueo|€/);
+  });
+
+  it("opens from ?formato=etiqueta and otherwise keeps the receipt paper", () => {
+    expect(readFormat("?formato=etiqueta")).toBe("label");
+    expect(readFormat("")).toBe("ticket");
   });
 });

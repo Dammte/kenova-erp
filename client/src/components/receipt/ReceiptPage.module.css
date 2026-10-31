@@ -23,6 +23,7 @@
 }
 .formats {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--k-space-2);
 }
 .format {
@@ -54,6 +55,14 @@
   box-shadow: var(--k-shadow-pop);
 }
 
+/* The sticker sits on the sheet at its real size, outlined like the roll. */
+.labelPaper {
+  padding: 4mm;
+}
+.labelPaper > * {
+  outline: 1px dashed var(--k-border-strong);
+}
+
 .error {
   color: var(--k-danger);
   text-align: center;
@@ -75,5 +84,8 @@
   .paper {
     padding: 0;
     box-shadow: none;
+  }
+  .labelPaper > * {
+    outline: none;
   }
 }
