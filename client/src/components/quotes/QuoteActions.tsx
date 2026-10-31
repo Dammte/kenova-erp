@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
-import { MessageCircle, RefreshCw, Trash2, X } from "lucide-react";
+import { ClipboardPlus, MessageCircle, RefreshCw, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui";
 import { API_URL, apiFetch, errorMessage } from "@/lib/api";
 import { formatEur } from "@/lib/format";
@@ -23,7 +24,8 @@ export function renewNotice(changes: PriceChange[]): string {
 
 /**
  * Design 2.4: one main action per status, so nobody has to think what comes
- * next. Draft and sent: send by WhatsApp. Expired: renew. Any open quote can
+ * next. Draft: send by WhatsApp. Sent: the client accepted, so it becomes an
+ * order through the intake, already filled in. Expired: renew. Any open quote can
  * be marked rejected, and anything not accepted can be deleted.
  */
 export function QuoteActions({
@@ -73,6 +75,11 @@ export function QuoteActions({
   return (
     <div className={styles.quoteActions}>
       <p className={styles.actions}>
+        {quote.status === "sent" && (
+          <Link className={styles.primaryLink} href={`/ordenes/nueva?presupuesto=${quote.id}`}>
+            <ClipboardPlus size={16} aria-hidden /> Aceptado: convertir en orden
+          </Link>
+        )}
         {(quote.status === "draft" || quote.status === "sent") && (
           <Button
             variant={quote.status === "draft" ? "primary" : "secondary"}

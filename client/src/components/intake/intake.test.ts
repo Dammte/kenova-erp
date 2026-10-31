@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { EMPTY_DEVICE, intakePayload, missing, newClientFrom, orderTotal, toggleWord, type IntakeState } from "./intake";
+import { EMPTY_DEVICE, fromQuote, intakePayload, missing, newClientFrom, orderTotal, toggleWord, type IntakeState } from "./intake";
 import { matchServices } from "./ServicePicker";
 import { dashDots } from "./DevicePicker";
 import { withClient } from "./IntakeForm";
@@ -155,5 +155,54 @@ describe("unlock", () => {
   it("turns typed dots into the stored format", () => {
     expect(dashDots("1596")).toBe("1-5-9-6");
     expect(dashDots("1 5-0 9")).toBe("1-5-9");
+  });
+});
+
+describe("fromQuote", () => {
+  const QUOTE = {
+    id: "q1",
+    code: "MP-P0031",
+    clientName: "Aitor Etxeberria Uriarte",
+    clientPhone: "688 450 117",
+    brand: "Apple",
+    model: "MacBook Air M1",
+    fault: "Daño por líquido",
+    total: "435.00",
+    lines: [
+      { serviceId: "s1", description: "Placa base", unitPrice: "380.00" },
+      { serviceId: null, description: "Limpieza", unitPrice: "35.00" },
+      { serviceId: "s1", description: "Placa base", unitPrice: "380.00" },
+    ],
+  };
+  const EMPTY = {
+    client: null,
+    device: null,
+    faults: [],
+    faultNotes: "",
+    physicalCondition: "",
+    accessories: "",
+    priority: "medium" as const,
+    observations: "",
+    services: [],
+    total: null,
+    deposit: null,
+    method: null,
+    waivesQuote: false,
+  };
+
+  it("fills client, device, rates and the quoted total, and sends the quote id", () => {
+    const s = fromQuote(EMPTY, QUOTE, null);
+    expect(s.client).toEqual({ firstName: "Aitor", lastName: "Etxeberria Uriarte", phoneNumber: "688 450 117", email: "" });
+    expect(s.device).toMatchObject({ brand: "Apple", model: "MacBook Air M1", unlock: "none" });
+    expect(s.services).toEqual([{ id: "s1", name: "Placa base", price: "380.00" }]);
+    expect(s.total).toBe(435);
+    expect(s.faultNotes).toBe("Daño por líquido");
+    const done = { ...s, faults: ["liquid_damage"] };
+    expect(intakePayload(done)).toMatchObject({ quoteId: "q1", order: { serviceIds: ["s1"], totalPrice: 435 } });
+  });
+
+  it("reuses the client found with the same phone", () => {
+    const known = { id: "c1", firstName: "Aitor", lastName: "Etxeberria", phoneNumber: "688450117" };
+    expect(fromQuote(EMPTY, QUOTE, known).client).toBe(known);
   });
 });

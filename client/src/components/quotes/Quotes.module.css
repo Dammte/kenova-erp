@@ -355,3 +355,22 @@
   padding-top: var(--k-space-3);
   border-top: var(--k-border-w) solid var(--k-border);
 }
+.primaryLink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--k-space-2);
+  height: var(--k-control-h);
+  padding: 0 var(--k-space-4);
+  border-radius: var(--k-radius-md);
+  background: var(--k-accent);
+  color: var(--k-surface);
+  font-weight: 600;
+  text-decoration: none;
+}
+.primaryLink:focus-visible {
+  outline: none;
+  box-shadow: var(--k-focus-ring);
+}
+.primaryLink:hover {
+  background: var(--k-accent-hover);
+}

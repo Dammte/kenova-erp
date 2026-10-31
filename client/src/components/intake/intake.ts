@@ -82,6 +82,44 @@ export interface IntakeState {
   method: Method | null;
   /** The customer waives a written quote (RD 58/1988); the receipt says so. */
   waivesQuote: boolean;
+  /** The accepted quote this intake comes from; creating the order accepts it. */
+  quote?: { id: string; code: string } | null;
+}
+
+/** What the intake takes from a quote (GET /api/quotes/:id). */
+export interface QuoteForIntake {
+  id: string;
+  code: string;
+  clientName: string;
+  clientPhone: string;
+  brand: string | null;
+  model: string;
+  fault: string | null;
+  total: string;
+  lines: { serviceId: string | null; description: string; unitPrice: string }[];
+}
+
+/**
+ * The intake as the quote leaves it: the client (an existing one with that
+ * exact phone, or a new one), the device, the rates as services and the
+ * quoted total, which also covers the lines written by hand.
+ */
+export function fromQuote(prev: IntakeState, q: QuoteForIntake, samePhone: FoundClient | null): IntakeState {
+  const [firstName = "", ...rest] = q.clientName.trim().split(/\s+/);
+  const services: PricedService[] = [];
+  for (const l of q.lines) {
+    if (l.serviceId && !services.some((x) => x.id === l.serviceId))
+      services.push({ id: l.serviceId, name: l.description, price: l.unitPrice });
+  }
+  return {
+    ...prev,
+    client: samePhone ?? { ...EMPTY_CLIENT, firstName, lastName: rest.join(" "), phoneNumber: q.clientPhone },
+    device: { ...EMPTY_DEVICE, brand: q.brand ?? "", model: q.model },
+    faultNotes: q.fault ?? "",
+    services,
+    total: Number(q.total),
+    quote: { id: q.id, code: q.code },
+  };
 }
 
 export const EMPTY_CLIENT: NewClient = { firstName: "", lastName: "", phoneNumber: "", email: "" };
@@ -213,5 +251,6 @@ export function intakePayload(s: IntakeState) {
       ...(s.deposit ? { amountPaid: s.deposit, paymentMethod: s.method } : {}),
       ...(s.waivesQuote ? { waivesQuote: true } : {}),
     },
+    ...(s.quote ? { quoteId: s.quote.id } : {}),
   };
 }

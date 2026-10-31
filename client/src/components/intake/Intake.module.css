@@ -379,3 +379,10 @@ li[aria-selected="true"] > .result {
   font: var(--k-text-sm);
   cursor: pointer;
 }
+
+.fromQuote {
+  margin: 0;
+  padding: var(--k-space-2) var(--k-space-3);
+  border-radius: var(--k-radius-md);
+  background: var(--k-accent-subtle);
+}

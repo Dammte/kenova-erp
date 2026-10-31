@@ -16,6 +16,7 @@ import {
   EMPTY_DEVICE,
   FAULTS,
   PRIORITIES,
+  fromQuote,
   intakePayload,
   isKnown,
   missing,
@@ -24,6 +25,7 @@ import {
   type FoundClient,
   type IntakeState,
   type PricedService,
+  type QuoteForIntake,
 } from "./intake";
 import styles from "./Intake.module.css";
 
@@ -105,6 +107,29 @@ export function IntakeForm() {
       });
     return () => controller.abort();
   }, []);
+
+  // «Convertir en orden» opens /ordenes/nueva?presupuesto=<id> (decision: prefilled intake).
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("presupuesto");
+    if (!id) return;
+    const controller = new AbortController();
+    const get = async <T,>(url: string): Promise<T> => {
+      const res = await apiFetch(url, { signal: controller.signal });
+      if (!res.ok) throw new Error(String(res.status));
+      return (await res.json()) as T;
+    };
+    (async () => {
+      const quote = await get<QuoteForIntake>(`${API_URL}/quotes/${encodeURIComponent(id)}`);
+      const phone = quote.clientPhone.replace(/\D/g, "");
+      // A client with exactly that phone is reused instead of creating a twin.
+      const found = await get<FoundClient[]>(`${API_URL}/clients/search?q=${phone}`).catch(() => []);
+      const same = found.filter((c) => (c.phoneNumber ?? "").replace(/\D/g, "") === phone);
+      setS((prev) => fromQuote(prev, quote, same.length === 1 ? same[0] : null));
+    })().catch(() => {
+      if (!controller.signal.aborted) setProblem("No se ha podido cargar el presupuesto. Puedes dar de alta igualmente.");
+    });
+    return () => controller.abort();
+  }, []);
   const todo = missing(s);
   const knownClientId = s.client && isKnown<FoundClient>(s.client) ? s.client.id : null;
 
@@ -145,6 +170,12 @@ export function IntakeForm() {
   return (
     <form className={styles.page} onSubmit={submit} onKeyDown={onKey} aria-label="Nueva orden">
       <h1 className={styles.title}>Nueva orden</h1>
+      {s.quote && (
+        <p role="status" className={styles.fromQuote}>
+          Desde el presupuesto {s.quote.code}: completa desbloqueo, accesorios y estado. Al crear la orden, el
+          presupuesto queda aceptado.
+        </p>
+      )}
       <div className={styles.layout}>
         <div className={styles.blocks}>
           <Block n={1} title="Cliente">

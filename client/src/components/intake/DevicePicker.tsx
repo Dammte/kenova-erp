@@ -43,8 +43,9 @@ export function DevicePicker({
         if (controller.signal.aborted) return;
         const recent = [...list].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
         setDevices(recent);
-        // A new client, or one without devices, goes straight to the form.
-        if (recent.length === 0) onChange(EMPTY_DEVICE);
+        // A new client, or one without devices, goes straight to the form,
+        // unless a device is already filled in (from a quote).
+        if (recent.length === 0 && !value) onChange(EMPTY_DEVICE);
       });
     return () => controller.abort();
     // onChange changes on every render of the form; only the client matters.

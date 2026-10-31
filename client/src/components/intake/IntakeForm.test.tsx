@@ -204,4 +204,42 @@ describe("IntakeForm", () => {
     expect(screen.getByLabelText("Total acordado")).toHaveProperty("value", "149,00");
     window.history.replaceState(null, "", "/");
   });
+
+  it("starts filled in from an accepted quote and accepts it with the order", async () => {
+    window.history.replaceState(null, "", "/ordenes/nueva?presupuesto=q1");
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
+      if (url.endsWith("/quotes/q1"))
+        return json({
+          id: "q1",
+          code: "MP-P0031",
+          clientName: "Lucía Fernández",
+          clientPhone: "612 345 678",
+          brand: "Apple",
+          model: "iPhone 13",
+          fault: "Pantalla rota",
+          total: "160.00",
+          lines: [{ serviceId: "s2", description: "Cambio de pantalla iPhone 13", unitPrice: "149.00" }],
+        });
+      if (url.includes("/clients/search")) return json([LUCIA]);
+      if (init?.method === "POST") return json({ id: "o9" }, 201);
+      return json([]);
+    });
+    render(<IntakeForm />);
+    await act(async () => {});
+    expect(fetchMock.mock.calls.map((c) => c[0])).toContain("/api/clients/search?q=612345678");
+    expect(screen.getByRole("status").textContent).toContain("Desde el presupuesto MP-P0031");
+    expect(screen.getByLabelText("Total acordado")).toHaveProperty("value", "160,00");
+
+    fireEvent.click(screen.getByLabelText("Pantalla rota"));
+    await act(async () => {
+      fireEvent.click(create());
+    });
+    expect(posted()?.body).toMatchObject({
+      clientId: "c1",
+      device: { brand: "Apple", model: "iPhone 13" },
+      order: { serviceIds: ["s2"], totalPrice: 160, faultNotes: "Pantalla rota" },
+      quoteId: "q1",
+    });
+    window.history.replaceState(null, "", "/");
+  });
 });
