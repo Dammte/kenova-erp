@@ -103,6 +103,20 @@ export class Client {
   @Column({ type: 'timestamptz', nullable: true, default: null })
   anonymizedAt: Date | null;
 
+  /** When it was merged into another client (design 3.3); the row stays, soft-deleted. */
+  @ManyToOne(() => Client, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({
+    name: 'mergedIntoId',
+    foreignKeyConstraintName: 'FK_client_merged_into',
+  })
+  mergedInto?: Client | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  mergedIntoId: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  mergedAt: Date | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

@@ -3,6 +3,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import type { AuthUser } from '../auth/auth.types';
 import { isClientVisible, scopedStoreId } from '../common/store-scope';
+import { dismissed } from './client-merge.service';
 import { ListClientsDto } from './dto/list-clients.dto';
 
 export const CLIENT_PAGE_SIZE = 50;
@@ -118,6 +119,7 @@ export class ClientListService {
                  WHERE d.id <> c.id AND d."isActive" AND d."anonymizedAt" IS NULL AND ${visible('d')}
                    AND ((${phoneKey('d."phoneNumber"')} = ${phoneKey('c."phoneNumber"')})
                      OR (${docKey('d.dni')} = ${docKey('c.dni')}))
+                   AND NOT ${dismissed('c', 'd')}
               ) AS duplicate,
               count(*) OVER () AS total
          FROM client c
