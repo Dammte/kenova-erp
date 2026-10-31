@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { AlertTriangle, Banknote, ExternalLink, Eye, EyeOff, MessageCircle, Phone, Printer, Tag, X } from "lucide-react";
+import { AlertTriangle, Banknote, ExternalLink, Eye, EyeOff, MessageCircle, Phone, Printer, Send, Tag, X } from "lucide-react";
 import { Button, StatusChip } from "@/components/ui";
 import { API_URL, apiFetch, errorMessage } from "@/lib/api";
 import { formatEur } from "@/lib/format";
@@ -18,6 +18,8 @@ import {
   type OrderPayment,
 } from "./orderDetail";
 import { FAULT_LABEL, PRIORITY_LABEL } from "./orderList";
+import type { OrderNotice } from "@/components/notices/notices";
+import { NoticeForm } from "./NoticeForm";
 import { ChargeForm } from "./ChargeForm";
 import { OrderActions } from "./OrderActions";
 import { OrderNotes } from "./OrderNotes";
@@ -30,6 +32,7 @@ interface Loaded {
   order: OrderDetail;
   payments: OrderPayment[];
   notes: OrderNote[];
+  notices: OrderNotice[];
 }
 
 async function getJson<T>(url: string, signal: AbortSignal): Promise<T> {
@@ -51,8 +54,12 @@ function useOrder(id: string) {
       getJson<OrderDetail>(base, controller.signal),
       getJson<OrderPayment[]>(`${base}/payments`, controller.signal),
       getJson<OrderNote[]>(`${base}/sticky-notes`, controller.signal),
+      // The notices only add to the history: the order still opens without them.
+      getJson<OrderNotice[]>(`${base}/notices`, controller.signal).catch(() => []),
     ])
-      .then(([order, payments, notes]) => setData({ order, payments, notes }))
+      .then(([order, payments, notes, notices]) =>
+        setData({ order, payments, notes, notices: Array.isArray(notices) ? notices : [] }),
+      )
       .catch((e: { status?: number }) => {
         if (controller.signal.aborted) return;
         // Another store's order answers 404 too: the server never confirms it exists.
@@ -207,8 +214,10 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-function Sections({ order, payments, notes, onChanged }: Loaded & { onChanged: () => void }) {
+function Sections({ order, payments, notes, notices, onChanged }: Loaded & { onChanged: () => void }) {
   const [charging, setCharging] = useState(false);
+  const [noticing, setNoticing] = useState(false);
+  const [noticeSent, setNoticeSent] = useState<string | null>(null);
   const pending = Number(order.balance ?? 0);
   const faults = order.reportedFaults.map((f) => FAULT_LABEL[f] ?? f);
   const signed = (p: OrderPayment) => (p.kind === "refund" ? -1 : 1) * Number(p.amount);
@@ -375,6 +384,38 @@ function Sections({ order, payments, notes, onChanged }: Loaded & { onChanged: (
             </a>
           </p>
         )}
+        {noticeSent && <p role="status">{noticeSent}</p>}
+        {client.phoneNumber && noticing ? (
+          <NoticeForm
+            order={order}
+            phone={client.phoneNumber}
+            onCancel={() => setNoticing(false)}
+            onDone={(message) => {
+              setNoticing(false);
+              setNoticeSent(message);
+              onChanged();
+            }}
+          />
+        ) : (
+          <p className={styles.actions}>
+            <Button
+              size="sm"
+              icon={<Send size={14} aria-hidden />}
+              disabledReason={client.phoneNumber ? undefined : "El cliente no tiene teléfono"}
+              onClick={() => {
+                setNoticeSent(null);
+                setNoticing(true);
+              }}
+            >
+              Enviar aviso
+            </Button>
+            {!client.phoneNumber && (
+              <Link href={`/clients/${client.id}`} className={styles.action}>
+                Añadir
+              </Link>
+            )}
+          </p>
+        )}
       </Section>
 
       <Section title="Notas internas">
@@ -383,18 +424,44 @@ function Sections({ order, payments, notes, onChanged }: Loaded & { onChanged: (
 
       <Section title="Historial">
         <ol className={styles.history}>
-          {[...order.serviceHistory]
-            .sort((a, b) => Date.parse(b.performedAt) - Date.parse(a.performedAt))
-            .map((h) => (
-              <li key={h.id}>
-                <p>{h.description || h.action}</p>
-                <p className={styles.muted}>{formatDateTime(h.performedAt)}</p>
-              </li>
-            ))}
+          {historyEntries(order, notices).map((h) => (
+            <li key={h.id}>
+              <p>{h.text}</p>
+              <p className={styles.muted}>{[h.by, formatDateTime(h.at)].filter(Boolean).join(" · ")}</p>
+              {h.body && (
+                <details>
+                  <summary className={styles.muted}>Ver texto</summary>
+                  <p className={styles.sentText}>{h.body}</p>
+                </details>
+              )}
+            </li>
+          ))}
         </ol>
       </Section>
     </>
   );
+}
+
+interface HistoryEntry {
+  id: string;
+  text: string;
+  at: string;
+  by?: string;
+  body?: string;
+}
+
+/** The order's history with the notices sent, newest first. */
+export function historyEntries(order: OrderDetail, notices: OrderNotice[]): HistoryEntry[] {
+  return [
+    ...order.serviceHistory.map((h) => ({ id: h.id, text: h.description || h.action, at: h.performedAt })),
+    ...notices.map((n) => ({
+      id: `notice-${n.id}`,
+      text: `Aviso «${n.name}» por WhatsApp`,
+      at: n.sentAt,
+      by: n.sentBy?.fullName,
+      body: n.body,
+    })),
+  ].sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
 }
 
 /** Shows the unlock code on request for 30 s; the server records who asked. */

@@ -455,3 +455,11 @@ button.chip:focus-visible {
 .secondary {
   margin-top: var(--k-space-2) !important;
 }
+.sentText {
+  margin-top: var(--k-space-1);
+  padding: var(--k-space-2) var(--k-space-3);
+  border-radius: var(--k-radius-md);
+  background: var(--k-subtle);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
