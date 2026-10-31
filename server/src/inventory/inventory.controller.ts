@@ -27,9 +27,13 @@ import { UpdateInventoryDto } from './dto/update-inventory.dto';
 import { BulkImportItemDto } from './dto/bulk-import-item.dto';
 import type { AuthUser } from '../auth/auth.types';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { UserRole } from '../users/entities/user.entity';
 
 const MAX_PDF_BYTES = 10 * 1024 * 1024;
 
+/** Stock belongs to the partners only: partner stores never see it (decision 5). */
+@Roles(UserRole.SUPER_ADMIN)
 @Controller('inventory')
 export class InventoryController {
   constructor(
