@@ -20,7 +20,7 @@ describe('Inventory and parts consumption', () => {
 
   beforeAll(async () => {
     t = await createTestApp();
-    cookie = await t.login(t.storeAdmin.email);
+    cookie = await t.login(t.superAdmin.email);
     const c = (await post('/api/clients', { firstName: 'i', lastName: 'i' }))
       .body;
     orderId = (await post('/api/service-orders', { clientId: c.id })).body.id;
@@ -54,7 +54,7 @@ describe('Inventory and parts consumption', () => {
     });
     expect(ok.status).toBe(201);
     expect(ok.body.costPrice).toBe('9.99');
-    expect(ok.body.createdBy).toBe(t.storeAdmin.id);
+    expect(ok.body.createdBy).toBe(t.superAdmin.id);
   });
 
   it('stores the cost as a number that can be summed', async () => {
@@ -146,7 +146,7 @@ describe('Inventory and parts consumption', () => {
       (h: any) =>
         h.action === 'piezas_usadas' && h.description.includes('Pieza H1'),
     );
-    expect(entry.performedBy.id).toBe(t.storeAdmin.id);
+    expect(entry.performedBy.id).toBe(t.superAdmin.id);
   });
 
   it('bulk import adds stock atomically instead of overwriting it', async () => {
@@ -278,5 +278,18 @@ describe('Inventory and parts consumption', () => {
       expect(res.orderStatus).not.toBe('finalizado');
       expect(await stock(a)).toBe(5);
     });
+  });
+
+  it('is for the partners only: a partner store account cannot see or change stock', async () => {
+    const store = await t.login(t.storeAdmin.email);
+    const asStore = (method: 'get' | 'post', url: string) =>
+      t
+        .http()
+        [method](url)
+        .set('Cookie', store)
+        .set('Origin', ORIGIN)
+        .send({ sku: 'S1', name: 'x' });
+    expect((await asStore('get', '/api/inventory')).status).toBe(403);
+    expect((await asStore('post', '/api/inventory')).status).toBe(403);
   });
 });
