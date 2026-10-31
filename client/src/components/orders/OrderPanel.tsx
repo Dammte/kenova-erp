@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { AlertTriangle, Banknote, ExternalLink, Eye, EyeOff, MessageCircle, Phone, Printer, X } from "lucide-react";
+import { AlertTriangle, Banknote, ExternalLink, Eye, EyeOff, MessageCircle, Phone, Printer, Tag, X } from "lucide-react";
 import { Button, StatusChip } from "@/components/ui";
 import { API_URL, apiFetch, errorMessage } from "@/lib/api";
 import { formatEur } from "@/lib/format";
@@ -134,6 +134,10 @@ export default function OrderPanel({
             <Link href={`/ordenes/${id}/resguardo`} className={styles.full}>
               <Printer size={14} aria-hidden />
               Imprimir resguardo
+            </Link>
+            <Link href={`/ordenes/${id}/resguardo?formato=etiqueta`} className={styles.full}>
+              <Tag size={14} aria-hidden />
+              Imprimir etiqueta
             </Link>
             <Link href={fullHref} className={styles.full}>
               <ExternalLink size={14} aria-hidden />

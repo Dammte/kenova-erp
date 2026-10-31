@@ -1,0 +1,48 @@
+/* 62 × 29 mm, black only. The QL-800 cannot print the outer ~1.5 mm. */
+.label {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-sizing: border-box;
+  width: 62mm;
+  height: 29mm;
+  padding: 1.5mm 2.5mm;
+  overflow: hidden;
+  color: #000;
+  background: #fff;
+  font: 400 9px/11px var(--k-font-sans);
+}
+.label p {
+  margin: 0;
+}
+
+.top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 2mm;
+}
+.code {
+  font: 800 20px/22px var(--k-font-sans);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+.date {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.barcode {
+  display: block;
+  width: 100%;
+  height: 8mm;
+}
+
+.line {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.line:first-of-type {
+  font-weight: 700;
+}

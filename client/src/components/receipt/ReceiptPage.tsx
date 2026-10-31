@@ -6,24 +6,35 @@ import { ArrowLeft, Printer } from "lucide-react";
 import { Button } from "@/components/ui";
 import { API_URL, apiFetch } from "@/lib/api";
 import type { OrderDetail, OrderPayment } from "@/components/orders/orderDetail";
+import { Label } from "./Label";
 import { Receipt } from "./Receipt";
 import type { ReceiptFormat, ReceiptStore } from "./receipt";
 import styles from "./ReceiptPage.module.css";
 
 const FORMAT_KEY = "kenova.receiptFormat";
 
-const FORMATS: [ReceiptFormat, string][] = [
+/** The two receipts, plus the 62 × 29 mm sticker for the device. */
+type PrintFormat = ReceiptFormat | "label";
+
+const FORMATS: [PrintFormat, string][] = [
   ["ticket", "Ticket 80 mm"],
   ["a4", "A4"],
+  ["label", "Etiqueta 62 × 29 mm"],
 ];
 
 /** The paper the browser should use; the thermal driver sets its own length. */
-const PAGE_CSS: Record<ReceiptFormat, string> = {
+const PAGE_CSS: Record<PrintFormat, string> = {
   ticket: "@page { margin: 0 4mm; }",
   a4: "@page { size: A4; margin: 15mm; }",
+  label: "@page { size: 62mm 29mm; margin: 0; }",
 };
 
-function readFormat(): ReceiptFormat {
+/**
+ * ?formato=etiqueta opens the sticker; otherwise the receipt format last used.
+ * The sticker is never remembered, so «Imprimir resguardo» keeps its paper.
+ */
+export function readFormat(search: string): PrintFormat {
+  if (new URLSearchParams(search).get("formato") === "etiqueta") return "label";
   try {
     return localStorage.getItem(FORMAT_KEY) === "a4" ? "a4" : "ticket";
   } catch {
@@ -47,10 +58,10 @@ interface Loaded {
 export function ReceiptPage({ id }: { id: string }) {
   const [data, setData] = useState<Loaded | null>(null);
   const [failed, setFailed] = useState(false);
-  const [format, setFormat] = useState<ReceiptFormat>("ticket");
+  const [format, setFormat] = useState<PrintFormat>("ticket");
   const printRef = useRef<HTMLButtonElement>(null);
 
-  useEffect(() => setFormat(readFormat()), []);
+  useEffect(() => setFormat(readFormat(window.location.search)), []);
 
   useEffect(() => {
     let live = true;
@@ -74,8 +85,9 @@ export function ReceiptPage({ id }: { id: string }) {
     if (data) printRef.current?.focus();
   }, [data]);
 
-  const choose = (f: ReceiptFormat) => {
+  const choose = (f: PrintFormat) => {
     setFormat(f);
+    if (f === "label") return;
     try {
       localStorage.setItem(FORMAT_KEY, f);
     } catch {
@@ -114,8 +126,12 @@ export function ReceiptPage({ id }: { id: string }) {
           No se ha podido cargar la orden. Vuelve a la orden y prueba otra vez.
         </p>
       ) : data ? (
-        <div className={styles.paper}>
-          <Receipt order={data.order} payments={data.payments} store={data.store} format={format} />
+        <div className={`${styles.paper} ${format === "label" ? styles.labelPaper : ""}`}>
+          {format === "label" ? (
+            <Label order={data.order} />
+          ) : (
+            <Receipt order={data.order} payments={data.payments} store={data.store} format={format} />
+          )}
         </div>
       ) : (
         <p className={styles.muted}>Cargando el resguardo…</p>
