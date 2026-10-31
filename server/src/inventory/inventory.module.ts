@@ -6,10 +6,17 @@ import { InventoryListService } from './inventory-list.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Inventory } from './entities/inventory.entity';
 import { StockMovement } from './entities/stock-movement.entity';
+import { PurchaseInvoicesController } from './invoices/purchase-invoices.controller';
+import { PurchaseInvoicesService } from './invoices/purchase-invoices.service';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Inventory, StockMovement])],
-  controllers: [InventoryController],
-  providers: [InventoryService, InventoryImportService, InventoryListService],
+  controllers: [InventoryController, PurchaseInvoicesController],
+  providers: [
+    InventoryService,
+    InventoryImportService,
+    PurchaseInvoicesService,
+    InventoryListService,
+  ],
 })
 export class InventoryModule {}
