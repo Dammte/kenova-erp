@@ -18,6 +18,7 @@ import {
   type OrderPayment,
 } from "./orderDetail";
 import { FAULT_LABEL, PRIORITY_LABEL } from "./orderList";
+import { OrderNotes } from "./OrderNotes";
 import styles from "./OrderPanel.module.css";
 
 /** How long a revealed unlock code stays on screen. */
@@ -330,19 +331,7 @@ function Sections({ order, payments, notes }: Loaded) {
       </Section>
 
       <Section title="Notas internas">
-        <p className={styles.hint}>No salen en impresos.</p>
-        {notes.length === 0 ? (
-          <p className={styles.muted}>Sin notas.</p>
-        ) : (
-          <ul className={styles.notes}>
-            {notes.map((n) => (
-              <li key={n.id} className={n.type !== "normal" ? styles[n.type] : undefined}>
-                <p>{n.content}</p>
-                <p className={styles.muted}>{formatDateTime(n.createdAt)}</p>
-              </li>
-            ))}
-          </ul>
-        )}
+        <OrderNotes orderId={order.id} initial={notes} />
       </Section>
 
       <Section title="Historial">

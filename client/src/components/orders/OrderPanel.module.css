@@ -276,6 +276,53 @@
   border-left-color: var(--k-danger);
 }
 
+.noteForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-2);
+  margin-top: var(--k-space-3);
+}
+.textarea {
+  width: 100%;
+  min-height: 64px;
+  padding: var(--k-space-2) var(--k-space-3);
+  border: var(--k-border-w) solid var(--k-border-strong);
+  border-radius: var(--k-radius-md);
+  background: var(--k-surface);
+  color: var(--k-text);
+  font: var(--k-text-base);
+  resize: vertical;
+}
+.textarea:focus {
+  outline: none;
+  border-color: var(--k-accent);
+  box-shadow: var(--k-focus-ring);
+}
+.noteActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--k-space-3);
+}
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--k-space-2);
+  font: var(--k-text-sm);
+}
+.error {
+  color: var(--k-danger);
+  font: var(--k-text-sm);
+}
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
 .history li {
   padding: var(--k-space-2) 0;
   border-bottom: var(--k-border-w) solid var(--k-border);

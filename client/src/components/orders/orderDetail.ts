@@ -72,6 +72,8 @@ export interface OrderNote {
   content: string;
   type: "normal" | "important" | "urgent";
   createdAt: string;
+  /** Null for notes from before authors were kept. */
+  createdBy: { id: string; fullName: string } | null;
 }
 
 export const DEVICE_TYPE_LABEL: Record<string, string> = {
