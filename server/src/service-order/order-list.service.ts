@@ -41,6 +41,8 @@ export interface OrderRow {
    */
   days: number | null;
   uncollected: boolean;
+  /** Code of the delivered order this one is a warranty claim of. */
+  warrantyOf: string | null;
 }
 
 export interface OrderList {
@@ -68,6 +70,7 @@ interface RawRow {
   paymentStatus: string | null;
   createdAt: Date;
   finishedAt: Date | null;
+  warrantyOf: string | null;
 }
 
 /** Design 1.4: the order list with its tabs, search, filters and pages. */
@@ -94,7 +97,9 @@ export class OrderListService {
       .innerJoin('o.client', 'c')
       .leftJoin('o.device', 'd')
       // Older devices keep the brand's id instead of its name.
-      .leftJoin(Brand, 'b', 'b.id::text = d.brand');
+      .leftJoin(Brand, 'b', 'b.id::text = d.brand')
+      // The original may be in the trash: its code still marks the claim.
+      .leftJoin('service_orders', 'w', 'w.id = o."warrantyOfId"');
     const tab = query.tab ?? 'open';
     if (tab === 'open') qb.andWhere('o.status IN (:...open)', { open: OPEN });
     else if (tab !== 'all') qb.andWhere('o.status = :tab', { tab });
@@ -149,6 +154,7 @@ export class OrderListService {
         'o."paymentStatus" AS "paymentStatus"',
         'o."createdAt" AS "createdAt"',
         'o."finishedAt" AS "finishedAt"',
+        'w.code AS "warrantyOf"',
       ])
       .offset((page - 1) * PAGE_SIZE)
       .limit(PAGE_SIZE)
@@ -226,5 +232,6 @@ function toRow(r: RawRow, services: string[], now: number): OrderRow {
     createdAt: new Date(r.createdAt).toISOString(),
     days,
     uncollected: finished,
+    warrantyOf: r.warrantyOf ?? null,
   };
 }
