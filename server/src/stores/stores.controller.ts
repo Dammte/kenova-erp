@@ -6,6 +6,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -39,6 +40,16 @@ export class StoresController {
     @CurrentUser() actor: AuthUser,
   ) {
     return this.storesService.commissionHistory(id, actor);
+  }
+
+  /** The month's delivered orders and commission (?month=AAAA-MM, this month by default). */
+  @Get(':id/commissions')
+  commissionMonth(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() actor: AuthUser,
+    @Query('month') month?: string,
+  ) {
+    return this.storesService.commissionMonth(id, month, actor);
   }
 
   @Post()

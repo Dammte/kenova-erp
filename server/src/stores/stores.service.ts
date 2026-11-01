@@ -15,6 +15,35 @@ import { UpdateStoreDto } from './dto/update-store.dto';
 import { StoreCommissionChange } from './entities/store-commission-change.entity';
 import { CommissionType, Store } from './entities/store.entity';
 
+/** One delivered order of the month and the commission frozen on it. */
+export interface CommissionLine {
+  orderId: string;
+  orderCode: string;
+  deliveredAt: Date;
+  clientName: string;
+  device: string | null;
+  amountPaid: string;
+  commissionType: CommissionType;
+  commissionValue: string;
+  commissionAmount: string;
+  warranty: boolean;
+}
+
+/** A partner store's month: what it collected, what it keeps, what it hands over. */
+export interface CommissionMonth {
+  month: string;
+  store: { id: string; name: string };
+  lines: CommissionLine[];
+  collected: string;
+  commission: string;
+  toKenova: string;
+}
+
+const MONTH = /^(\d{4})-(0[1-9]|1[0-2])$/;
+const euros = (cents: number) => (cents / 100).toFixed(2);
+const cents = (value: string | number | null) =>
+  Math.round(Number(value ?? 0) * 100);
+
 @Injectable()
 export class StoresService {
   constructor(
@@ -105,6 +134,81 @@ export class StoresService {
       }
     }
     return rows;
+  }
+
+  /**
+   * Design R2 3.14 «Comisiones»: the orders the store delivered in the month
+   * (Madrid time), each with the commission frozen at delivery, and the
+   * totals. A store sees only its own; the workshop has no commission.
+   */
+  async commissionMonth(
+    id: string,
+    month: string | undefined,
+    actor: AuthUser,
+  ): Promise<CommissionMonth> {
+    const store = await this.findOne(id, actor);
+    if (store.isMain) {
+      throw new BadRequestException('La tienda principal no lleva comisión');
+    }
+    const asked =
+      month ??
+      new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Europe/Madrid',
+        year: 'numeric',
+        month: '2-digit',
+      }).format(new Date());
+    if (!MONTH.test(asked)) {
+      throw new BadRequestException('El mes debe tener la forma AAAA-MM');
+    }
+
+    const rows: {
+      orderId: string;
+      orderCode: string;
+      deliveredAt: Date;
+      clientName: string;
+      device: string | null;
+      amountPaid: string | null;
+      commissionType: CommissionType;
+      commissionValue: string;
+      commissionAmount: string;
+      warranty: boolean;
+    }[] = await this.stores.manager.query(
+      `SELECT o.id AS "orderId", o.code AS "orderCode", o."deliveredAt",
+              trim(concat_ws(' ', c."firstName", c."lastName")) AS "clientName",
+              CASE WHEN d.id IS NULL THEN NULL
+                   ELSE concat_ws(' ', d.brand, d.model) END AS device,
+              o."amountPaid", o."commissionType", o."commissionValue",
+              o."commissionAmount", o."warrantyOfId" IS NOT NULL AS warranty
+         FROM service_orders o
+         LEFT JOIN client c ON c.id = o."clientId"
+         LEFT JOIN devices d ON d.id = o."deviceId"
+        WHERE o."storeId" = $1
+          AND o."deletedAt" IS NULL
+          AND o."commissionAmount" IS NOT NULL
+          AND o."deliveredAt" >= ($2::date)::timestamp AT TIME ZONE 'Europe/Madrid'
+          AND o."deliveredAt" < (($2::date) + interval '1 month')::timestamp
+                                 AT TIME ZONE 'Europe/Madrid'
+        ORDER BY o."deliveredAt", o.code`,
+      [store.id, `${asked}-01`],
+    );
+
+    const lines = rows.map((r) => ({
+      ...r,
+      amountPaid: r.amountPaid ?? '0.00',
+    }));
+    const collected = lines.reduce((sum, l) => sum + cents(l.amountPaid), 0);
+    const commission = lines.reduce(
+      (sum, l) => sum + cents(l.commissionAmount),
+      0,
+    );
+    return {
+      month: asked,
+      store: { id: store.id, name: store.name },
+      lines,
+      collected: euros(collected),
+      commission: euros(commission),
+      toKenova: euros(collected - commission),
+    };
   }
 
   private async checkPrefixFree(prefix: string): Promise<void> {
