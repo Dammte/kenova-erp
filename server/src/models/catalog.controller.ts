@@ -12,7 +12,11 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import type { AuthUser } from '../auth/auth.types';
 import { UserRole } from '../users/entities/user.entity';
 import { CatalogService } from './catalog.service';
-import { MergeModelsDto, UpdateCatalogModelDto } from './dto/catalog.dto';
+import {
+  CreateCatalogModelDto,
+  MergeModelsDto,
+  UpdateCatalogModelDto,
+} from './dto/catalog.dto';
 
 /** Design R2 3.8 «Catálogo»: brands and models, for the partners. */
 @Controller('catalog/models')
@@ -23,6 +27,11 @@ export class CatalogController {
   @Get()
   list() {
     return this.catalog.list();
+  }
+
+  @Post()
+  create(@Body() dto: CreateCatalogModelDto, @CurrentUser() actor: AuthUser) {
+    return this.catalog.create(dto, actor.id);
   }
 
   @Patch(':id')

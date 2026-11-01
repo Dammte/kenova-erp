@@ -32,7 +32,10 @@ export class ModelsController {
   }
 
   @Patch(':id')
-  update(@Param('id', ParseUUIDPipe) id: string, @Body() updateModelDto: UpdateModelDto) {
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() updateModelDto: UpdateModelDto,
+  ) {
     return this.modelsService.update(id, updateModelDto);
   }
 

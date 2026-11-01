@@ -226,4 +226,52 @@ describe('Catálogo de modelos (R2 3.8)', () => {
       devices: 1,
     });
   });
+
+  it('adds a model to a brand, refusing one that is already there', async () => {
+    const created = await send('post', sa, '/api/catalog/models', {
+      brandId: apple,
+      name: ' iPad  Air 5 ',
+      deviceType: 'tablet',
+    });
+    expect(created.status).toBe(201);
+    expect(created.body).toMatchObject({
+      name: 'iPad Air 5',
+      brand: { id: apple, name: 'Apple' },
+      deviceType: 'tablet',
+      active: true,
+      devices: 0,
+      rates: 0,
+    });
+    const audit = await t.db.query(
+      `SELECT action FROM audit_events WHERE "entityId" = $1`,
+      [created.body.id],
+    );
+    expect(audit).toEqual([{ action: 'MODEL_CREATED' }]);
+
+    const twin = await send('post', sa, '/api/catalog/models', {
+      brandId: apple,
+      name: 'ipad air 5',
+    });
+    expect(twin.status).toBe(409);
+    expect(twin.body.message).toBe('Ya existe «iPad Air 5» en Apple.');
+
+    const noBrand = await send('post', sa, '/api/catalog/models', {
+      brandId: '00000000-0000-4000-8000-000000000000',
+      name: 'X',
+    });
+    expect(noBrand.status).toBe(404);
+    const noName = await send('post', sa, '/api/catalog/models', {
+      brandId: apple,
+      name: '  ',
+    });
+    expect(noName.status).toBe(400);
+    expect(
+      (
+        await send('post', store, '/api/catalog/models', {
+          brandId: apple,
+          name: 'iPad 10',
+        })
+      ).status,
+    ).toBe(403);
+  });
 });

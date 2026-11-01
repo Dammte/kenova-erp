@@ -74,7 +74,11 @@ beforeEach(() => {
   answer = () => json({});
   fetchMock.mockReset();
   fetchMock.mockImplementation(async (url: string, init?: RequestInit) =>
-    init?.method ? answer() : json(ROWS),
+    init?.method
+      ? answer()
+      : url.endsWith("/brands")
+        ? json([{ id: "b2", name: "Samsung" }, APPLE])
+        : json(ROWS),
   );
   vi.stubGlobal("fetch", fetchMock);
 });
@@ -151,6 +155,58 @@ describe("CatalogPage", () => {
     ).toBeNull();
     const loads = fetchMock.mock.calls.filter((c) => !c[1]?.method);
     expect(loads.length).toBeGreaterThan(1);
+  });
+
+  it("creates a model with its brand, name and type, then shows it", async () => {
+    await show();
+    fireEvent.click(screen.getByRole("button", { name: "Nuevo modelo" }));
+    await act(async () => {});
+    const form = screen.getByRole("form", { name: "Nuevo modelo" });
+    const brand = within(form).getByLabelText("Marca") as HTMLSelectElement;
+    expect([...brand.options].map((o) => o.textContent)).toEqual([
+      "Elige la marca",
+      "Apple",
+      "Samsung",
+    ]);
+    expect(
+      within(form).getByRole("button", { name: "Crear modelo" }).hasAttribute("disabled"),
+    ).toBe(true);
+    fireEvent.change(brand, { target: { value: "b1" } });
+    fireEvent.change(within(form).getByLabelText("Modelo"), {
+      target: { value: " iPad Air 5 " },
+    });
+    fireEvent.change(within(form).getByLabelText("Tipo · opcional"), {
+      target: { value: "tablet" },
+    });
+    fireEvent.submit(form);
+    await act(async () => {});
+    expect(sent()).toEqual([
+      [
+        "POST",
+        "/api/catalog/models",
+        { brandId: "b1", name: "iPad Air 5", deviceType: "tablet" },
+      ],
+    ]);
+    expect(screen.queryByRole("form", { name: "Nuevo modelo" })).toBeNull();
+    expect(
+      (screen.getByLabelText("Buscar marca o modelo") as HTMLInputElement).value,
+    ).toBe("iPad Air 5");
+  });
+
+  it("a refused new model says why and keeps the form", async () => {
+    answer = () => json({ message: "Ya existe «iPhone 13» en Apple." }, 409);
+    await show();
+    fireEvent.click(screen.getByRole("button", { name: "Nuevo modelo" }));
+    await act(async () => {});
+    const form = screen.getByRole("form", { name: "Nuevo modelo" });
+    fireEvent.change(within(form).getByLabelText("Marca"), { target: { value: "b1" } });
+    fireEvent.change(within(form).getByLabelText("Modelo"), {
+      target: { value: "iphone 13" },
+    });
+    fireEvent.submit(form);
+    await act(async () => {});
+    expect(screen.getByRole("alert").textContent).toBe("Ya existe «iPhone 13» en Apple.");
+    expect(screen.getByRole("form", { name: "Nuevo modelo" })).toBeTruthy();
   });
 
   it("a refused rename says why and keeps the form open", async () => {
