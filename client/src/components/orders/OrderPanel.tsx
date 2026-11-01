@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { AlertTriangle, Banknote, ExternalLink, Eye, EyeOff, MessageCircle, Phone, Printer, Send, Tag, X } from "lucide-react";
+import { AlertTriangle, Banknote, Undo2, ExternalLink, Eye, EyeOff, MessageCircle, Phone, Printer, Send, Tag, X } from "lucide-react";
 import { Button, StatusChip } from "@/components/ui";
+import { useAuth } from "@/components/auth/AuthProvider";
 import { API_URL, apiFetch, errorMessage } from "@/lib/api";
 import { formatEur } from "@/lib/format";
 import {
@@ -21,6 +22,7 @@ import { FAULT_LABEL, PRIORITY_LABEL } from "./orderList";
 import type { OrderNotice } from "@/components/notices/notices";
 import { NoticeForm } from "./NoticeForm";
 import { ChargeForm } from "./ChargeForm";
+import { RefundForm, refundable } from "./RefundForm";
 import { OrderActions } from "./OrderActions";
 import { OrderNotes } from "./OrderNotes";
 import styles from "./OrderPanel.module.css";
@@ -222,7 +224,8 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 }
 
 function Sections({ order, payments, notes, notices, onChanged }: Loaded & { onChanged: () => void }) {
-  const [charging, setCharging] = useState(false);
+  const { user } = useAuth();
+  const [money, setMoney] = useState<"idle" | "charge" | "refund">("idle");
   const [noticing, setNoticing] = useState(false);
   const [noticeSent, setNoticeSent] = useState<string | null>(null);
   const pending = Number(order.balance ?? 0);
@@ -313,28 +316,44 @@ function Sections({ order, payments, notes, notices, onChanged }: Loaded & { onC
             <dd>{formatEur(order.balance)}</dd>
           </div>
         </dl>
-        {order.status !== "cancelado" &&
-          (charging ? (
-            <ChargeForm
-              orderId={order.id}
-              pending={pending}
-              onCancel={() => setCharging(false)}
-              onDone={() => {
-                setCharging(false);
-                onChanged();
-              }}
-            />
-          ) : (
-            <p className={styles.actions}>
+        {money === "charge" ? (
+          <ChargeForm
+            orderId={order.id}
+            pending={pending}
+            onCancel={() => setMoney("idle")}
+            onDone={() => {
+              setMoney("idle");
+              onChanged();
+            }}
+          />
+        ) : money === "refund" ? (
+          <RefundForm
+            orderId={order.id}
+            payments={payments}
+            pending={pending}
+            partner={user?.role === "SUPER_ADMIN"}
+            onCancel={() => setMoney("idle")}
+            onDone={onChanged}
+          />
+        ) : (
+          <p className={styles.actions}>
+            {order.status !== "cancelado" && (
               <Button
                 icon={<Banknote size={16} aria-hidden />}
-                onClick={() => setCharging(true)}
+                onClick={() => setMoney("charge")}
                 disabledReason={pending > 0 ? undefined : "Esta orden ya está pagada."}
               >
                 Registrar cobro
               </Button>
-            </p>
-          ))}
+            )}
+            {/* Design R2: with nothing charged, the action is not offered. */}
+            {refundable(payments).length > 0 && (
+              <Button variant="ghost" icon={<Undo2 size={16} aria-hidden />} onClick={() => setMoney("refund")}>
+                Devolver cobro…
+              </Button>
+            )}
+          </p>
+        )}
       </Section>
 
       <Section title="Dispositivo">

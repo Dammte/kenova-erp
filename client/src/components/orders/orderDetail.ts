@@ -67,6 +67,12 @@ export interface OrderPayment {
   note: string | null;
   createdAt: string;
   createdBy: { id: string; fullName: string } | null;
+  /** A refund: the charge it gave back, when it says which. */
+  refundOfId?: string | null;
+  /** A charge: what has been given back of it. */
+  refunded?: string;
+  /** A charge: its store's cash day is over (store accounts cannot refund it). */
+  dayClosed?: boolean;
 }
 
 /** GET /api/service-orders/:id/sticky-notes. */

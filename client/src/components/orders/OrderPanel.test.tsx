@@ -775,3 +775,135 @@ describe("order helpers", () => {
     });
   });
 });
+
+describe("OrderPanel · devolver cobro", () => {
+  const charge = (id: string, amount: string, extra: Partial<OrderPayment> = {}): OrderPayment => ({
+    id,
+    kind: "charge",
+    amount,
+    method: "card",
+    note: null,
+    createdAt: "2026-10-29T09:58:00Z",
+    createdBy: null,
+    refunded: "0.00",
+    dayClosed: false,
+    ...extra,
+  });
+  // A fresh response each time: the panel reloads the payments after a refund.
+  const withPayments = (payments: OrderPayment[]) => {
+    serve();
+    const base = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) =>
+      url === "/api/service-orders/o1/payments" && init?.method !== "POST"
+        ? new Response(JSON.stringify(payments))
+        : base(url, init),
+    );
+  };
+  const refunds = () =>
+    fetchMock.mock.calls
+      .filter(([url, init]) => String(url).endsWith("/payments") && (init as RequestInit | undefined)?.method === "POST")
+      .map(([, init]) => JSON.parse((init as RequestInit).body as string));
+  const norm = (s: string | null) => (s ?? "").replace(/\s/g, " ");
+
+  it("is not offered with nothing left to give back", async () => {
+    withPayments([charge("p1", "59.00", { refunded: "59.00" })]);
+    await open();
+    expect(screen.queryByRole("button", { name: "Devolver cobro…" })).toBeNull();
+  });
+
+  it("gives back the charge with a reason and shows the result in place", async () => {
+    withPayments([charge("p1", "59.00")]);
+    await open();
+    fireEvent.click(screen.getByRole("button", { name: "Devolver cobro…" }));
+    expect((screen.getByLabelText("Importe a devolver") as HTMLInputElement).value).toBe("59,00");
+    expect((screen.getByLabelText("Tarjeta") as HTMLInputElement).checked).toBe(true);
+    const submit = screen.getByRole("button", { name: /^Devolver 59,00\s€$/ });
+    expect(submit.hasAttribute("disabled")).toBe(true);
+    screen.getByText("Escribe el motivo.");
+
+    fireEvent.change(screen.getByLabelText("Motivo"), { target: { value: "  Funda no disponible " } });
+    fireEvent.click(screen.getByRole("button", { name: /^Devolver 59,00\s€$/ }));
+    await act(async () => {});
+    expect(refunds()).toEqual([
+      {
+        id: expect.stringMatching(/^[0-9a-f-]{36}$/),
+        kind: "refund",
+        amount: 59,
+        method: "card",
+        note: "Funda no disponible",
+        refundOf: "p1",
+      },
+    ]);
+    expect(onChanged).toHaveBeenCalledTimes(1);
+    expect(norm(screen.getByRole("status", { name: "Devolución registrada" }).textContent)).toContain(
+      "Devueltos 59,00 € por tarjeta · pendiente 149,00 €",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Hecho" }));
+    expect(screen.queryByRole("status", { name: "Devolución registrada" })).toBeNull();
+  });
+
+  it("chooses among several charges, the last one first, up to what is left", async () => {
+    withPayments([charge("p1", "59.00", { method: "cash" }), charge("p2", "40.00", { refunded: "10.00" })]);
+    await open();
+    fireEvent.click(screen.getByRole("button", { name: "Devolver cobro…" }));
+    const [first, second] = screen.getAllByRole("radio", { name: /€/ }) as HTMLInputElement[];
+    expect(second.checked).toBe(true);
+    expect(norm(second.parentElement!.textContent)).toContain("quedan 30,00 €");
+    expect((screen.getByLabelText("Importe a devolver") as HTMLInputElement).value).toBe("30,00");
+
+    fireEvent.click(first);
+    expect((screen.getByLabelText("Importe a devolver") as HTMLInputElement).value).toBe("59,00");
+    expect((screen.getByLabelText("Efectivo") as HTMLInputElement).checked).toBe(true);
+    fireEvent.change(screen.getByLabelText("Importe a devolver"), { target: { value: "60" } });
+    screen.getByText(/^Máximo 59,00\s€\.$/);
+  });
+
+  it("gives saldo a favor back to the saldo, with no method to choose", async () => {
+    withPayments([charge("p1", "20.00", { method: "credit" })]);
+    await open();
+    fireEvent.click(screen.getByRole("button", { name: "Devolver cobro…" }));
+    screen.getByText("Se pagó con saldo a favor: vuelve al saldo del cliente.");
+    expect(screen.queryByLabelText("Tarjeta")).toBeNull();
+    fireEvent.change(screen.getByLabelText("Motivo"), { target: { value: "Error" } });
+    fireEvent.click(screen.getByRole("button", { name: /^Devolver 20,00\s€$/ }));
+    await act(async () => {});
+    expect(refunds()[0]).toMatchObject({ method: "credit", refundOf: "p1" });
+  });
+
+  it("a store account cannot give back a charge of a closed cash day", async () => {
+    withPayments([charge("p1", "59.00", { dayClosed: true })]);
+    await open();
+    fireEvent.click(screen.getByRole("button", { name: "Devolver cobro…" }));
+    screen.getByText("Este cobro es de un día de caja ya cerrado: lo devuelve un socio.");
+    expect(screen.getByRole("button", { name: "Devolver" }).hasAttribute("disabled")).toBe(true);
+    expect(screen.queryByLabelText("Motivo")).toBeNull();
+  });
+
+  it("a partner gives back a charge of any day", async () => {
+    role = "SUPER_ADMIN";
+    withPayments([charge("p1", "59.00", { dayClosed: true })]);
+    await open();
+    fireEvent.click(screen.getByRole("button", { name: "Devolver cobro…" }));
+    expect(screen.queryByText(/día de caja ya cerrado/)).toBeNull();
+    screen.getByLabelText("Motivo");
+  });
+
+  it("retries a lost refund with the same id and says not to hand the money yet", async () => {
+    withPayments([charge("p1", "59.00")]);
+    await open();
+    fireEvent.click(screen.getByRole("button", { name: "Devolver cobro…" }));
+    fireEvent.change(screen.getByLabelText("Motivo"), { target: { value: "Funda" } });
+    fetchMock.mockImplementationOnce(async () => {
+      throw new TypeError("Failed to fetch");
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^Devolver 59,00\s€$/ }));
+    await act(async () => {});
+    expect(screen.getByRole("alert").textContent).toBe(
+      "No se ha registrado la devolución. No devuelvas el dinero todavía: reintenta.",
+    );
+    fireEvent.click(screen.getByRole("button", { name: /^Devolver 59,00\s€$/ }));
+    await act(async () => {});
+    const [a, b] = refunds();
+    expect(b.id).toBe(a.id);
+  });
+});
