@@ -8,6 +8,7 @@ import {
   Package,
   Store,
   Tags,
+  Trash2,
   Truck,
   UserCog,
   Users,
@@ -40,11 +41,12 @@ const TEMPLATES: NavItem = { label: "Plantillas", href: "/plantillas", icon: Mes
 const USERS: NavItem = { label: "Usuarios", href: "/usuarios", icon: UserCog };
 const SHIPMENTS: NavItem = { label: "Envíos", href: "/envios", icon: Truck };
 const CATALOG: NavItem = { label: "Catálogo", href: "/catalogo", icon: Library };
+const TRASH: NavItem = { label: "Papelera", href: "/papelera", icon: Trash2 };
 const STORE: NavItem = { label: "Tienda", href: "/tienda", icon: Store };
 
 /**
  * The menu approved for each role. Sections whose screen does not exist yet
- * (Papelera, Copia de seguridad) are added
+ * (Copia de seguridad) is added
  * as each screen is built. Stock belongs to the partners only; a store's only
  * setting is its own notice texts (design 2.5). «Envíos» only when there are
  * partner stores (see usePartnerStores).
@@ -54,7 +56,7 @@ export function navFor(role: Role, shipments = false): NavSections {
   if (role === "SUPER_ADMIN") {
     return {
       main: [PANEL, ORDERS, ...ship, QUOTES, RATES, CLIENTS, INVENTORY, MONEY],
-      settings: [SERVICES, CATALOG, TEMPLATES, USERS, STORE],
+      settings: [SERVICES, CATALOG, TEMPLATES, USERS, STORE, TRASH],
     };
   }
   return { main: [PANEL, ORDERS, ...ship, QUOTES, RATES, CLIENTS, MONEY], settings: [TEMPLATES] };

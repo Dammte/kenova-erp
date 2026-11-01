@@ -1,0 +1,154 @@
+/* Design R2 3.10 «Configuración › Papelera». */
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-4);
+  min-width: 0;
+  max-width: 900px;
+  padding: var(--k-space-6);
+  color: var(--k-text);
+  font: var(--k-text-base);
+}
+.page p {
+  margin: 0;
+}
+.top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--k-space-3);
+}
+.title {
+  margin: 0;
+  font: var(--k-text-xl);
+}
+.search {
+  width: min(320px, 100%);
+  height: var(--k-control-h);
+  padding: 0 var(--k-space-3);
+  border: var(--k-border-w) solid var(--k-border-strong);
+  border-radius: var(--k-radius-md);
+  background: var(--k-surface);
+  color: var(--k-text);
+  font: var(--k-text-base);
+}
+.search:focus-visible,
+.filter:focus-visible {
+  outline: none;
+  box-shadow: var(--k-focus-ring);
+}
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--k-space-2);
+}
+.filter {
+  min-height: 32px;
+  padding: 0 var(--k-space-3);
+  border: var(--k-border-w) solid var(--k-border-strong);
+  border-radius: var(--k-radius-full);
+  background: var(--k-surface);
+  color: var(--k-text);
+  font: var(--k-text-sm);
+  cursor: pointer;
+}
+.filter[aria-pressed="true"] {
+  border-color: var(--k-accent);
+  background: var(--k-accent-subtle);
+  font-weight: 600;
+}
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--k-space-3);
+  padding: var(--k-space-3) var(--k-space-4);
+  border: var(--k-border-w) solid var(--k-border);
+  border-radius: var(--k-radius-lg);
+  background: var(--k-surface);
+}
+.kind {
+  flex: none;
+  min-width: 72px;
+  padding: 2px var(--k-space-2);
+  border-radius: var(--k-radius-full);
+  background: var(--k-subtle);
+  color: var(--k-text-muted);
+  font: var(--k-text-xs);
+  font-weight: 600;
+  text-align: center;
+  text-transform: uppercase;
+}
+.text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--k-space-2);
+}
+.muted {
+  color: var(--k-text-muted);
+  font: var(--k-text-sm);
+}
+.ok {
+  color: var(--k-success);
+  font: var(--k-text-sm);
+}
+.error {
+  color: var(--k-danger);
+  font: var(--k-text-sm);
+}
+.link {
+  color: var(--k-accent);
+  font-weight: 500;
+}
+.linkButton {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--k-accent);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+.link:hover,
+.linkButton:hover {
+  text-decoration: underline;
+}
+.empty {
+  padding: var(--k-space-6);
+  border: var(--k-border-w) dashed var(--k-border-strong);
+  border-radius: var(--k-radius-lg);
+  background: var(--k-surface);
+}
+
+@media (max-width: 640px) {
+  .page {
+    padding: var(--k-space-4);
+  }
+  /* The kind on top, the text across, then the button. */
+  .item {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+  .text {
+    flex-basis: 100%;
+  }
+  .kind {
+    min-width: 0;
+  }
+}
