@@ -8,7 +8,8 @@ import {
   within,
 } from "@testing-library/react";
 import { NewShipment } from "./NewShipment";
-import { ShipmentSheet } from "./ShipmentSheet";
+import { FAULT_LABEL } from "@/components/orders/orderList";
+import { faultText, ShipmentSheet } from "./ShipmentSheet";
 import type { Shipment, ShipmentCandidate } from "./shipments";
 
 const fetchMock = vi.fn();
@@ -175,11 +176,26 @@ describe("ShipmentSheet", () => {
         clientName: "Iker Bárcena",
         device: "Apple iPhone 13",
         accessories: "funda",
+        reportedFaults: ["broken_screen", "battery"],
+        faultNotes: "El táctil falla abajo",
         receivedAt: null,
         notArrived: false,
       },
     ],
   };
+
+  it("names the fault from its marks and notes, or nothing if none was noted", () => {
+    const line = SHIPMENT.lines![0];
+    expect(
+      faultText({ ...line, reportedFaults: [], faultNotes: " " }),
+    ).toBeNull();
+    expect(
+      faultText({ ...line, reportedFaults: [], faultNotes: "Cámara" }),
+    ).toBe("Cámara");
+    expect(
+      faultText({ ...line, reportedFaults: ["other"], faultNotes: null }),
+    ).toBe(FAULT_LABEL.other);
+  });
 
   it("prints the devices with a box to tick and the three signatures", async () => {
     fetchMock.mockImplementation(async () => json(SHIPMENT));
@@ -193,6 +209,9 @@ describe("ShipmentSheet", () => {
     const row = within(sheet).getAllByRole("row")[1];
     within(row).getByText("VC-0036");
     within(row).getByText("funda");
+    expect(within(row).getByText(/El táctil/).textContent).toBe(
+      `${FAULT_LABEL.broken_screen}, ${FAULT_LABEL.battery} · El táctil falla abajo`,
+    );
     within(sheet).getByText(
       "1 equipo. Cada equipo va en su bolsa con la etiqueta de 62 mm.",
     );

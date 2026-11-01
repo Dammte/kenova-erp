@@ -53,6 +53,9 @@ export interface ShipmentLineView {
   clientName: string;
   device: string | null;
   accessories: string | null;
+  /** The fault as reported at intake, so the sheet says what to repair. */
+  reportedFaults: string[];
+  faultNotes: string | null;
   receivedAt: Date | null;
   notArrived: boolean;
 }
@@ -445,6 +448,8 @@ export class ShipmentsService {
             .join(' '),
           device: o.device ? `${o.device.brand} ${o.device.model}` : null,
           accessories: o.accessories ?? null,
+          reportedFaults: o.reportedFaults ?? [],
+          faultNotes: o.faultNotes ?? null,
           receivedAt: l.receivedAt,
           notArrived: l.notArrived,
         };

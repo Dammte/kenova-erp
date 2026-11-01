@@ -83,6 +83,10 @@
   font-weight: 600;
   white-space: nowrap;
 }
+/* The fault is what the workshop needs first: bold, as on the receipt. */
+.fault {
+  font-weight: 700;
+}
 .note {
   margin-top: 4mm !important;
 }

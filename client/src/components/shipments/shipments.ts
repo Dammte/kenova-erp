@@ -21,6 +21,9 @@ export interface ShipmentLine {
   clientName: string;
   device: string | null;
   accessories: string | null;
+  /** As reported at intake (FAULT_LABEL keys). */
+  reportedFaults: string[];
+  faultNotes: string | null;
   receivedAt: string | null;
   notArrived: boolean;
 }
