@@ -109,6 +109,39 @@ describe('User management (SUPER_ADMIN only)', () => {
     expect(res.status).toBe(400);
   });
 
+  it('says when an account is locked out, and a password reset unlocks it', async () => {
+    const lockedOf = async () =>
+      (
+        (await t.http().get('/api/users').set('Cookie', sa)).body as {
+          id: string;
+          locked: boolean;
+        }[]
+      ).find((u) => u.id === t.storeAdmin.id)?.locked;
+    expect(await lockedOf()).toBe(false);
+    await t.db.query(
+      `UPDATE users SET "failedLoginCount" = 9, "lockedUntil" = now() + interval '1 hour' WHERE id = $1`,
+      [t.storeAdmin.id],
+    );
+    expect(await lockedOf()).toBe(true);
+    const [{ passwordHash }] = await t.db.query<{ passwordHash: string }[]>(
+      `SELECT "passwordHash" FROM users WHERE id = $1`,
+      [t.storeAdmin.id],
+    );
+    const reset = await t
+      .http()
+      .post(`/api/users/${t.storeAdmin.id}/reset-password`)
+      .set('Cookie', sa)
+      .set('Origin', ORIGIN)
+      .send({ temporaryPassword: 'Temporal-Segura-2026' });
+    expect(reset.status).toBe(204);
+    expect(await lockedOf()).toBe(false);
+    // Back to the shared password and state for the other tests.
+    await t.db.query(
+      `UPDATE users SET "passwordHash" = $1, "mustChangePassword" = false WHERE id = $2`,
+      [passwordHash, t.storeAdmin.id],
+    );
+  });
+
   it('a SUPER_ADMIN cannot demote or disable themselves', async () => {
     const res = await t
       .http()
