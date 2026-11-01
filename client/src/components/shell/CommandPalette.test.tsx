@@ -26,7 +26,7 @@ beforeEach(() => {
   push.mockReset();
   onClose.mockReset();
   fetchMock.mockReset();
-  fetchMock.mockResolvedValue(new Response(JSON.stringify(RESULT)));
+  fetchMock.mockImplementation(async () => new Response(JSON.stringify(RESULT)));
   vi.stubGlobal("fetch", fetchMock);
 });
 afterEach(() => {
@@ -49,7 +49,7 @@ describe("CommandPalette", () => {
   it("opens focused on the field and lists the sections the role may visit", () => {
     render(<CommandPalette role="STORE_ADMIN" onClose={onClose} />);
     expect(document.activeElement).toBe(field());
-    expect(options()).toEqual(["Nueva orden", "Ir a Panel", "Ir a Órdenes", "Ir a Presupuestos"]);
+    expect(options()).toEqual(["Nueva orden", "Ir a Panel", "Ir a Órdenes", "Ir a Envíos"]);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -61,8 +61,9 @@ describe("CommandPalette", () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(250);
     });
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock.mock.calls[0][0]).toBe("/api/search?q=jose");
+    // Besides the search, the partners' menu asks once for the stores.
+    const searches = fetchMock.mock.calls.map((c) => c[0]).filter((u) => u.startsWith("/api/search"));
+    expect(searches).toEqual(["/api/search?q=jose"]);
     expect(options()).toEqual([
       "MP-0042 · José PeñaApple iPhone 13 · En progreso",
       "José Peña612 345 678",

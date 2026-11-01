@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { PanelLeftClose, PanelLeftOpen, Plus } from "lucide-react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { isActive, navFor, type NavItem } from "./nav";
+import { usePartnerStores } from "./usePartnerStores";
 import styles from "./Sidebar.module.css";
 
 /** Below this width (tablet) the bar starts folded. */
@@ -36,6 +37,7 @@ function writePref(userId: string, collapsed: boolean) {
  */
 export default function Sidebar() {
   const { user } = useAuth();
+  const shipments = usePartnerStores(user?.role);
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
 
@@ -63,7 +65,7 @@ export default function Sidebar() {
   }, [toggle]);
 
   if (!user) return null;
-  const { main, settings } = navFor(user.role);
+  const { main, settings } = navFor(user.role, shipments);
 
   const link = ({ label, href, icon: Icon }: NavItem) => {
     const active = isActive(href, pathname);

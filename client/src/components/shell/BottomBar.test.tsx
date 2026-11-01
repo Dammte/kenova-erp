@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import type { SessionUser } from "@/components/auth/AuthProvider";
 import BottomBar, { OPEN_SEARCH_EVENT } from "./BottomBar";
+import { resetPartnerStores } from "./usePartnerStores";
 
 let user: SessionUser;
 let pathname = "/serviceOrders";
@@ -19,6 +20,7 @@ const base: SessionUser = {
 };
 
 beforeEach(() => {
+  resetPartnerStores();
   user = base;
   pathname = "/serviceOrders";
 });
@@ -62,7 +64,28 @@ describe("BottomBar", () => {
     fireEvent.click(screen.getByRole("button", { name: "Menú" }));
     expect(
       within(screen.getByRole("dialog")).getAllByRole("link").map((a) => a.textContent),
-    ).toEqual(["Presupuestos", "Tarifas", "Clientes", "Dinero", "Plantillas"]);
+    ).toEqual([
+      "Envíos",
+      "Presupuestos",
+      "Tarifas",
+      "Clientes",
+      "Dinero",
+      "Plantillas",
+    ]);
+  });
+
+  it("the partners find «Envíos» in «Menú» once there is a partner store", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(JSON.stringify([{ isMain: true, isActive: true }, { isMain: false, isActive: true }])),
+      ),
+    );
+    render(<BottomBar />);
+    await act(async () => {});
+    fireEvent.click(screen.getByRole("button", { name: "Menú" }));
+    expect(within(screen.getByRole("dialog")).getAllByRole("link")[0].textContent).toBe("Envíos");
+    vi.unstubAllGlobals();
   });
 
   it("marks «Menú» when the current section lives in it", () => {
