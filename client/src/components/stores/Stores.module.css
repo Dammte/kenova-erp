@@ -1,0 +1,271 @@
+/* Design R2 3.7 «Configuración › Tienda»: the stores on the left, the open one on the right. */
+.page {
+  display: grid;
+  grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+  gap: var(--k-space-6);
+  align-items: start;
+  min-height: 100%;
+  padding: var(--k-space-6);
+  background: var(--k-bg);
+  color: var(--k-text);
+  font: var(--k-text-base);
+}
+.page p {
+  margin: 0;
+}
+
+.listPane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-3);
+  min-width: 0;
+}
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--k-space-3);
+}
+.title {
+  margin: 0;
+  font: var(--k-text-xl);
+}
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: var(--k-space-3);
+  border: var(--k-border-w) solid var(--k-border);
+  border-radius: var(--k-radius-lg);
+  background: var(--k-surface);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.item:hover {
+  border-color: var(--k-border-strong);
+}
+.item:focus-visible {
+  outline: none;
+  box-shadow: var(--k-focus-ring);
+}
+.item[aria-current="true"] {
+  border-color: var(--k-accent);
+  background: var(--k-accent-subtle);
+}
+.itemHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--k-space-2);
+}
+.itemName {
+  font-weight: 600;
+}
+.prefix {
+  display: inline-block;
+  margin-left: var(--k-space-2);
+  padding: 0 var(--k-space-2);
+  border: var(--k-border-w) solid var(--k-border-strong);
+  border-radius: var(--k-radius-sm);
+  font: 500 13px/20px var(--k-font-mono);
+  vertical-align: middle;
+}
+.sub,
+.muted {
+  color: var(--k-text-muted);
+  font: var(--k-text-sm);
+}
+.warn {
+  color: var(--k-warning);
+  font: var(--k-text-sm);
+  font-weight: 600;
+}
+.error {
+  color: var(--k-danger);
+  font: var(--k-text-sm);
+}
+.ok,
+.off {
+  padding: 0 var(--k-space-2);
+  border-radius: var(--k-radius-full);
+  font: var(--k-text-sm);
+  font-weight: 600;
+}
+.ok {
+  background: var(--k-accent-subtle);
+  color: var(--k-accent);
+}
+.off {
+  background: var(--k-subtle);
+  color: var(--k-text-muted);
+}
+.link,
+.linkButton {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--k-accent);
+  font: var(--k-text-sm);
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+}
+.link:hover,
+.linkButton:hover {
+  text-decoration: underline;
+}
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--k-space-2);
+  padding: var(--k-space-6);
+  border: var(--k-border-w) dashed var(--k-border-strong);
+  border-radius: var(--k-radius-lg);
+  background: var(--k-surface);
+}
+
+/* The open store. */
+.card {
+  min-width: 0;
+  border: var(--k-border-w) solid var(--k-border);
+  border-radius: var(--k-radius-lg);
+  background: var(--k-surface);
+}
+.cardHead {
+  display: flex;
+  align-items: center;
+  gap: var(--k-space-3);
+  padding: var(--k-space-4) var(--k-space-6);
+  border-bottom: var(--k-border-w) solid var(--k-border);
+}
+.cardTitle {
+  margin: 0;
+  font: var(--k-text-lg);
+}
+.close {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin-left: auto;
+  border: 0;
+  border-radius: var(--k-radius-md);
+  background: none;
+  color: var(--k-text-muted);
+  cursor: pointer;
+}
+.close:hover {
+  background: var(--k-subtle);
+}
+.section {
+  display: grid;
+  gap: var(--k-space-3);
+  margin: 0;
+  padding: var(--k-space-4) var(--k-space-6);
+  border: 0;
+  border-bottom: var(--k-border-w) solid var(--k-border);
+}
+.section legend {
+  float: left;
+  width: 100%;
+  margin-bottom: var(--k-space-1);
+  padding: 0;
+  font-weight: 600;
+}
+.pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--k-space-3);
+}
+.trio {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--k-space-3);
+}
+.radios {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--k-space-4);
+}
+.radio {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--k-space-2);
+  cursor: pointer;
+}
+.subTitle {
+  margin: 0 0 var(--k-space-2);
+  font: var(--k-text-sm);
+  font-weight: 600;
+}
+.history {
+  display: grid;
+  gap: var(--k-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font: var(--k-text-sm);
+}
+.history li {
+  display: grid;
+  grid-template-columns: 96px 1fr auto;
+  gap: var(--k-space-3);
+}
+.accounts {
+  margin: 0;
+  padding-left: var(--k-space-4);
+}
+.confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--k-space-2);
+}
+.card > form > .error {
+  padding: var(--k-space-3) var(--k-space-6) 0;
+}
+/* Appears with the first change and stays at hand while scrolling. */
+.saveBar {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  gap: var(--k-space-2);
+  padding: var(--k-space-3) var(--k-space-6);
+  border-top: var(--k-border-w) solid var(--k-border);
+  border-radius: 0 0 var(--k-radius-lg) var(--k-radius-lg);
+  background: var(--k-surface);
+}
+
+/* Tablet and phone: one column; the list goes above the open store. */
+@media (max-width: 1100px) {
+  .page {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 640px) {
+  .page {
+    padding: var(--k-space-4);
+  }
+  .pair,
+  .trio {
+    grid-template-columns: 1fr;
+  }
+  .section,
+  .cardHead,
+  .saveBar {
+    padding-left: var(--k-space-4);
+    padding-right: var(--k-space-4);
+  }
+}
