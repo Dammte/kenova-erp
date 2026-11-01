@@ -88,6 +88,16 @@
   box-shadow: var(--k-focus-ring);
 }
 
+.warranty {
+  margin: 0;
+  color: var(--k-warning);
+  font: var(--k-text-sm);
+  font-weight: 500;
+}
+.warranty a {
+  color: inherit;
+}
+
 .sub {
   margin: 0;
   color: var(--k-text-muted);

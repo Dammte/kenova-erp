@@ -375,6 +375,7 @@ function Row({
         >
           {row.code}
         </Link>
+        {row.warrantyOf && <span className={styles.warranty}>Garantía de {row.warrantyOf}</span>}
       </td>
       <td className={styles.client}>
         <span className={styles.strong}>{row.clientName}</span>

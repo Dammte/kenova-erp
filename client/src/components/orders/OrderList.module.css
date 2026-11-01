@@ -195,6 +195,13 @@
 .code {
   white-space: nowrap;
 }
+/* Design R2: a warranty claim says whose, in the list, the panel and the prints. */
+.warranty {
+  display: block;
+  color: var(--k-warning);
+  font: var(--k-text-xs);
+  font-weight: 500;
+}
 .codeLink {
   font: var(--k-text-code);
   color: var(--k-text);

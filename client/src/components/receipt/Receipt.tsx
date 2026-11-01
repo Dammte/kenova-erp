@@ -52,6 +52,12 @@ export function Receipt({
       <div className={styles.number}>
         <span className={styles.small}>Orden</span>
         <strong className={styles.code}>{order.code}</strong>
+        {order.warrantyOf && (
+          <strong>
+            GARANTÍA DE {order.warrantyOf.code}
+            {Number(order.totalPrice ?? 0) === 0 && " · SIN CARGO"}
+          </strong>
+        )}
         <span>{formatDateTime(order.createdAt)}</span>
       </div>
 
