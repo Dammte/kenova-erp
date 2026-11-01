@@ -445,6 +445,20 @@ button.chip:focus-visible {
   outline: none;
   box-shadow: var(--k-focus-ring);
 }
+.refundList {
+  display: grid;
+  gap: var(--k-space-2);
+}
+.refundList .chip {
+  padding: var(--k-space-2) var(--k-space-3);
+  border-radius: var(--k-radius-md);
+}
+/* A charge of a closed cash day, for a store account: amber, not an error. */
+.dayClosed {
+  padding: var(--k-space-2) var(--k-space-3);
+  border-left: 3px solid var(--k-warning);
+  background: var(--k-status-pendiente-cliente-bg);
+}
 .charge {
   margin-top: var(--k-space-4);
   padding-top: var(--k-space-4);
