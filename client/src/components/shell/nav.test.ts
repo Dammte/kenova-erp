@@ -7,7 +7,7 @@ describe("navFor", () => {
   it("the partners see stock and settings", () => {
     const nav = navFor("SUPER_ADMIN", true);
     expect(labels(nav.main)).toEqual(["Panel", "Órdenes", "Envíos", "Presupuestos", "Tarifas", "Clientes", "Inventario", "Dinero"]);
-    expect(labels(nav.settings)).toEqual(["Servicios", "Catálogo", "Plantillas", "Usuarios", "Tienda"]);
+    expect(labels(nav.settings)).toEqual(["Servicios", "Catálogo", "Plantillas", "Usuarios", "Tienda", "Papelera"]);
   });
 
   it("a store sees no stock and only its own notice texts in settings", () => {
