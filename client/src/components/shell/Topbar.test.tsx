@@ -1,13 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { SessionUser } from "@/components/auth/AuthProvider";
 import Topbar, { initials } from "./Topbar";
 
 let user: SessionUser;
 const logout = vi.fn();
+const logoutEverywhere = vi.fn();
 
 vi.mock("@/components/auth/AuthProvider", () => ({
-  useAuth: () => ({ user, logout }),
+  useAuth: () => ({ user, logout, logoutEverywhere }),
 }));
 vi.mock("next/navigation", () => ({
   usePathname: () => "/clients",
@@ -26,6 +27,7 @@ const base: SessionUser = {
 beforeEach(() => {
   user = base;
   logout.mockReset();
+  logoutEverywhere.mockReset();
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string) =>
@@ -80,6 +82,18 @@ describe("Topbar", () => {
     fireEvent.click(userButton());
     fireEvent.click(screen.getByRole("button", { name: "Cerrar sesión" }));
     expect(logout).toHaveBeenCalledOnce();
+  });
+
+  it("signs out on every device from the menu, and says so when it fails", async () => {
+    logoutEverywhere.mockRejectedValueOnce(new Error("offline"));
+    render(<Topbar />);
+    fireEvent.click(userButton());
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Cerrar sesión en todos los equipos" }));
+    });
+    expect(logoutEverywhere).toHaveBeenCalledOnce();
+    expect(logout).not.toHaveBeenCalled();
+    screen.getByRole("button", { name: "No se pudo. Vuelve a probar" });
   });
 
   it("opens the search with Ctrl+K, ⌘K or a click", () => {

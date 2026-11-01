@@ -2,8 +2,15 @@
 
 import { useAuth } from "@/components/auth/AuthProvider";
 import { ChangePasswordForm } from "@/components/auth/ChangePasswordForm";
+import { SessionsCard } from "@/components/auth/SessionsCard";
 
 export default function ChangePasswordPage() {
   const { user } = useAuth();
-  return <ChangePasswordForm firstAccess={Boolean(user?.mustChangePassword)} />;
+  const firstAccess = Boolean(user?.mustChangePassword);
+  return (
+    <>
+      <ChangePasswordForm firstAccess={firstAccess} />
+      {user && !firstAccess && <SessionsCard />}
+    </>
+  );
 }

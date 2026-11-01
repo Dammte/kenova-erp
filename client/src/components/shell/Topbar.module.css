@@ -190,3 +190,8 @@
     padding: 0 var(--k-space-4);
   }
 }
+
+/* A long item wraps; its icon keeps its size. */
+.menuItem svg {
+  flex-shrink: 0;
+}

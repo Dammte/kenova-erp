@@ -19,7 +19,7 @@ import { AuthUser } from './auth.types';
 import { Session } from './entities/session.entity';
 import { PasswordService } from './password.service';
 
-const INVALID_CREDENTIALS = 'Email o contraseña incorrectos';
+const INVALID_CREDENTIALS = 'Usuario o contraseña incorrectos';
 
 export interface ClientInfo {
   ip?: string | null;
@@ -65,16 +65,30 @@ export class AuthService {
   }
 
   /**
+   * The account behind what was typed in «Email o usuario»: an email when it
+   * has an «@», otherwise the username, both without regard to case.
+   */
+  private findByLogin(login: string) {
+    const value = login.trim().toLowerCase();
+    if (value.includes('@')) return this.findUserWithSecrets({ email: value });
+    return this.users
+      .createQueryBuilder('u')
+      .leftJoinAndSelect('u.store', 'store')
+      .addSelect(['u.passwordHash', 'u.failedLoginCount', 'u.lockedUntil'])
+      .where('LOWER(u.username) = :value', { value })
+      .getOne();
+  }
+
+  /**
    * Checks the credentials and opens a session. Every failure returns the same
-   * message so the response does not reveal whether the email exists.
+   * message so the response does not reveal whether the account exists.
    */
   async login(
-    email: string,
+    login: string,
     password: string,
     client: ClientInfo,
   ): Promise<{ token: string; user: AuthUser; expiresAt: Date }> {
-    const normalized = email.trim().toLowerCase();
-    const user = await this.findUserWithSecrets({ email: normalized });
+    const user = await this.findByLogin(login);
     const now = new Date();
 
     if (user?.lockedUntil && user.lockedUntil > now) {
@@ -227,6 +241,18 @@ export class AuthService {
       actorUserId: user.id,
       entityType: 'user',
       entityId: user.id,
+      ip: client.ip,
+    });
+  }
+
+  /** «Cerrar sesión en todos los equipos»: this one included. */
+  async logoutEverywhere(userId: string, client: ClientInfo): Promise<void> {
+    await this.revokeAllSessions(userId);
+    await this.audit.record({
+      action: 'AUTH_LOGOUT_ALL',
+      actorUserId: userId,
+      entityType: 'user',
+      entityId: userId,
       ip: client.ip,
     });
   }

@@ -77,6 +77,17 @@ export class AuthController {
   }
 
   @AllowPendingPassword()
+  @Post('logout-all')
+  @HttpCode(204)
+  async logoutAll(
+    @Req() req: AuthenticatedRequest,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    await this.auth.logoutEverywhere(req.user!.id, clientInfo(req));
+    this.clearCookie(res);
+  }
+
+  @AllowPendingPassword()
   @Get('me')
   me(@CurrentUser() user: AuthUser) {
     return { user };
