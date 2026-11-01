@@ -65,3 +65,21 @@
     padding: var(--k-space-4);
   }
 }
+
+/* The Panel warning: one line with the action at the end. */
+.reminder {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--k-space-3);
+  padding: var(--k-space-3) var(--k-space-4);
+  border: var(--k-border-w) solid var(--k-border);
+  border-radius: var(--k-radius-lg);
+  color: var(--k-text);
+  font: var(--k-text-sm);
+}
+.reminder p {
+  flex: 1;
+  min-width: 200px;
+  margin: 0;
+}

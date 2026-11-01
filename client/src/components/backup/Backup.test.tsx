@@ -170,3 +170,18 @@ describe("backup", () => {
     );
   });
 });
+
+describe("BackupReminder", () => {
+  it("words the warning for a missing or an old copy", async () => {
+    const { reminderText } = await import("./BackupReminder");
+    const now = Date.parse("2026-11-10T12:00:00Z");
+    expect(reminderText({ lastExportAt: null, by: null }, now)).toBe(
+      "Aún no se ha hecho ninguna copia de seguridad de los datos.",
+    );
+    expect(
+      reminderText({ lastExportAt: "2026-11-01T12:00:00Z", by: null }, now),
+    ).toBe(
+      "Hace 9 días que no se hace una copia de seguridad (se recomienda cada 7).",
+    );
+  });
+});

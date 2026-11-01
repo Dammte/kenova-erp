@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
 import { CheckCircle2, Phone } from "lucide-react";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { BackupReminder } from "@/components/backup/BackupReminder";
 import { PickupReminders } from "@/components/notices/PickupReminders";
 import { Button, STATUS_LABEL } from "@/components/ui";
 import { API_URL, apiFetch } from "@/lib/api";
@@ -111,6 +112,8 @@ export function TodayPage() {
             <Stat label="Cobrado hoy" value={formatEur(c.collectedToday)} hint="Cobros menos devoluciones" />
             <Stat label="Pendiente de cobro" value={formatEur(c.pendingBalance)} hint="En órdenes abiertas y entregadas" />
           </section>
+
+          {isPartner && <BackupReminder />}
 
           <PickupReminders />
 
