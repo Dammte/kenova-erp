@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { formatEur } from "@/lib/format";
 import { formatMoneyInput, parseMoney } from "@/lib/money";
 import { TextField, type TextFieldProps } from "./TextField";
@@ -27,9 +27,14 @@ export function MoneyInput({
 }: MoneyInputProps) {
   const [text, setText] = useState(value === null ? "" : formatMoneyInput(value));
   const [problem, setProblem] = useState<string>();
+  // The last value this field sent: when it comes back, it is not an outside
+  // change. Without it, a refused amount (null) would wipe what was typed.
+  const sent = useRef(value);
 
   // Follow changes made from outside, such as "pay the whole balance".
   useEffect(() => {
+    if (value === sent.current) return;
+    sent.current = value;
     if (value !== parseMoney(text)) {
       setText(value === null ? "" : formatMoneyInput(value));
       setProblem(undefined);
@@ -38,23 +43,28 @@ export function MoneyInput({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
 
+  const emit = (amount: number | null) => {
+    sent.current = amount;
+    onChange(amount);
+  };
+
   const read = (next: string) => {
     setText(next);
     if (!next.trim()) {
       setProblem(undefined);
-      onChange(null);
+      emit(null);
       return;
     }
     const amount = parseMoney(next);
     if (amount === null) {
       setProblem("Escribe un importe, por ejemplo 12,50.");
-      onChange(null);
+      emit(null);
     } else if (max !== undefined && amount > max) {
       setProblem(`No puede pasar de ${formatEur(max)}.`);
-      onChange(null);
+      emit(null);
     } else {
       setProblem(undefined);
-      onChange(amount);
+      emit(amount);
     }
   };
 

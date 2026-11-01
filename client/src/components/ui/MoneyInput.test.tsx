@@ -68,6 +68,18 @@ describe("MoneyInput", () => {
     expect(spy).toHaveBeenLastCalledWith(70);
   });
 
+  it("keeps what was typed when an amount is refused after a valid one", () => {
+    const spy = vi.fn();
+    render(<Harness spy={spy} initial={70} max={70} />);
+    type("80");
+    expect(spy).toHaveBeenLastCalledWith(null);
+    expect((input() as HTMLInputElement).value).toBe("80");
+    expect(screen.getByText(/^No puede pasar de 70,00/)).toBeTruthy();
+    type("7x");
+    expect((input() as HTMLInputElement).value).toBe("7x");
+    expect(screen.getByText("Escribe un importe, por ejemplo 12,50.")).toBeTruthy();
+  });
+
   it("shows an amount set from outside", () => {
     render(<Harness spy={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: "Todo el saldo" }));
