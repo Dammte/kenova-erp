@@ -319,6 +319,21 @@ a.code:hover {
   font: 600 22px/30px var(--k-font-sans);
   font-variant-numeric: tabular-nums;
 }
+/* Long months: the totals stay in sight while the orders scroll. */
+.totals.pinned {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: var(--k-space-2) 0;
+  background: var(--k-bg);
+}
+.exportBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--k-space-3);
+}
 .totals .totalMain {
   border-color: var(--k-accent);
   background: var(--k-accent-subtle);
@@ -525,5 +540,21 @@ a.code:hover {
   }
   .card {
     padding: var(--k-space-4);
+  }
+}
+@media (max-width: 640px) {
+  /* On a phone the pinned totals shrink to one compact row. */
+  .totals.pinned {
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    gap: var(--k-space-2);
+  }
+  .totals.pinned > div {
+    padding: var(--k-space-2);
+  }
+  .totals.pinned dt {
+    font: var(--k-text-xs);
+  }
+  .totals.pinned dd {
+    font: 600 15px/22px var(--k-font-sans);
   }
 }
