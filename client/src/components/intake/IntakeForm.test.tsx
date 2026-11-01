@@ -85,7 +85,7 @@ describe("IntakeForm", () => {
         },
       },
     });
-    expect(push).toHaveBeenCalledWith("/ordenes?orden=o9");
+    expect(push).toHaveBeenCalledWith("/ordenes?orden=o9&creada=1");
   });
 
   it("starts a new client from the search and opens the device form", async () => {

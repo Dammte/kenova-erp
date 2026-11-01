@@ -83,6 +83,7 @@ export default function OrderPanel({
   fullHref,
   onClose,
   onChanged,
+  justCreated = false,
 }: {
   id: string;
   /** The number from the list, shown while the order loads. */
@@ -92,15 +93,20 @@ export default function OrderPanel({
   onClose: () => void;
   /** After the panel changed the order, so the list can refresh. */
   onChanged?: () => void;
+  /** Opened right after creating the order: the focus goes to printing. */
+  justCreated?: boolean;
 }) {
   const { data, error, retry } = useOrder(id);
-  const closeRef = useRef<HTMLButtonElement>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  const printRef = useRef<HTMLAnchorElement>(null);
+  const focusPrint = useRef(justCreated);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
 
-  // Focus moves into the panel once; Esc closes it.
+  // Design 4: focus goes to the panel's title once, so a screen reader reads
+  // which order opened; Esc closes it.
   useEffect(() => {
-    closeRef.current?.focus();
+    (focusPrint.current ? printRef : titleRef).current?.focus();
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onCloseRef.current();
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -119,7 +125,9 @@ export default function OrderPanel({
       <aside className={styles.panel} role="dialog" aria-modal="true" aria-label={`Orden ${title}`}>
         <header className={styles.header}>
           <div className={styles.headLine}>
-            <h2 className={styles.code}>{title}</h2>
+            <h2 ref={titleRef} tabIndex={-1} className={styles.code}>
+              {title}
+            </h2>
             {order && <StatusChip status={order.status} />}
             {order && order.priority !== "medium" && order.priority !== "low" && (
               <span className={`${styles.priority} ${styles[`p_${order.priority}`]}`}>
@@ -127,7 +135,6 @@ export default function OrderPanel({
               </span>
             )}
             <button
-              ref={closeRef}
               type="button"
               className={styles.close}
               onClick={onClose}
@@ -138,7 +145,7 @@ export default function OrderPanel({
           </div>
           {order && <p className={styles.sub}>{headline(order)}</p>}
           <p className={styles.headLinks}>
-            <Link href={`/ordenes/${id}/resguardo`} className={styles.full}>
+            <Link ref={printRef} href={`/ordenes/${id}/resguardo`} className={styles.full}>
               <Printer size={14} aria-hidden />
               Imprimir resguardo
             </Link>

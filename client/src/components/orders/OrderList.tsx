@@ -20,6 +20,7 @@ import {
   type OrderListPage,
   type OrderRow,
 } from "./orderList";
+import { Toast } from "@/components/feedback/Toast";
 import OrderPanel from "./OrderPanel";
 import { StatusMenu } from "./StatusMenu";
 import styles from "./OrderList.module.css";
@@ -29,10 +30,9 @@ export const orderHref = (id: string) => `/serviceOrders/${id}`;
 export const NEW_ORDER_HREF = "/ordenes/nueva";
 
 const SEARCH_DELAY_MS = 300;
-/** How long "Deshacer" stays on screen after a status change. */
-const UNDO_MS = 5000;
-
-interface Toast {
+interface ToastMessage {
+  /** A new one restarts the toast's time. */
+  seq: number;
   text: string;
   undo?: () => void;
   error?: boolean;
@@ -96,13 +96,11 @@ export default function OrderList() {
   const { data, loading, failed, retry } = useOrderPage(query);
   // Statuses just changed here, shown until the list comes back with them.
   const [moved, setMoved] = useState<Record<string, OrderStatus>>({});
-  const [toast, setToast] = useState<Toast | null>(null);
+  const [toast, setToastState] = useState<ToastMessage | null>(null);
+  const toastSeq = useRef(0);
+  const setToast = (t: Omit<ToastMessage, "seq"> | null) =>
+    setToastState(t ? { ...t, seq: ++toastSeq.current } : null);
   useEffect(() => setMoved({}), [data]);
-  useEffect(() => {
-    if (!toast) return;
-    const timer = setTimeout(() => setToast(null), UNDO_MS);
-    return () => clearTimeout(timer);
-  }, [toast]);
   const [draft, setDraft] = useState(query.q);
   const searchRef = useRef<HTMLInputElement>(null);
   // The search last sent to the address; anything else there (a menu link to
@@ -131,6 +129,15 @@ export default function OrderList() {
     return s ? `${pathname}?${s}` : pathname;
   };
   const openOrder = (id: string | null) => router.replace(panelHref(id), { scroll: false });
+  // Design 4: closing the panel puts the focus back on the order's row.
+  const closeOrder = (id: string) => {
+    openOrder(null);
+    requestAnimationFrame(() =>
+      Array.from(document.querySelectorAll<HTMLElement>("[data-order-link]"))
+        .find((a) => a.dataset.orderLink === id)
+        ?.focus(),
+    );
+  };
 
   // The search reaches the server once the user stops typing.
   useEffect(() => {
@@ -301,6 +308,7 @@ export default function OrderList() {
                   key={row.id}
                   row={{ ...row, status: moved[row.id] ?? row.status }}
                   href={panelHref(row.id)}
+                  open={row.id === openId}
                   onOpen={() => openOrder(row.id)}
                   onStatus={(from, to) => void changeStatus(row, from, to)}
                 />
@@ -317,20 +325,20 @@ export default function OrderList() {
           id={openId}
           code={rows.find((r) => r.id === openId)?.code}
           fullHref={orderHref(openId)}
-          onClose={() => openOrder(null)}
+          justCreated={params.get("creada") === "1"}
+          onClose={() => closeOrder(openId)}
           onChanged={retry}
         />
       )}
 
       {toast && (
-        <div className={`${styles.toast} ${toast.error ? styles.toastError : ""}`} role="status">
-          {toast.text}
-          {toast.undo && (
-            <button type="button" className={styles.undo} onClick={toast.undo}>
-              Deshacer
-            </button>
-          )}
-        </div>
+        <Toast
+          key={toast.seq}
+          text={toast.text}
+          undo={toast.undo}
+          error={toast.error}
+          onDone={() => setToast(null)}
+        />
       )}
     </div>
   );
@@ -339,25 +347,30 @@ export default function OrderList() {
 function Row({
   row,
   href,
+  open,
   onOpen,
   onStatus,
 }: {
   row: OrderRow;
   /** Opens the order's panel; the number links there too, for the keyboard. */
   href: string;
+  /** Its panel is open: the row stays marked. */
+  open: boolean;
   onOpen: () => void;
   onStatus: (from: OrderStatus, to: OrderStatus) => void;
 }) {
   const faults = row.faults.map((f) => FAULT_LABEL[f] ?? f).join(", ");
   const [firstService, ...moreServices] = row.services;
   return (
-    <tr className={styles.row} onClick={onOpen}>
+    <tr className={`${styles.row} ${open ? styles.rowOpen : ""}`} onClick={onOpen}>
       <td className={styles.code}>
         <Link
           href={href}
           replace
           scroll={false}
           className={`${styles.codeLink} ${styles[`p_${row.priority}`]}`}
+          data-order-link={row.id}
+          aria-current={open ? "true" : undefined}
           onClick={(e) => e.stopPropagation()}
         >
           {row.code}

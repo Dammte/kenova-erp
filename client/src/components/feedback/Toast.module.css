@@ -1,0 +1,83 @@
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: var(--k-space-6);
+  display: flex;
+  align-items: center;
+  gap: var(--k-space-4);
+  max-width: min(560px, calc(100vw - 2 * var(--k-space-4)));
+  padding: var(--k-space-3) var(--k-space-4);
+  overflow: hidden;
+  border-radius: var(--k-radius-lg);
+  background: var(--k-text);
+  color: var(--k-surface);
+  font: var(--k-text-sm);
+  box-shadow: var(--k-shadow-pop);
+  transform: translateX(-50%);
+  z-index: var(--k-z-toast);
+  animation: rise var(--k-dur-base) var(--k-ease-out);
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 8px);
+  }
+}
+
+.error {
+  background: var(--k-danger);
+}
+
+.text {
+  flex: 1;
+}
+
+.undo {
+  flex-shrink: 0;
+  padding: var(--k-space-1) var(--k-space-2);
+  border: 0;
+  border-radius: var(--k-radius-sm);
+  background: none;
+  color: var(--k-surface);
+  font: 600 14px/20px var(--k-font-sans);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.undo:focus-visible {
+  outline: none;
+  box-shadow: var(--k-focus-ring);
+}
+
+/* The time left; it stops with the toast. */
+.bar {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 3px;
+  background: currentColor;
+  opacity: 0.5;
+  transform-origin: left;
+  animation-name: drain;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+.toast[data-paused] .bar {
+  animation-play-state: paused;
+}
+
+@keyframes drain {
+  to {
+    transform: scaleX(0);
+  }
+}
+
+/* Phones: above the bottom bar. */
+@media (max-width: 640px) {
+  .toast {
+    bottom: calc(var(--k-bottom-bar-h) + var(--k-space-3));
+  }
+}
