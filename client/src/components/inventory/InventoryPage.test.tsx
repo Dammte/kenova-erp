@@ -139,6 +139,33 @@ describe("InventoryPage", () => {
     expect(replace).toHaveBeenLastCalledWith("/inventario", { scroll: false });
   });
 
+  it("opens the new and edit forms in the side card, in the address", async () => {
+    render(<InventoryPage />);
+    await act(async () => {});
+    fireEvent.click(screen.getByRole("button", { name: "+ Nuevo repuesto" }));
+    expect(replace).toHaveBeenLastCalledWith("/inventario?repuesto=nuevo", { scroll: false });
+
+    cleanup();
+    params = new URLSearchParams("repuesto=nuevo");
+    render(<InventoryPage />);
+    await act(async () => {});
+    screen.getByRole("complementary", { name: "Nuevo repuesto" });
+
+    cleanup();
+    params = new URLSearchParams("repuesto=BAT-IP13");
+    render(<InventoryPage />);
+    await act(async () => {});
+    fireEvent.click(screen.getByRole("button", { name: "Editar" }));
+    expect(replace).toHaveBeenLastCalledWith("/inventario?repuesto=BAT-IP13&editar=1", { scroll: false });
+
+    cleanup();
+    params = new URLSearchParams("repuesto=BAT-IP13&editar=1");
+    render(<InventoryPage />);
+    await act(async () => {});
+    screen.getByRole("complementary", { name: "Editar repuesto" });
+    screen.getByText("Editar repuesto · BAT-IP13");
+  });
+
   it("explains the empty states", async () => {
     fetchMock.mockImplementation(async () => json({ ...PAGE, total: 0, rows: [] }));
     render(<InventoryPage />);
