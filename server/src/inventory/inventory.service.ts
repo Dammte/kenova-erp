@@ -1,7 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, Repository } from 'typeorm';
+import { EntityManager, IsNull, Repository } from 'typeorm';
 import { Inventory } from './entities/inventory.entity';
+import { averageCost } from './invoices/invoice-match';
 import {
   StockMovement,
   StockMovementKind,
@@ -127,6 +128,10 @@ export class InventoryService {
    * Adds stock with a single UPDATE (stock = stock + n) so concurrent imports
    * never overwrite each other.
    */
+  /**
+   * Units bought: the stock goes up and, when a cost is given, the cost
+   * becomes the weighted average of what was in stock and what came in.
+   */
   async addStock(
     id: string,
     quantity: number,
@@ -135,26 +140,32 @@ export class InventoryService {
   ): Promise<void> {
     const units = Math.trunc(Number(quantity));
     await this.inventoryRepository.manager.transaction(async (m) => {
-      const rows: { stock: number }[] = await m
-        .createQueryBuilder()
-        .update(Inventory)
-        .set({
-          stock: () => `COALESCE("stock", 0) + ${units}`,
-          updatedBy: updatedBy.slice(0, 50),
-          ...(costPrice !== undefined ? { costPrice } : {}),
-        })
-        .where('id = :id', { id })
-        .andWhere('"deletedAt" IS NULL')
-        .returning(['stock'])
-        .execute()
-        .then((r) => r.raw as { stock: number }[]);
-      if (rows.length === 0)
-        throw new NotFoundException('Repuesto no encontrado');
+      const repo = m.getRepository(Inventory);
+      const part = await repo.findOne({
+        where: { id, deletedAt: IsNull() },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!part) throw new NotFoundException('Repuesto no encontrado');
+      const stock = (part.stock ?? 0) + units;
+      await repo.update(id, {
+        stock,
+        updatedBy: updatedBy.slice(0, 50),
+        ...(costPrice !== undefined
+          ? {
+              costPrice: averageCost(
+                part.stock,
+                part.costPrice,
+                units,
+                costPrice,
+              ),
+            }
+          : {}),
+      });
       await recordStock(m, {
         inventoryId: id,
         kind: StockMovementKind.PURCHASE,
         quantity: units,
-        stockAfter: Number(rows[0].stock),
+        stockAfter: stock,
         userId: updatedBy,
       });
     });
