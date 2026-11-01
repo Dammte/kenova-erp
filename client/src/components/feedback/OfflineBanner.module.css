@@ -1,0 +1,26 @@
+.banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--k-space-2) var(--k-space-3);
+  padding: var(--k-space-2) var(--k-space-4);
+  border-bottom: var(--k-border-w) solid var(--k-danger-border);
+  background: var(--k-danger-subtle);
+  color: var(--k-text);
+}
+
+.icon {
+  flex-shrink: 0;
+  color: var(--k-danger);
+}
+
+.text {
+  flex: 1 1 320px;
+  margin: 0;
+  font: var(--k-text-sm);
+}
+
+.countdown {
+  font: var(--k-text-sm);
+  color: var(--k-text-muted);
+}

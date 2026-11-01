@@ -1,43 +1,38 @@
-'use client';
+"use client";
 
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import Image from 'next/image';
-import errorIllustration from '../../public/404.svg';
-import { Undo2 } from 'lucide-react';
+import { useRouter } from "next/navigation";
+import { Search } from "lucide-react";
+import { Button } from "@/components/ui";
+import { ErrorScreen, errorStyles } from "@/components/feedback/ErrorScreen";
+import { OPEN_SEARCH_EVENT } from "@/components/shell/BottomBar";
 
+/** Design 4: a wrong link or a deleted order. */
 export default function NotFound() {
   const router = useRouter();
-
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 px-4">
-      <div className="max-w-md text-center">
-        <Image
-          src={errorIllustration}
-          alt="Página no encontrada"
-          width={300}
-          height={300}
-          className="mx-auto mb-8"
-        />
-        <h1 className="text-5xl font-bold text-gray-800 mb-4">404</h1>
-        <p className="text-lg text-gray-600 mb-6">
-          ¡Vaya! La página que buscas no existe o ha sido movida.
-        </p>
-        <div className="flex justify-center gap-4">
-          <button
-            onClick={() => router.back()}
-            className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition"
-          >
-            <Undo2> Volver atras </Undo2>
-          </button>
-          <Link
-            href="/contact"
-            className="px-6 py-3 border border-blue-600 text-blue-600 font-semibold rounded-lg shadow-md hover:bg-blue-50 transition"
-          >
-            Contactar soporte
-          </Link>
-        </div>
-      </div>
-    </div>
+    <ErrorScreen
+      eyebrow="Página no encontrada"
+      title="Esta página no existe"
+      lead="Puede que el enlace esté mal copiado o que la orden se haya eliminado. Búscala por número, nombre o teléfono."
+      actions={
+        <>
+          <Button variant="primary" onClick={() => router.push("/panel")}>
+            Ir al Panel
+          </Button>
+          <Button variant="ghost" onClick={() => router.back()}>
+            Volver atrás
+          </Button>
+        </>
+      }
+    >
+      <button
+        type="button"
+        className={errorStyles.search}
+        onClick={() => window.dispatchEvent(new Event(OPEN_SEARCH_EVENT))}
+      >
+        <Search size={16} aria-hidden />
+        Buscar orden, cliente o teléfono…
+      </button>
+    </ErrorScreen>
   );
 }
