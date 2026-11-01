@@ -84,6 +84,8 @@ export interface IntakeState {
   waivesQuote: boolean;
   /** The accepted quote this intake comes from; creating the order accepts it. */
   quote?: { id: string; code: string } | null;
+  /** The delivered order this intake is a warranty claim of. */
+  warrantyOf?: { id: string; code: string } | null;
 }
 
 /** What the intake takes from a quote (GET /api/quotes/:id). */
@@ -250,6 +252,7 @@ export function intakePayload(s: IntakeState) {
       ...(s.services.length || s.total !== null ? { totalPrice: orderTotal(s) } : {}),
       ...(s.deposit ? { amountPaid: s.deposit, paymentMethod: s.method } : {}),
       ...(s.waivesQuote ? { waivesQuote: true } : {}),
+      ...(s.warrantyOf ? { warrantyOfId: s.warrantyOf.id } : {}),
     },
     ...(s.quote ? { quoteId: s.quote.id } : {}),
   };

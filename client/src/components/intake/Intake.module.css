@@ -365,6 +365,24 @@ li[aria-selected="true"] > .result {
 .warning ul {
   padding-left: var(--k-space-4);
 }
+.warningActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--k-space-2) var(--k-space-4);
+}
+/* Design R2: the intake opens as a warranty claim of an earlier order. */
+.warrantyClaim {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--k-space-2) var(--k-space-4);
+  margin: 0;
+  padding: var(--k-space-2) var(--k-space-3);
+  border-left: 3px solid var(--k-warning);
+  border-radius: var(--k-radius-md);
+  background: var(--k-status-pendiente-cliente-bg);
+  font-weight: 500;
+}
 .warning a {
   color: var(--k-accent);
   font-weight: 500;

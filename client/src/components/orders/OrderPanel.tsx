@@ -145,6 +145,14 @@ export default function OrderPanel({
               <X size={20} aria-hidden />
             </button>
           </div>
+          {order?.warrantyOf && (
+            <p className={styles.warranty}>
+              Garantía de{" "}
+              <Link href={`/ordenes?orden=${order.warrantyOf.id}`} replace scroll={false}>
+                {order.warrantyOf.code}
+              </Link>
+            </p>
+          )}
           {order && <p className={styles.sub}>{headline(order)}</p>}
           <p className={styles.headLinks}>
             <Link ref={printRef} href={`/ordenes/${id}/resguardo`} className={styles.full}>

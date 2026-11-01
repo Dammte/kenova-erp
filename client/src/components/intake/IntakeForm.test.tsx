@@ -5,6 +5,8 @@ import { SEARCH_DELAY_MS } from "./ClientPicker";
 
 const push = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
+let role: "SUPER_ADMIN" | "STORE_ADMIN" = "STORE_ADMIN";
+vi.mock("@/components/auth/AuthProvider", () => ({ useAuth: () => ({ user: { id: "u1", role } }) }));
 
 const fetchMock = vi.fn();
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
@@ -18,6 +20,7 @@ const SERVICES = [
 const IPHONE = { id: "d1", type: "movil", brand: "Apple", model: "iPhone 13", imei: "356789104521337", createdAt: "2026-10-01T10:00:00Z" };
 
 beforeEach(() => {
+  role = "STORE_ADMIN";
   vi.useFakeTimers();
   push.mockReset();
   fetchMock.mockReset();
@@ -189,6 +192,88 @@ describe("IntakeForm", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Es otro caso, seguir con el alta" }));
     expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  describe("warranty detected at intake", () => {
+    const delivery = (code: string, daysAgo: number, extra: object = {}) => ({
+      id: `id-${code}`,
+      code,
+      daysAgo,
+      withinWarranty: daysAgo <= 90,
+      inTrash: false,
+      summary: "Batería · 59,00 €",
+      ...extra,
+    });
+    async function intakeWith(deliveries: object[]) {
+      fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
+        if (url.includes("/clients/search")) return json([LUCIA]);
+        if (url.includes("/devices/client/c1")) return json([IPHONE]);
+        if (url.includes("/by-imei")) return json({ openOrders: [], deliveries });
+        if (init?.method === "POST") return json({ id: "o9" }, 201);
+        return json([]);
+      });
+      render(<IntakeForm />);
+      await search("lucía");
+      fireEvent.click(screen.getByRole("button", { name: /Lucía Fernández/ }));
+      await act(async () => {});
+      fireEvent.click(screen.getByRole("button", { name: /Apple iPhone 13/ }));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(500);
+      });
+    }
+
+    it("opens the order as a warranty claim of the latest delivery", async () => {
+      await intakeWith([delivery("MP-0098", 18), delivery("MP-0071", 140)]);
+      expect(screen.getByRole("status").textContent).toContain(
+        "Este equipo se entregó hace 18 días en MP-0098 (Batería · 59,00 €). Está dentro del plazo de garantía.",
+      );
+      expect(screen.queryByText(/MP-0071/)).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "Abrir como garantía de MP-0098" }));
+      expect(screen.getByRole("status").textContent).toContain("Garantía de MP-0098");
+
+      fireEvent.click(screen.getByLabelText("Pantalla rota"));
+      fireEvent.click(create());
+      await act(async () => {});
+      expect(posted()!.body.order.warrantyOfId).toBe("id-MP-0098");
+    });
+
+    it("can drop the claim and shows every delivery on request", async () => {
+      await intakeWith([delivery("MP-0098", 18), delivery("MP-0071", 140)]);
+      fireEvent.click(screen.getByRole("button", { name: "Ver las 2 entregas" }));
+      screen.getByText(/hace 140 días/);
+      fireEvent.click(screen.getByRole("button", { name: "Abrir como garantía de MP-0098" }));
+      fireEvent.click(screen.getByRole("button", { name: "Quitar, es otra avería" }));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(500);
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Es otra avería, seguir con el alta" }));
+      expect(screen.queryByRole("status")).toBeNull();
+      fireEvent.click(screen.getByLabelText("Pantalla rota"));
+      fireEvent.click(create());
+      await act(async () => {});
+      expect(posted()!.body.order.warrantyOfId).toBeUndefined();
+    });
+
+    it("out of the period, only a partner can open it anyway", async () => {
+      await intakeWith([delivery("MP-0071", 140)]);
+      expect(screen.getByRole("status").textContent).toContain(
+        "Este equipo se entregó hace 140 días (MP-0071, Batería · 59,00 €). Está fuera del plazo de garantía.",
+      );
+      expect(screen.queryByRole("button", { name: "Abrir garantía igualmente" })).toBeNull();
+      cleanup();
+      role = "SUPER_ADMIN";
+      await intakeWith([delivery("MP-0071", 140)]);
+      fireEvent.click(screen.getByRole("button", { name: "Abrir garantía igualmente" }));
+      expect(screen.getByRole("status").textContent).toContain("Garantía de MP-0071");
+    });
+
+    it("an original in the trash has to be restored first", async () => {
+      await intakeWith([delivery("MP-0098", 18, { inTrash: true })]);
+      expect(screen.getByRole("status").textContent).toContain(
+        "La orden MP-0098 está en la Papelera. Restáurala o crea una orden normal.",
+      );
+      expect(screen.queryByRole("button", { name: /Abrir/ })).toBeNull();
+    });
   });
 
   it("starts with the rate chosen in Tarifas when it comes in the address", async () => {

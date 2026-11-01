@@ -9,6 +9,7 @@ import { FAULT_LABEL } from "@/components/orders/orderList";
 import { ClientPicker } from "./ClientPicker";
 import { DevicePicker } from "./DevicePicker";
 import { ImeiWarning } from "./ImeiWarning";
+import { useAuth } from "@/components/auth/AuthProvider";
 import { ServicePicker } from "./ServicePicker";
 import {
   ACCESSORY_CHIPS,
@@ -83,6 +84,7 @@ function Block({ n, title, children, field }: { n: number; title: string; childr
  */
 export function IntakeForm() {
   const router = useRouter();
+  const { user } = useAuth();
   const [s, setS] = useState<IntakeState>(START);
   const [saving, setSaving] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
@@ -212,9 +214,25 @@ export function IntakeForm() {
             <DevicePicker
               clientId={knownClientId}
               value={s.device}
-              onChange={(device) => set({ device })}
+              // Another device is not the one under warranty.
+              onChange={(device) => set({ device, warrantyOf: null })}
             />
-            {s.device?.imei && <ImeiWarning imei={s.device.imei} />}
+            {s.warrantyOf ? (
+              <p className={styles.warrantyClaim} role="status">
+                Garantía de {s.warrantyOf.code}
+                <button type="button" className={styles.link} onClick={() => set({ warrantyOf: null })}>
+                  Quitar, es otra avería
+                </button>
+              </p>
+            ) : (
+              s.device?.imei && (
+                <ImeiWarning
+                  imei={s.device.imei}
+                  partner={user?.role === "SUPER_ADMIN"}
+                  onWarranty={(d) => set({ warrantyOf: { id: d.id, code: d.code } })}
+                />
+              )
+            )}
           </Block>
 
           <Block n={3} title="Avería declarada" field="faults">

@@ -776,6 +776,12 @@ describe("order helpers", () => {
   });
 });
 
+it("says which order a warranty claim comes from", async () => {
+  await open({ warrantyOfId: "o0", warrantyOf: { id: "o0", code: "MP-0098" } });
+  expect(screen.getByText(/^Garantía de/).textContent).toBe("Garantía de MP-0098");
+  expect(screen.getByRole("link", { name: "MP-0098" }).getAttribute("href")).toBe("/ordenes?orden=o0");
+});
+
 describe("OrderPanel · devolver cobro", () => {
   const charge = (id: string, amount: string, extra: Partial<OrderPayment> = {}): OrderPayment => ({
     id,

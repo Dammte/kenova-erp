@@ -22,6 +22,8 @@ export interface OrderDetail {
   cancelReason: string | null;
   workDone: string | null;
   warrantyOfId: string | null;
+  /** The delivered order this one is a warranty claim of. */
+  warrantyOf?: { id: string; code: string } | null;
   storeId?: string;
   /** The customer waived a written quote; prints skip "presupuesto válido". */
   waivesQuote?: boolean;

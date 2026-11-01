@@ -60,6 +60,7 @@ const PAGE: OrderListPage = {
       createdAt: "2026-09-01T10:00:00Z",
       days: 8,
       uncollected: true,
+      warrantyOf: "MP-0098",
     },
   ],
   total: 2,
@@ -118,6 +119,8 @@ describe("OrderList", () => {
     row.getByText("Debe 90,00 €");
     row.getByLabelText("40 días en taller");
     within(second).getByText("sin recoger");
+    within(second).getByText("Garantía de MP-0098");
+    expect(row.queryByText(/Garantía de/)).toBeNull();
     within(second).getByLabelText("8 días sin recoger");
     expect(within(second).queryByText(/Debe/)).toBeNull();
   });

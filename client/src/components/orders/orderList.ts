@@ -20,6 +20,8 @@ export interface OrderRow {
   /** Days in the shop; for a finished order, days waiting to be collected. */
   days: number | null;
   uncollected: boolean;
+  /** Code of the delivered order this one is a warranty claim of. */
+  warrantyOf?: string | null;
 }
 
 export interface OrderListPage {

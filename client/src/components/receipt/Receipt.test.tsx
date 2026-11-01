@@ -102,6 +102,16 @@ describe("Receipt", () => {
   });
 });
 
+it("marks a warranty claim, and «sin cargo» when it costs nothing", () => {
+  const claim = { ...ORDER, warrantyOfId: "o0", warrantyOf: { id: "o0", code: "MP-0098" } };
+  render(<Receipt order={claim} payments={[]} store={STORE} format="ticket" />);
+  expect(screen.getByRole("article", { name: "Resguardo" }).textContent).toContain("GARANTÍA DE MP-0098");
+  expect(screen.getByRole("article", { name: "Resguardo" }).textContent).not.toContain("SIN CARGO");
+  cleanup();
+  render(<Receipt order={{ ...claim, totalPrice: "0.00" }} payments={[]} store={STORE} format="ticket" />);
+  expect(screen.getByRole("article", { name: "Resguardo" }).textContent).toContain("GARANTÍA DE MP-0098 · SIN CARGO");
+});
+
 describe("Label", () => {
   it("shows the code, its barcode, the device and the client, never the unlock code or prices", () => {
     render(<Label order={ORDER} />);
