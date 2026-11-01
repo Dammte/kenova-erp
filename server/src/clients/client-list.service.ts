@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import type { AuthUser } from '../auth/auth.types';
+import { madridOfUtcNaive } from '../common/madrid-time';
 import { isClientVisible, scopedStoreId } from '../common/store-scope';
 import { dismissed } from './client-merge.service';
 import { ListClientsDto } from './dto/list-clients.dto';
@@ -125,7 +126,7 @@ export class ClientListService {
          FROM client c
          LEFT JOIN LATERAL (
            SELECT count(*) AS orders,
-                  to_char(max(so."createdAt") AT TIME ZONE 'Europe/Madrid', 'YYYY-MM-DD') AS "lastVisit",
+                  to_char(${madridOfUtcNaive('max(so."createdAt")')}, 'YYYY-MM-DD') AS "lastVisit",
                   sum(so.balance) FILTER (WHERE so.status <> 'cancelado' AND so.balance > 0) AS balance
              FROM service_orders so
             WHERE so."clientId" = c.id AND so."deletedAt" IS NULL
@@ -159,7 +160,7 @@ export class ClientListService {
     const mine = `so."clientId" = $1 AND so."deletedAt" IS NULL
       AND ($2::uuid IS NULL OR so."storeId" = $2)`;
     const local = (col: string) =>
-      `to_char(${col} AT TIME ZONE 'Europe/Madrid', 'YYYY-MM-DD')`;
+      `to_char(${madridOfUtcNaive(col)}, 'YYYY-MM-DD')`;
     const [stats] = await this.db.query<ClientSummary['stats'][]>(
       `SELECT count(*)::int AS orders,
               coalesce(sum(so."amountPaid"), 0)::numeric(12,2)::text AS spent,
