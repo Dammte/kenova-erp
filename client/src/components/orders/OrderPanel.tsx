@@ -151,6 +151,7 @@ export default function OrderPanel({
               <Link href={`/ordenes?orden=${order.warrantyOf.id}`} replace scroll={false}>
                 {order.warrantyOf.code}
               </Link>
+              {order.warrantyRejectedReason && ` · no procede: ${order.warrantyRejectedReason}`}
             </p>
           )}
           {order && <p className={styles.sub}>{headline(order)}</p>}

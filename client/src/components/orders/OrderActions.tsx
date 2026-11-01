@@ -57,7 +57,7 @@ export function OrderActions({
   onChanged: () => void;
 }) {
   const { user } = useAuth();
-  const [step, setStep] = useState<"idle" | "finish" | "deliver" | "cancel" | "part">("idle");
+  const [step, setStep] = useState<"idle" | "finish" | "deliver" | "cancel" | "part" | "reject">("idle");
   const [saving, setSaving] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   // Parts are ordered from the partners' stock (decision 5).
@@ -149,6 +149,19 @@ export function OrderActions({
   const canOrderPart = partner && (status === "en_progreso" || status === "pendiente_piezas");
   if (step === "cancel") {
     body = <CancelForm order={order} payments={payments} onCancel={() => setStep("idle")} onDone={onChanged} />;
+  } else if (step === "reject") {
+    body = (
+      <ReasonForm
+        label="Por qué no procede la garantía"
+        placeholder="Golpe en la pantalla nueva"
+        submit="Marcar «no procede»"
+        saving={saving}
+        onCancel={() => setStep("idle")}
+        onSubmit={async (reason) => {
+          if (await patch({ warrantyRejectedReason: reason })) setStep("idle");
+        }}
+      />
+    );
   } else if (step === "part") {
     body = (
       <PartOrderForm
@@ -172,6 +185,17 @@ export function OrderActions({
               {ordered?.length ? "Pedir otra pieza…" : "Pedir pieza…"}
             </Button>
           )}
+          {/* Design R2 «Garantía no procede»: the claim is not covered, the work is charged as usual. */}
+          {order.warrantyOfId &&
+            (order.warrantyRejectedReason ? (
+              <Button variant="ghost" size="sm" loading={saving} onClick={() => void patch({ warrantyRejectedReason: null })}>
+                La garantía sí procede
+              </Button>
+            ) : (
+              <Button variant="ghost" size="sm" onClick={() => setStep("reject")}>
+                Garantía no procede…
+              </Button>
+            ))}
           <Button variant="ghost" size="sm" onClick={() => setStep("cancel")}>
             Cancelar orden…
           </Button>
@@ -291,6 +315,68 @@ function FinishForm({
       <p className={styles.actions}>
         <Button type="submit" variant="primary" loading={saving} disabledReason={missing}>
           Finalizar orden
+        </Button>
+        <Button variant="ghost" onClick={onCancel}>
+          Volver
+        </Button>
+      </p>
+    </form>
+  );
+}
+
+/** A short form that only asks for a required reason. */
+function ReasonForm({
+  label,
+  placeholder,
+  submit,
+  saving,
+  onSubmit,
+  onCancel,
+}: {
+  label: string;
+  placeholder: string;
+  submit: string;
+  saving: boolean;
+  onSubmit: (reason: string) => void;
+  onCancel: () => void;
+}) {
+  const [reason, setReason] = useState("");
+  const send = (e: FormEvent) => {
+    e.preventDefault();
+    if (reason.trim() && !saving) onSubmit(reason.trim());
+  };
+  return (
+    <form
+      className={styles.finish}
+      onSubmit={send}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") {
+          e.stopPropagation();
+          onCancel();
+        }
+      }}
+      aria-label={submit}
+    >
+      <label className={styles.label} htmlFor="reason-form">
+        {label}
+      </label>
+      <input
+        id="reason-form"
+        className={styles.input}
+        value={reason}
+        maxLength={300}
+        autoFocus
+        placeholder={placeholder}
+        onChange={(e) => setReason(e.target.value)}
+      />
+      <p className={styles.actions}>
+        <Button
+          type="submit"
+          variant="primary"
+          loading={saving}
+          disabledReason={reason.trim() ? undefined : "Escribe el motivo."}
+        >
+          {submit}
         </Button>
         <Button variant="ghost" onClick={onCancel}>
           Volver
