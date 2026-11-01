@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, IsNull, Repository } from 'typeorm';
+import { AuditService } from '../audit/audit.service';
 import { Inventory } from './entities/inventory.entity';
 import { averageCost } from './invoices/invoice-match';
 import {
@@ -55,6 +56,7 @@ export class InventoryService {
   constructor(
     @InjectRepository(Inventory)
     private readonly inventoryRepository: Repository<Inventory>,
+    private readonly audit: AuditService,
   ) {}
 
   /** Stock it is created with is recorded as its first movement. */
@@ -187,8 +189,15 @@ export class InventoryService {
     );
   }
 
-  async remove(id: string): Promise<void> {
+  async remove(id: string, actorId?: string): Promise<void> {
     const result = await this.inventoryRepository.softDelete(id);
     if (!result.affected) throw new NotFoundException('Repuesto no encontrado');
+    // Design R2 3.10: the Papelera says who deleted it.
+    await this.audit.record({
+      action: 'PART_DELETED',
+      actorUserId: actorId ?? null,
+      entityType: 'inventory',
+      entityId: id,
+    });
   }
 }
