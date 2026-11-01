@@ -12,7 +12,8 @@ import { AuthProvider, useAuth } from "./AuthProvider";
 const PUBLIC_PATHS = ["/login", "/recuperar-contrasena", "/restablecer-contrasena"];
 
 /** Signed-in pages made for paper: no sidebar or bars around them. */
-const isPrintPage = (pathname: string) => /^\/ordenes\/[^/]+\/resguardo$/.test(pathname);
+const isPrintPage = (pathname: string) =>
+  /^\/ordenes\/[^/]+\/resguardo$/.test(pathname) || /^\/envios\/[^/]+\/hoja$/.test(pathname);
 
 function ProtectedContent({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();

@@ -146,6 +146,31 @@ describe("ShipmentsPage", () => {
     });
   });
 
+  it("opens the form for a new shipment, named for who sends", async () => {
+    await show();
+    fireEvent.click(screen.getByRole("button", { name: "+ Envío a tienda" }));
+    expect(replace).toHaveBeenCalledWith("/envios?envio=nuevo", {
+      scroll: false,
+    });
+    cleanup();
+    user = { ...SUPER, role: "STORE_ADMIN", storeId: VILLARCAYO.id };
+    search = "envio=nuevo";
+    await show();
+    screen.getByRole("button", { name: "+ Nuevo envío" });
+    screen.getByRole("region", { name: "Nuevo envío" });
+    expect(calls()).not.toContain("/api/shipments/nuevo");
+  });
+
+  it("the open shipment links to its printable sheet", async () => {
+    search = "envio=e14";
+    await show();
+    expect(
+      screen
+        .getByRole("link", { name: "Imprimir hoja de envío" })
+        .getAttribute("href"),
+    ).toBe("/envios/e14/hoja");
+  });
+
   it("filters by status from page 1, keeping it in the address", async () => {
     search = "estado=sent&page=2";
     await show();
