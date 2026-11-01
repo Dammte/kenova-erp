@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import type { AuthUser } from '../auth/auth.types';
+import { madridOfUtcNaive } from '../common/madrid-time';
 import { scopedStoreId } from '../common/store-scope';
 import { Store } from '../stores/entities/store.entity';
 import { UserRole } from '../users/entities/user.entity';
@@ -14,8 +15,10 @@ export const UNCOLLECTED_DAYS = 30;
 const LIST_LIMIT = 5;
 const TZ = 'Europe/Madrid';
 
-/** Local (Spain) calendar day of a timestamp column, for "today" and the week. */
+/** Local (Spain) calendar day of a timestamptz column, for "today" and the week. */
 const day = (col: string) => `(${col} AT TIME ZONE '${TZ}')::date`;
+/** The same for service_orders."createdAt", a timestamp without time zone. */
+const createdDay = (col: string) => `${madridOfUtcNaive(col)}::date`;
 const TODAY = `(now() AT TIME ZONE '${TZ}')::date`;
 
 interface List<T> {
@@ -124,8 +127,8 @@ export class TodayService {
 
     const [counts] = await this.db.query<Record<string, string>[]>(
       `SELECT
-         count(*) FILTER (WHERE ${day('o."createdAt"')} = ${TODAY}) AS received,
-         count(*) FILTER (WHERE ${day('o."createdAt"')} = ${TODAY} - 7) AS "receivedLastWeek",
+         count(*) FILTER (WHERE ${createdDay('o."createdAt"')} = ${TODAY}) AS received,
+         count(*) FILTER (WHERE ${createdDay('o."createdAt"')} = ${TODAY} - 7) AS "receivedLastWeek",
          count(*) FILTER (WHERE o.status = 'en_progreso') AS "inProgress",
          count(*) FILTER (WHERE o.status = 'en_progreso' AND o.priority IN ('high', 'urgent')) AS "inProgressUrgent",
          count(*) FILTER (WHERE o.status = 'pendiente_piezas') AS "waitingParts",
@@ -206,7 +209,7 @@ export class TodayService {
     const week = await this.db.query<TodaySummary['week']>(
       `SELECT to_char(g.d, 'YYYY-MM-DD') AS day,
               (SELECT count(*)::int FROM service_orders o
-                WHERE ${orders} AND ${day('o."createdAt"')} = g.d) AS received,
+                WHERE ${orders} AND ${createdDay('o."createdAt"')} = g.d) AS received,
               (SELECT count(*)::int FROM service_orders o
                 WHERE ${orders} AND o.status = 'entregado' AND ${day('o."deliveredAt"')} = g.d) AS delivered
          FROM generate_series(${TODAY} - 6, ${TODAY}, interval '1 day') AS g(d)

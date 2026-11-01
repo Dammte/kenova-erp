@@ -165,4 +165,25 @@ describe('Panel «Hoy» (GET /api/today)', () => {
       (await today(vc)).counts.received,
     );
   });
+  it('counts an order taken in just after midnight in Madrid as today', async () => {
+    const before = (await today(vc)).counts.received;
+    // service_orders."createdAt" holds UTC wall-clock time. 00:30 in Madrid
+    // today is still the day before in UTC.
+    const madrid = (time: string, days = 0) =>
+      `((date_trunc('day', now() AT TIME ZONE 'Europe/Madrid') + make_interval(days => ${days}) + interval '${time}')
+         AT TIME ZONE 'Europe/Madrid') AT TIME ZONE 'UTC'`;
+    const justAfter = await intake(vc);
+    const lastNight = await intake(vc);
+    await t.db.query(
+      `UPDATE service_orders SET "createdAt" = ${madrid('00:30')} WHERE id = $1`,
+      [justAfter],
+    );
+    await t.db.query(
+      `UPDATE service_orders SET "createdAt" = ${madrid('23:30', -1)} WHERE id = $1`,
+      [lastNight],
+    );
+    const { counts, week } = await today(vc);
+    expect(counts.received).toBe(Number(before) + 1);
+    expect(week[6].received).toBe(Number(before) + 1);
+  });
 });

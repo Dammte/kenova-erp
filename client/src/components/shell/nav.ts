@@ -1,6 +1,7 @@
 import {
   ClipboardList,
   Coins,
+  DatabaseBackup,
   FileText,
   Library,
   LayoutDashboard,
@@ -43,11 +44,10 @@ const SHIPMENTS: NavItem = { label: "Envíos", href: "/envios", icon: Truck };
 const CATALOG: NavItem = { label: "Catálogo", href: "/catalogo", icon: Library };
 const TRASH: NavItem = { label: "Papelera", href: "/papelera", icon: Trash2 };
 const STORE: NavItem = { label: "Tienda", href: "/tienda", icon: Store };
+const BACKUP: NavItem = { label: "Copia de seguridad", href: "/copia-seguridad", icon: DatabaseBackup };
 
 /**
- * The menu approved for each role. Sections whose screen does not exist yet
- * (Copia de seguridad) is added
- * as each screen is built. Stock belongs to the partners only; a store's only
+ * The menu approved for each role. Stock belongs to the partners only; a store's only
  * setting is its own notice texts (design 2.5). «Envíos» only when there are
  * partner stores (see usePartnerStores).
  */
@@ -56,7 +56,7 @@ export function navFor(role: Role, shipments = false): NavSections {
   if (role === "SUPER_ADMIN") {
     return {
       main: [PANEL, ORDERS, ...ship, QUOTES, RATES, CLIENTS, INVENTORY, MONEY],
-      settings: [SERVICES, CATALOG, TEMPLATES, USERS, STORE, TRASH],
+      settings: [SERVICES, CATALOG, TEMPLATES, USERS, STORE, TRASH, BACKUP],
     };
   }
   return { main: [PANEL, ORDERS, ...ship, QUOTES, RATES, CLIENTS, MONEY], settings: [TEMPLATES] };

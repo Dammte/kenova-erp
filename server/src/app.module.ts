@@ -26,6 +26,7 @@ import { ShipmentsModule } from './shipments/shipments.module';
 import { StickyNotesModule } from './sticky-notes/sticky-notes.module';
 import { StoresModule } from './stores/stores.module';
 import { TrashModule } from './trash/trash.module';
+import { BackupModule } from './backup/backup.module';
 import { UsersModule } from './users/users.module';
 
 @Module({
@@ -68,6 +69,7 @@ import { UsersModule } from './users/users.module';
     TodayModule,
     CashModule,
     TrashModule,
+    BackupModule,
   ],
   controllers: [AppController],
 })
