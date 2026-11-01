@@ -782,6 +782,36 @@ it("says which order a warranty claim comes from", async () => {
   expect(screen.getByRole("link", { name: "MP-0098" }).getAttribute("href")).toBe("/ordenes?orden=o0");
 });
 
+describe("OrderPanel · garantía no procede", () => {
+  const claim = { warrantyOfId: "o0", warrantyOf: { id: "o0", code: "MP-0098" } };
+
+  it("is only offered on a warranty claim", async () => {
+    await open();
+    expect(screen.queryByRole("button", { name: "Garantía no procede…" })).toBeNull();
+  });
+
+  it("marks the claim as not covered with a reason", async () => {
+    await open(claim);
+    fireEvent.click(screen.getByRole("button", { name: "Garantía no procede…" }));
+    const submit = screen.getByRole("button", { name: "Marcar «no procede»" });
+    expect(submit.hasAttribute("disabled")).toBe(true);
+    fireEvent.change(screen.getByLabelText("Por qué no procede la garantía"), {
+      target: { value: " Golpe en la pantalla nueva " },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Marcar «no procede»" }));
+    await act(async () => {});
+    expect(patches()).toEqual([["/api/service-orders/o1", { warrantyRejectedReason: "Golpe en la pantalla nueva" }]]);
+  });
+
+  it("shows why it does not apply and can undo it", async () => {
+    await open({ ...claim, warrantyRejectedReason: "Golpe" });
+    expect(screen.getByText(/^Garantía de/).textContent).toBe("Garantía de MP-0098 · no procede: Golpe");
+    fireEvent.click(screen.getByRole("button", { name: "La garantía sí procede" }));
+    await act(async () => {});
+    expect(patches()).toEqual([["/api/service-orders/o1", { warrantyRejectedReason: null }]]);
+  });
+});
+
 describe("OrderPanel · devolver cobro", () => {
   const charge = (id: string, amount: string, extra: Partial<OrderPayment> = {}): OrderPayment => ({
     id,

@@ -24,6 +24,8 @@ export interface OrderDetail {
   warrantyOfId: string | null;
   /** The delivered order this one is a warranty claim of. */
   warrantyOf?: { id: string; code: string } | null;
+  /** A warranty claim that turned out not to be covered, and why. */
+  warrantyRejectedReason?: string | null;
   storeId?: string;
   /** The customer waived a written quote; prints skip "presupuesto válido". */
   waivesQuote?: boolean;
