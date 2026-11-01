@@ -96,6 +96,34 @@ describe('Order outcome and warranty claims', () => {
     expect(claim.status).toBe(201);
     expect(claim.body.warrantyOfId).toBe(original);
 
+    // The order and the list carry the original's number, even once the
+    // original is in the trash.
+    const detail = (
+      await t
+        .http()
+        .get(`/api/service-orders/${claim.body.id}`)
+        .set('Cookie', sa)
+    ).body;
+    expect(detail.warrantyOf).toEqual({
+      id: original,
+      code: expect.any(String),
+    });
+    const code = detail.warrantyOf.code as string;
+    await send('delete', sa, `/api/service-orders/${original}`);
+    const list = (
+      await t.http().get('/api/service-orders/list?tab=all').set('Cookie', sa)
+    ).body.rows as { id: string; warrantyOf: string | null }[];
+    expect(list.find((r) => r.id === claim.body.id)?.warrantyOf).toBe(code);
+    expect(list.find((r) => r.id !== claim.body.id)?.warrantyOf).toBeNull();
+    expect(
+      (
+        await t
+          .http()
+          .get(`/api/service-orders/${claim.body.id}`)
+          .set('Cookie', sa)
+      ).body.warrantyOf,
+    ).toEqual({ id: original, code });
+
     const pending = (await newOrder()).body.id;
     const notYet = await newOrder({ warrantyOfId: pending });
     expect(notYet.status).toBe(400);

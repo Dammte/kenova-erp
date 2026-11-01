@@ -535,7 +535,14 @@ export class ServiceOrderService {
   async findOne(id: string, actor?: AuthUser): Promise<ServiceOrder> {
     const serviceOrder = await this.serviceOrderRepository.findOne({
       where: { id, deletedAt: IsNull(), ...(actor ? orderScope(actor) : {}) },
-      relations: ['client', 'device', 'services', 'serviceHistory', 'lines'],
+      relations: [
+        'client',
+        'device',
+        'services',
+        'serviceHistory',
+        'lines',
+        'warrantyOf',
+      ],
       order: { lines: { position: 'ASC' } },
       withDeleted: true,
     });
@@ -546,6 +553,11 @@ export class ServiceOrderService {
       );
     }
 
+    // Only what the screens show of the original: its number.
+    if (serviceOrder.warrantyOf) {
+      const { id: originalId, code } = serviceOrder.warrantyOf;
+      serviceOrder.warrantyOf = { id: originalId, code } as ServiceOrder;
+    }
     await this.resolveBrandNames([serviceOrder]);
     return serviceOrder;
   }
