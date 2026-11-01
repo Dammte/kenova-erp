@@ -1,0 +1,347 @@
+/* Design R2 3.14 «Envíos»: the shipments on the left, the open one on the right. */
+.page {
+  display: grid;
+  grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+  gap: var(--k-space-6);
+  align-items: start;
+  min-height: 100%;
+  padding: var(--k-space-6);
+  background: var(--k-bg);
+  color: var(--k-text);
+  font: var(--k-text-base);
+}
+.page p {
+  margin: 0;
+}
+
+.listPane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-3);
+  min-width: 0;
+}
+.title {
+  margin: 0;
+  font: var(--k-text-xl);
+}
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--k-space-2);
+}
+.filter {
+  padding: 2px var(--k-space-3);
+  border: var(--k-border-w) solid var(--k-border);
+  border-radius: var(--k-radius-full);
+  background: var(--k-surface);
+  color: inherit;
+  font: var(--k-text-sm);
+  cursor: pointer;
+}
+.filter[aria-pressed="true"] {
+  border-color: var(--k-accent);
+  background: var(--k-accent-subtle);
+  color: var(--k-accent);
+  font-weight: 600;
+}
+.filter:focus-visible,
+.item:focus-visible,
+.closeButton:focus-visible {
+  outline: none;
+  box-shadow: var(--k-focus-ring);
+}
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: var(--k-space-3);
+  border: var(--k-border-w) solid var(--k-border);
+  border-radius: var(--k-radius-lg);
+  background: var(--k-surface);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.item:hover {
+  border-color: var(--k-border-strong);
+}
+.item[aria-current="true"] {
+  border-color: var(--k-accent);
+  background: var(--k-accent-subtle);
+}
+.itemHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--k-space-2);
+}
+.skeleton {
+  height: 76px;
+  border-radius: var(--k-radius-lg);
+  background: var(--k-subtle);
+}
+.code {
+  margin: 0;
+  color: inherit;
+  font: 600 14px/20px var(--k-font-mono);
+  text-decoration: none;
+}
+a.code {
+  color: var(--k-accent);
+  white-space: nowrap;
+}
+a.code:hover {
+  text-decoration: underline;
+}
+.sub {
+  color: var(--k-text-muted);
+  font: var(--k-text-sm);
+}
+.error {
+  color: var(--k-danger);
+  font: var(--k-text-sm);
+}
+.linkButton {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--k-accent);
+  font: var(--k-text-sm);
+  font-weight: 500;
+  cursor: pointer;
+}
+.linkButton:hover {
+  text-decoration: underline;
+}
+.empty {
+  padding: var(--k-space-6);
+  border: var(--k-border-w) dashed var(--k-border-strong);
+  border-radius: var(--k-radius-lg);
+  background: var(--k-surface);
+}
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--k-space-2);
+}
+
+/* Shipment status: a filled pill, unlike the order location badge. */
+.chip {
+  padding: 0 var(--k-space-2);
+  border-radius: var(--k-radius-full);
+  font: var(--k-text-sm);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.chip_sent {
+  background: var(--k-status-en-progreso-bg);
+  color: var(--k-status-en-progreso);
+}
+.chip_received {
+  background: var(--k-success-subtle);
+  color: var(--k-success);
+}
+.chip_received_incomplete {
+  background: var(--k-status-pendiente-cliente-bg);
+  color: var(--k-status-pendiente-cliente);
+}
+
+/* The open shipment. */
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-4);
+  min-width: 0;
+  padding: var(--k-space-4) var(--k-space-6);
+  border: var(--k-border-w) solid var(--k-border);
+  border-radius: var(--k-radius-lg);
+  background: var(--k-surface);
+}
+.cardHead {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-1);
+}
+.cardTitle {
+  display: flex;
+  align-items: center;
+  gap: var(--k-space-3);
+}
+.cardTitle .code {
+  font-size: 18px;
+  line-height: 26px;
+}
+.closeButton {
+  margin-left: auto;
+  padding: 0 var(--k-space-2);
+  border: 0;
+  border-radius: var(--k-radius-sm);
+  background: none;
+  color: var(--k-text-muted);
+  font: var(--k-text-lg);
+  cursor: pointer;
+}
+.closeButton:hover {
+  background: var(--k-subtle);
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--k-space-2);
+}
+.tableWrap {
+  overflow-x: auto;
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font: var(--k-text-sm);
+}
+.table th {
+  padding: var(--k-space-2);
+  border-bottom: var(--k-border-w) solid var(--k-border);
+  color: var(--k-text-muted);
+  font-weight: 500;
+  text-align: left;
+  white-space: nowrap;
+}
+.table td {
+  padding: var(--k-space-2);
+  border-bottom: var(--k-border-w) solid var(--k-border);
+  vertical-align: top;
+}
+.state_ok {
+  color: var(--k-success);
+  font-weight: 600;
+}
+.state_warn {
+  color: var(--k-warning);
+  font-weight: 600;
+}
+.state_muted {
+  color: var(--k-text-muted);
+}
+
+/* Reception with the scanner. */
+.reception {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-3);
+}
+.receptionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--k-space-2);
+}
+.receptionTitle {
+  margin: 0;
+  font: var(--k-text-lg);
+}
+.scanForm {
+  display: flex;
+}
+.scanInput {
+  flex: 1;
+  min-width: 0;
+  height: 48px;
+  padding: 0 var(--k-space-4);
+  border: 2px solid var(--k-accent);
+  border-radius: var(--k-radius-md);
+  background: var(--k-surface);
+  color: var(--k-text);
+  font: 500 18px/24px var(--k-font-mono);
+}
+.scanInput:focus {
+  outline: none;
+  box-shadow: var(--k-focus-ring);
+}
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.readings,
+.checklist {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font: var(--k-text-sm);
+}
+.readings li {
+  padding: var(--k-space-1) var(--k-space-3);
+  border-radius: var(--k-radius-sm);
+}
+.readings li:first-child {
+  font-weight: 600;
+}
+.reading_ok {
+  background: var(--k-success-subtle);
+  color: var(--k-success);
+}
+.reading_warn {
+  background: var(--k-status-pendiente-cliente-bg);
+  color: var(--k-warning);
+}
+.reading_muted {
+  background: var(--k-subtle);
+  color: var(--k-text-muted);
+}
+.reading_error {
+  background: var(--k-danger-subtle);
+  color: var(--k-danger);
+}
+.checklist li {
+  display: flex;
+  gap: var(--k-space-2);
+  padding: var(--k-space-1) 0;
+  border-bottom: var(--k-border-w) solid var(--k-border);
+}
+.checkDone {
+  color: var(--k-success);
+}
+.checkState {
+  margin-left: auto;
+  color: var(--k-text-muted);
+}
+.confirm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-2);
+  padding: var(--k-space-3);
+  border: var(--k-border-w) solid var(--k-border-strong);
+  border-radius: var(--k-radius-md);
+  background: var(--k-bg);
+}
+
+/* Tablet and phone: one column; the list goes above the open shipment. */
+@media (max-width: 1100px) {
+  .page {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 640px) {
+  .page {
+    padding: var(--k-space-4);
+  }
+  .card {
+    padding: var(--k-space-4);
+  }
+}

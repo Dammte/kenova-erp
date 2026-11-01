@@ -7,6 +7,7 @@ import {
   Package,
   Store,
   Tags,
+  Truck,
   UserCog,
   Users,
   Wrench,
@@ -36,22 +37,23 @@ const INVENTORY: NavItem = { label: "Inventario", href: "/inventario", icon: Pac
 const SERVICES: NavItem = { label: "Servicios", href: "/servicios", icon: Wrench };
 const TEMPLATES: NavItem = { label: "Plantillas", href: "/plantillas", icon: MessageSquareText };
 const USERS: NavItem = { label: "Usuarios", href: "/usuarios", icon: UserCog };
+const SHIPMENTS: NavItem = { label: "Envíos", href: "/envios", icon: Truck };
 const STORE: NavItem = { label: "Tienda", href: "/tienda", icon: Store };
 
 /**
  * The menu approved for each role. Sections whose screen does not exist yet
- * (Envíos, Catálogo, Papelera, Copia de seguridad) are added
+ * (Catálogo, Papelera, Copia de seguridad) are added
  * as each screen is built. Stock belongs to the partners only; a store's only
  * setting is its own notice texts (design 2.5).
  */
 export function navFor(role: Role): NavSections {
   if (role === "SUPER_ADMIN") {
     return {
-      main: [PANEL, ORDERS, QUOTES, RATES, CLIENTS, INVENTORY, MONEY],
+      main: [PANEL, ORDERS, SHIPMENTS, QUOTES, RATES, CLIENTS, INVENTORY, MONEY],
       settings: [SERVICES, TEMPLATES, USERS, STORE],
     };
   }
-  return { main: [PANEL, ORDERS, QUOTES, RATES, CLIENTS, MONEY], settings: [TEMPLATES] };
+  return { main: [PANEL, ORDERS, SHIPMENTS, QUOTES, RATES, CLIENTS, MONEY], settings: [TEMPLATES] };
 }
 
 /**
