@@ -10,6 +10,9 @@ import {
 import type { SessionUser } from "@/components/auth/AuthProvider";
 import {
   currentMonth,
+  exportFileName,
+  exportRows,
+  MANY_LINES,
   monthLabel,
   shiftMonth,
   type CommissionMonth,
@@ -24,6 +27,19 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace, push: vi.fn() }),
   usePathname: () => "/envios",
   useSearchParams: () => new URLSearchParams(search),
+}));
+const writeFile = vi.fn();
+vi.mock("xlsx", () => ({
+  utils: {
+    aoa_to_sheet: (rows: unknown[][]) => ({ rows }),
+    book_new: () => ({ sheets: [] as unknown[] }),
+    book_append_sheet: (
+      book: { sheets: unknown[] },
+      sheet: unknown,
+      name: string,
+    ) => book.sheets.push({ sheet, name }),
+  },
+  writeFile: (...args: unknown[]) => writeFile(...args),
 }));
 vi.mock("@/components/auth/AuthProvider", () => ({
   useAuth: () => ({ user }),
@@ -375,6 +391,78 @@ describe("Liquidación", () => {
     expect(n(pendingText("-5.00"))).toBe(
       "La tienda entregó 5,00 € de más: se descuentan de la próxima liquidación.",
     );
+  });
+});
+
+describe("Excel", () => {
+  it("exports the month's orders with numeric amounts and the totals", async () => {
+    writeFile.mockReset();
+    await show();
+    screen.getByText("2 órdenes entregadas");
+    fireEvent.click(screen.getByRole("button", { name: "Exportar a Excel" }));
+    await act(async () => {});
+    expect(writeFile).toHaveBeenCalledTimes(1);
+    const [book, name] = writeFile.mock.calls[0];
+    expect(name).toBe("Comisiones_Villarcayo_2026-10.xlsx");
+    expect(book.sheets[0].name).toBe("octubre de 2026");
+    expect(book.sheets[0].sheet.rows).toEqual(exportRows(OCTOBER));
+  });
+
+  it("writes one row per order, then the totals, with the carried balance only when there is one", () => {
+    const rows = exportRows(OCTOBER);
+    expect(rows[0]).toEqual([
+      "Orden",
+      "Entregada",
+      "Cliente",
+      "Equipo",
+      "Cobrado (€)",
+      "Comisión",
+      "Importe (€)",
+    ]);
+    expect(rows[1]).toEqual([
+      "VC-0036",
+      expect.any(String),
+      "Iker Bárcena",
+      "Apple iPhone 13",
+      129,
+      "15 %",
+      19.35,
+    ]);
+    expect(rows[2].slice(3)).toEqual(["", 0, "garantía", 0]);
+    expect(rows.slice(4).map((r) => r[0])).toEqual([
+      "Cobrado",
+      "Comisión de Villarcayo",
+      "Del mes para Kenova",
+      "A entregar a Kenova",
+    ]);
+    const carried = exportRows(SETTLED);
+    expect(carried.slice(-2)).toEqual([
+      ["Saldo de meses anteriores", "", "", "", 20],
+      ["A entregar a Kenova", "", "", "", 129.65],
+    ]);
+    expect(
+      exportFileName({ ...OCTOBER, store: { id: "s9", name: "Tienda 1/B" } }),
+    ).toBe("Comisiones_Tienda 1B_2026-10.xlsx");
+  });
+
+  it("pins the totals only on long months", async () => {
+    await show();
+    const totals = () => screen.getAllByRole("definition")[0].closest("dl")!;
+    expect(totals().className).not.toMatch(/pinned/);
+    cleanup();
+    const many = Array.from({ length: MANY_LINES + 1 }, (_, i) => ({
+      ...OCTOBER.lines[0],
+      orderId: `o${i}`,
+      orderCode: `VC-${i}`,
+    }));
+    fetchMock.mockImplementation(async (url: string) =>
+      url === "/api/stores"
+        ? json([{ id: "s2", name: "Villarcayo", isMain: false }])
+        : json({ ...OCTOBER, lines: many }),
+    );
+    await show();
+    expect(totals().className).toMatch(/pinned/);
+    screen.getByText("101 órdenes entregadas");
   });
 });
 

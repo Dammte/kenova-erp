@@ -8,6 +8,7 @@ import {
   commissionLabel,
   type CommissionType,
 } from "@/components/stores/stores";
+import { Button } from "@/components/ui";
 import { API_URL, apiFetch, errorMessage } from "@/lib/api";
 import { formatEur } from "@/lib/format";
 import { Settlement, type CommissionSettlement } from "./Settlement";
@@ -47,6 +48,112 @@ interface StoreOption {
 }
 
 const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+/** From this many orders the totals stay pinned while the list scrolls. */
+export const MANY_LINES = 100;
+
+/** «Comisiones_Medina de Pomar_2026-10.xlsx». */
+export function exportFileName(data: CommissionMonth): string {
+  const store = data.store.name.replace(/[\\/:*?"<>|]/g, "").trim();
+  return `Comisiones_${store}_${data.month}.xlsx`;
+}
+
+/**
+ * The sheet rows: one per order, amounts as numbers so they add up in Excel,
+ * then the month's totals.
+ */
+export function exportRows(data: CommissionMonth): (string | number)[][] {
+  const money = (v: string) => Math.round(Number(v) * 100) / 100;
+  const rows: (string | number)[][] = [
+    [
+      "Orden",
+      "Entregada",
+      "Cliente",
+      "Equipo",
+      "Cobrado (€)",
+      "Comisión",
+      "Importe (€)",
+    ],
+    ...data.lines.map((l) => [
+      l.orderCode,
+      formatDay(l.deliveredAt),
+      l.clientName || "",
+      l.device ?? "",
+      money(l.amountPaid),
+      l.warranty
+        ? "garantía"
+        : commissionLabel(l.commissionType, l.commissionValue),
+      money(l.commissionAmount),
+    ]),
+    [],
+    ["Cobrado", "", "", "", money(data.collected)],
+    [
+      `Comisión de ${data.store.name}`,
+      "",
+      "",
+      "",
+      "",
+      "",
+      money(data.commission),
+    ],
+    ["Del mes para Kenova", "", "", "", money(data.toKenova)],
+  ];
+  if (Number(data.carriedIn) !== 0) {
+    rows.push(["Saldo de meses anteriores", "", "", "", money(data.carriedIn)]);
+  }
+  rows.push(["A entregar a Kenova", "", "", "", money(data.due)]);
+  return rows;
+}
+
+/** The order count and «Exportar a Excel», above the month's orders. */
+function ExportBar({ data }: { data: CommissionMonth }) {
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  const run = async () => {
+    setBusy(true);
+    setProblem(null);
+    try {
+      // Loaded on demand: the library is large and only this button needs it.
+      const XLSX = await import("xlsx");
+      const sheet = XLSX.utils.aoa_to_sheet(exportRows(data));
+      sheet["!cols"] = [12, 12, 24, 22, 12, 14, 12].map((wch) => ({ wch }));
+      const book = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(
+        book,
+        sheet,
+        monthLabel(data.month).slice(0, 31),
+      );
+      XLSX.writeFile(book, exportFileName(data));
+    } catch {
+      setProblem("No se ha podido crear el Excel. Reintenta.");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const n = data.lines.length;
+  return (
+    <>
+      <div className={styles.exportBar}>
+        <span className={styles.sub}>
+          {n === 1 ? "1 orden entregada" : `${n} órdenes entregadas`}
+        </span>
+        <Button
+          variant="secondary"
+          loading={busy}
+          loadingText="Preparando…"
+          onClick={run}
+        >
+          Exportar a Excel
+        </Button>
+      </div>
+      {problem && (
+        <p className={styles.error} role="alert">
+          {problem}
+        </p>
+      )}
+    </>
+  );
+}
 
 /** This month in Madrid, as AAAA-MM. */
 export function currentMonth(now = new Date()): string {
@@ -200,7 +307,9 @@ export function Commissions() {
         <p className={styles.sub}>Cargando comisión…</p>
       ) : (
         <>
-          <dl className={styles.totals}>
+          <dl
+            className={`${styles.totals} ${data.lines.length > MANY_LINES ? styles.pinned : ""}`}
+          >
             <div>
               <dt>Cobrado</dt>
               <dd>{formatEur(data.collected)}</dd>
@@ -244,6 +353,8 @@ export function Commissions() {
               onChange={() => setReload((n) => n + 1)}
             />
           )}
+
+          {data.lines.length > 0 && <ExportBar data={data} />}
 
           {data.lines.length === 0 ? (
             <div className={styles.empty}>
