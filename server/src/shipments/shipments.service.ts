@@ -20,6 +20,18 @@ import { ShipmentLine } from './entities/shipment-line.entity';
 import { Shipment, ShipmentStatus } from './entities/shipment.entity';
 
 export const SHIPMENTS_PAGE_SIZE = 30;
+/** More than one shipment can carry (100); the screen pages nothing. */
+export const CANDIDATES_LIMIT = 200;
+
+/** A device that can go in a new shipment. */
+export interface ShipmentCandidate {
+  orderId: string;
+  orderCode: string;
+  status: ServiceStatus;
+  clientName: string;
+  device: string | null;
+  accessories: string | null;
+}
 
 export interface ScanResult {
   /**
@@ -71,42 +83,9 @@ export class ShipmentsService {
    */
   async create(dto: CreateShipmentDto, actor: AuthUser): Promise<ShipmentView> {
     const id = await this.dataSource.transaction(async (m) => {
-      const main = await m
-        .getRepository(Store)
-        .findOne({ where: { isMain: true } });
-      if (!main) throw new BadRequestException('No hay tienda principal');
-
       const actorStore = scopedStoreId(actor);
-      let fromStoreId: string;
-      let toStoreId: string;
-      let from: OrderLocation;
-      let to: OrderLocation;
-      if (actorStore === main.id) {
-        throw new BadRequestException(
-          'Los envíos desde Medina los crea un socio',
-        );
-      }
-      if (actorStore) {
-        if (dto.toStoreId && dto.toStoreId !== main.id) {
-          throw new BadRequestException('Una tienda solo envía a Medina');
-        }
-        [fromStoreId, toStoreId] = [actorStore, main.id];
-        [from, to] = [OrderLocation.AT_STORE, OrderLocation.TO_WORKSHOP];
-      } else {
-        if (!dto.toStoreId) {
-          throw new BadRequestException('Elige la tienda a la que vuelve');
-        }
-        const store = await m
-          .getRepository(Store)
-          .findOne({ where: { id: dto.toStoreId } });
-        if (!store || store.isMain || !store.isActive) {
-          throw new BadRequestException(
-            'La tienda de destino no existe o está desactivada',
-          );
-        }
-        [fromStoreId, toStoreId] = [main.id, store.id];
-        [from, to] = [OrderLocation.AT_WORKSHOP, OrderLocation.TO_STORE];
-      }
+      const { fromStoreId, toStoreId, from, to, ownerStoreId } =
+        await this.route(m, actor, dto.toStoreId);
 
       const orderIds = [...new Set(dto.orderIds)];
       const orders = await m.getRepository(ServiceOrder).find({
@@ -122,7 +101,7 @@ export class ShipmentsService {
       }
       const wrong = visible.filter(
         (o) =>
-          o.storeId !== (actorStore ? fromStoreId : toStoreId) ||
+          o.storeId !== ownerStoreId ||
           o.location !== from ||
           o.status === ServiceStatus.CANCELADO ||
           o.status === ServiceStatus.ENTREGADO,
@@ -154,6 +133,102 @@ export class ShipmentsService {
       return shipment.id;
     });
     return this.findOne(id, actor);
+  }
+
+  /**
+   * Where a shipment made by this actor goes: a partner store always ships to
+   * the workshop; the partners send devices back to the store they name.
+   * `ownerStoreId` is the store whose orders travel in it.
+   */
+  private async route(
+    m: EntityManager,
+    actor: AuthUser,
+    toStoreIdAsked?: string,
+  ): Promise<{
+    fromStoreId: string;
+    toStoreId: string;
+    from: OrderLocation;
+    to: OrderLocation;
+    ownerStoreId: string;
+  }> {
+    const main = await m
+      .getRepository(Store)
+      .findOne({ where: { isMain: true } });
+    if (!main) throw new BadRequestException('No hay tienda principal');
+
+    const actorStore = scopedStoreId(actor);
+    if (actorStore === main.id) {
+      throw new BadRequestException(
+        'Los envíos desde Medina los crea un socio',
+      );
+    }
+    if (actorStore) {
+      if (toStoreIdAsked && toStoreIdAsked !== main.id) {
+        throw new BadRequestException('Una tienda solo envía a Medina');
+      }
+      return {
+        fromStoreId: actorStore,
+        toStoreId: main.id,
+        from: OrderLocation.AT_STORE,
+        to: OrderLocation.TO_WORKSHOP,
+        ownerStoreId: actorStore,
+      };
+    }
+    if (!toStoreIdAsked) {
+      throw new BadRequestException('Elige la tienda a la que vuelve');
+    }
+    const store = await m
+      .getRepository(Store)
+      .findOne({ where: { id: toStoreIdAsked } });
+    if (!store || store.isMain || !store.isActive) {
+      throw new BadRequestException(
+        'La tienda de destino no existe o está desactivada',
+      );
+    }
+    return {
+      fromStoreId: main.id,
+      toStoreId: store.id,
+      from: OrderLocation.AT_WORKSHOP,
+      to: OrderLocation.TO_STORE,
+      ownerStoreId: store.id,
+    };
+  }
+
+  /**
+   * The devices this actor can put in a new shipment: a store's own devices
+   * still at the store, or, for the partners, the devices of the chosen store
+   * that are at the workshop. Never cancelled or delivered orders.
+   */
+  async candidates(
+    actor: AuthUser,
+    toStoreId?: string,
+  ): Promise<ShipmentCandidate[]> {
+    const m = this.dataSource.manager;
+    const { from, ownerStoreId } = await this.route(m, actor, toStoreId);
+    const orders = await m
+      .getRepository(ServiceOrder)
+      .createQueryBuilder('o')
+      .leftJoinAndSelect('o.client', 'c')
+      .leftJoinAndSelect('o.device', 'd')
+      .where('o.storeId = :ownerStoreId', { ownerStoreId })
+      .andWhere('o.location = :from', { from })
+      .andWhere('o.deletedAt IS NULL')
+      .andWhere('o.status NOT IN (:...closed)', {
+        closed: [ServiceStatus.CANCELADO, ServiceStatus.ENTREGADO],
+      })
+      .orderBy('o.code', 'ASC')
+      .take(CANDIDATES_LIMIT)
+      .getMany();
+    return orders.map((o) => ({
+      orderId: o.id,
+      orderCode: o.code,
+      status: o.status,
+      clientName: [o.client?.firstName, o.client?.lastName]
+        .filter(Boolean)
+        .join(' '),
+      device: o.device ? `${o.device.brand} ${o.device.model}` : null,
+      accessories: o.accessories ?? null,
+    }));
   }
 
   /**

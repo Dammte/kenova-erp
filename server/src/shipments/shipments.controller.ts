@@ -32,6 +32,16 @@ export class ShipmentsController {
     return this.shipments.list(user, page, status);
   }
 
+  /** The devices that can go in a new shipment (the store it goes back to, for the partners). */
+  @Get('candidates')
+  candidates(
+    @CurrentUser() user: AuthUser,
+    @Query('toStoreId', new ParseUUIDPipe({ optional: true }))
+    toStoreId?: string,
+  ) {
+    return this.shipments.candidates(user, toStoreId);
+  }
+
   @Get(':id')
   findOne(
     @Param('id', ParseUUIDPipe) id: string,
