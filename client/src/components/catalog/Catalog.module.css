@@ -201,3 +201,21 @@
     padding: var(--k-space-4);
   }
 }
+
+/* «Nuevo modelo»: brand, name and type side by side, stacked on a phone. */
+.newFields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--k-space-3);
+  align-items: end;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-1);
+  font: var(--k-text-sm);
+  font-weight: 500;
+}
+.field .select {
+  height: 40px;
+}

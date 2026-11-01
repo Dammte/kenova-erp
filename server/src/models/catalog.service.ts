@@ -11,7 +11,11 @@ import { Brand } from '../brands/entities/brand.entity';
 import { normalizeProductName } from '../common/product-name';
 import { Device } from '../devices/entities/device.entity';
 import { Service } from '../services/entities/service.entity';
-import { MergeModelsDto, UpdateCatalogModelDto } from './dto/catalog.dto';
+import {
+  CreateCatalogModelDto,
+  MergeModelsDto,
+  UpdateCatalogModelDto,
+} from './dto/catalog.dto';
 import { Model, type ModelDeviceType } from './entities/model.entity';
 
 /** GET /api/catalog/models: one row of «Marcas y modelos». */
@@ -107,6 +111,48 @@ export class CatalogService {
           }) ||
           a.name.localeCompare(b.name, 'es'),
       );
+  }
+
+  /**
+   * Adds a model to a brand. A name that only differs in accents, case or
+   * spaces from one already there is the same model, so it is refused.
+   */
+  async create(
+    dto: CreateCatalogModelDto,
+    actorId: string,
+  ): Promise<CatalogModel> {
+    const id = await this.models.manager.transaction(async (m) => {
+      const brand = await m.getRepository(Brand).findOneBy({ id: dto.brandId });
+      if (!brand) throw new NotFoundException('Marca no encontrada');
+      const name = normalizeProductName(dto.name);
+      const twin = (
+        await m.getRepository(Model).find({ where: { brandId: brand.id } })
+      ).find((o) => sameName(o.name) === sameName(name));
+      if (twin) {
+        throw new ConflictException(
+          `Ya existe «${twin.name}» en ${brand.name}.`,
+        );
+      }
+      const model = await m.getRepository(Model).save(
+        m.getRepository(Model).create({
+          name,
+          brandId: brand.id,
+          deviceType: dto.deviceType ?? null,
+        }),
+      );
+      await this.audit.record(
+        {
+          action: 'MODEL_CREATED',
+          actorUserId: actorId,
+          entityType: 'model',
+          entityId: model.id,
+          metadata: { name, brand: brand.name, deviceType: model.deviceType },
+        },
+        m,
+      );
+      return model.id;
+    });
+    return this.row(id);
   }
 
   async update(

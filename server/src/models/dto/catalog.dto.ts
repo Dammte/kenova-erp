@@ -38,3 +38,21 @@ export class MergeModelsDto {
   @IsUUID('4', { message: 'Modelo no válido' })
   fromId: string;
 }
+
+/** POST /api/catalog/models: a model that is not in the catalogue yet. */
+export class CreateCatalogModelDto {
+  @IsUUID('4', { message: 'Elige la marca' })
+  brandId: string;
+
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
+  @IsString()
+  @IsNotEmpty({ message: 'Escribe el nombre del modelo' })
+  @MaxLength(50, { message: 'El nombre no puede pasar de 50 caracteres' })
+  name: string;
+
+  @IsOptional()
+  @IsIn(MODEL_DEVICE_TYPES, { message: 'Tipo de equipo no válido' })
+  deviceType?: ModelDeviceType;
+}

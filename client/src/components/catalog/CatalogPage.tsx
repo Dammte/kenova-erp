@@ -48,6 +48,7 @@ function Catalog() {
   const [problem, setProblem] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
   const [merging, setMerging] = useState<CatalogModel[] | null>(null);
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     let live = true;
@@ -129,7 +130,30 @@ function Catalog() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
+        {!creating && (
+          <Button variant="primary" onClick={() => setCreating(true)}>
+            Nuevo modelo
+          </Button>
+        )}
       </div>
+
+      {creating && (
+        <NewModelForm
+          onCancel={() => setCreating(false)}
+          onSave={async (body) => {
+            const ok = await change(
+              URL,
+              { method: "POST", body: JSON.stringify(body) },
+              "No se ha podido crear el modelo.",
+            );
+            if (ok) {
+              setCreating(false);
+              // The new model shows on its own, ready to check.
+              setQuery(body.name);
+            }
+          }}
+        />
+      )}
 
       {merging ? (
         <MergePanel
@@ -171,7 +195,7 @@ function Catalog() {
         <p className={styles.muted}>Cargando modelos…</p>
       ) : rows.length === 0 ? (
         <div className={styles.empty}>
-          <p>Aún no hay modelos. Se crean al añadir tarifas de un modelo.</p>
+          <p>Aún no hay modelos. Crea el primero con «Nuevo modelo».</p>
         </div>
       ) : shown.length === 0 ? (
         <p className={styles.muted}>Ningún modelo coincide con «{query}».</p>
@@ -393,5 +417,98 @@ function MergePanel({
         </Button>
       </div>
     </section>
+  );
+}
+
+interface NewModel {
+  brandId: string;
+  name: string;
+  deviceType?: DeviceType;
+}
+
+/** «Nuevo modelo»: a brand, a name and, if known, its type. */
+function NewModelForm({
+  onSave,
+  onCancel,
+}: {
+  onSave: (body: NewModel) => Promise<void>;
+  onCancel: () => void;
+}) {
+  const [brands, setBrands] = useState<{ id: string; name: string }[] | null>(null);
+  const [brandId, setBrandId] = useState("");
+  const [name, setName] = useState("");
+  const [type, setType] = useState<DeviceType | "">("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let live = true;
+    apiFetch(`${API_URL}/brands`)
+      .then(async (res) => (res.ok ? ((await res.json()) as { id: string; name: string }[]) : []))
+      .catch(() => [])
+      .then((list) => {
+        if (!live) return;
+        setBrands([...list].sort((a, b) => a.name.localeCompare(b.name, "es")));
+      });
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  const missing = !brandId ? "Elige la marca." : !name.trim() ? "Escribe el nombre." : undefined;
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (missing || saving) return;
+    setSaving(true);
+    await onSave({ brandId, name: name.trim(), ...(type ? { deviceType: type } : {}) });
+    setSaving(false);
+  };
+
+  return (
+    <form
+      className={styles.merge}
+      onSubmit={submit}
+      onKeyDown={(e) => e.key === "Escape" && onCancel()}
+      aria-label="Nuevo modelo"
+    >
+      <h2 className={styles.subtitle}>Nuevo modelo</h2>
+      <div className={styles.newFields}>
+        <label className={styles.field}>
+          <span>Marca</span>
+          <select
+            className={styles.select}
+            value={brandId}
+            autoFocus
+            onChange={(e) => setBrandId(e.target.value)}
+          >
+            <option value="">{brands ? "Elige la marca" : "Cargando marcas…"}</option>
+            {(brands ?? []).map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <TextField label="Modelo" value={name} maxLength={50} onChange={(e) => setName(e.target.value)} />
+        <label className={styles.field}>
+          <span>Tipo · opcional</span>
+          <select className={styles.select} value={type} onChange={(e) => setType(e.target.value as DeviceType | "")}>
+            <option value="">Sin tipo</option>
+            {DEVICE_TYPES.map(([t, label]) => (
+              <option key={t} value={t}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <div className={styles.formActions}>
+        <Button type="submit" variant="primary" loading={saving} disabledReason={missing}>
+          Crear modelo
+        </Button>
+        <Button variant="ghost" onClick={onCancel}>
+          Cancelar
+        </Button>
+      </div>
+    </form>
   );
 }
