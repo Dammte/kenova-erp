@@ -152,6 +152,49 @@ describe('Shipments between partner stores and the workshop', () => {
     );
   });
 
+  it('offers only the devices that can go in a new shipment', async () => {
+    const codes = async (cookie: string, query = '') =>
+      (await get(cookie, `/api/shipments/candidates${query}`)).body.map(
+        (c: { orderCode: string }) => c.orderCode,
+      ) as string[];
+    const here = await newOrder(vc);
+    const away = await newOrder(vc);
+    await send(vc, '/api/shipments', { orderIds: [away.id] });
+    const store = await codes(vc);
+    expect(store).toContain(here.code);
+    expect(store).not.toContain(away.code);
+
+    // The partners pick the store; they see its devices at the workshop.
+    expect((await get(sa, '/api/shipments/candidates')).body.message).toBe(
+      'Elige la tienda a la que vuelve',
+    );
+    expect(await codes(sa, `?toStoreId=${vcStoreId}`)).not.toContain(away.code);
+    await t.db.query(
+      `UPDATE service_orders SET location = 'at_workshop' WHERE id = $1`,
+      [away.id],
+    );
+    const back = (
+      await get(sa, `/api/shipments/candidates?toStoreId=${vcStoreId}`)
+    ).body;
+    expect(
+      back.find((c: { orderId: string }) => c.orderId === away.id),
+    ).toMatchObject({
+      orderCode: away.code,
+      status: expect.any(String),
+      clientName: 'Iker',
+    });
+    expect(back.map((c: { orderCode: string }) => c.orderCode)).not.toContain(
+      here.code,
+    );
+
+    expect((await get(main, '/api/shipments/candidates')).body.message).toBe(
+      'Los envíos desde Medina los crea un socio',
+    );
+    expect(
+      (await get(sa, '/api/shipments/candidates?toStoreId=nope')).status,
+    ).toBe(400);
+  });
+
   it('lists 30 per page, newest first, filtered by status', async () => {
     const page = (await get(sa, '/api/shipments?status=sent')).body;
     expect(page.total).toBeGreaterThanOrEqual(3);
