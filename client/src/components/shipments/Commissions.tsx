@@ -10,6 +10,7 @@ import {
 } from "@/components/stores/stores";
 import { API_URL, apiFetch, errorMessage } from "@/lib/api";
 import { formatEur } from "@/lib/format";
+import { Settlement, type CommissionSettlement } from "./Settlement";
 import { formatDay } from "./shipments";
 import styles from "./Shipments.module.css";
 
@@ -32,6 +33,11 @@ export interface CommissionMonth {
   collected: string;
   commission: string;
   toKenova: string;
+  /** Left pending by the previous settlement (negative: the store paid more). */
+  carriedIn: string;
+  /** toKenova + carriedIn: what the store has to hand over. */
+  due: string;
+  settlement: CommissionSettlement | null;
 }
 
 interface StoreOption {
@@ -85,6 +91,7 @@ export function Commissions() {
   const [stores, setStores] = useState<StoreOption[] | null>(null);
   const [data, setData] = useState<CommissionMonth | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
+  const [reload, setReload] = useState(0);
 
   useEffect(() => {
     if (!partner) return;
@@ -126,7 +133,7 @@ export function Commissions() {
     return () => {
       live = false;
     };
-  }, [storeId, month]);
+  }, [storeId, month, reload]);
 
   const go = (next: { tienda?: string; mes?: string }) => {
     const p = new URLSearchParams({ vista: "comisiones" });
@@ -202,11 +209,41 @@ export function Commissions() {
               <dt>Comisión de {data.store.name}</dt>
               <dd>{formatEur(data.commission)}</dd>
             </div>
-            <div className={styles.totalMain}>
-              <dt>A entregar a Kenova</dt>
-              <dd>{formatEur(data.toKenova)}</dd>
-            </div>
+            {Number(data.carriedIn) === 0 ? (
+              <div className={styles.totalMain}>
+                <dt>A entregar a Kenova</dt>
+                <dd>{formatEur(data.toKenova)}</dd>
+              </div>
+            ) : (
+              <>
+                <div>
+                  <dt>Del mes para Kenova</dt>
+                  <dd>{formatEur(data.toKenova)}</dd>
+                </div>
+                <div>
+                  <dt>Saldo de meses anteriores</dt>
+                  <dd>{formatEur(data.carriedIn)}</dd>
+                </div>
+                <div className={styles.totalMain}>
+                  <dt>A entregar a Kenova</dt>
+                  <dd>{formatEur(data.due)}</dd>
+                </div>
+              </>
+            )}
           </dl>
+
+          {storeId && (
+            <Settlement
+              key={`${storeId}-${month}`}
+              storeId={storeId}
+              storeName={data.store.name}
+              month={month}
+              due={data.due}
+              settlement={data.settlement}
+              partner={partner}
+              onChange={() => setReload((n) => n + 1)}
+            />
+          )}
 
           {data.lines.length === 0 ? (
             <div className={styles.empty}>
