@@ -273,4 +273,97 @@ describe('Commission of each partner store', () => {
     expect(bad.status).toBe(400);
     expect(bad.body.message).toBe('El mes debe tener la forma AAAA-MM');
   });
+
+  it('settles a finished month in order and carries what was not handed over', async () => {
+    const now = (await get(sa, `/api/stores/${vcId}/commissions`)).body;
+    const [y, m] = (now.month as string).split('-').map(Number);
+    const shift = (by: number) => {
+      const d = new Date(Date.UTC(y, m - 1 + by, 1));
+      return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+    };
+    const settle = (month: string, body: object, cookie = sa) =>
+      send(
+        'post',
+        cookie,
+        `/api/stores/${vcId}/commissions/${month}/settlement`,
+        body,
+      );
+    const cash = { received: 100, receivedOn: '2026-10-02', method: 'cash' };
+
+    const early = await settle(now.month, cash);
+    expect(early.status).toBe(400);
+    expect(early.body.message).toContain('El mes aún no ha terminado');
+    expect((await settle(shift(-1), cash, vc)).status).toBe(403);
+    expect((await settle(shift(-1), { ...cash, received: -1 })).status).toBe(
+      400,
+    );
+    expect(
+      (await settle(shift(-1), { ...cash, method: 'crypto' })).status,
+    ).toBe(400);
+
+    // Last month: the 129 € order moved there, 19,35 € of commission.
+    const done = await settle(shift(-1), { ...cash, note: ' Faltan 9,65 ' });
+    expect(done.status).toBe(201);
+    expect(done.body).toMatchObject({
+      month: shift(-1),
+      collected: '129.00',
+      commission: '19.35',
+      toKenova: '109.65',
+      carriedIn: '0.00',
+      due: '109.65',
+      received: '100.00',
+      pending: '9.65',
+      method: 'cash',
+      note: 'Faltan 9,65',
+      createdBy: { id: t.superAdmin.id },
+    });
+    const again = await settle(shift(-1), cash);
+    expect(again.status).toBe(409);
+    expect(again.body.message).toBe('Este mes ya está liquidado');
+    const older = await settle(shift(-2), cash);
+    expect(older.body.message).toContain(
+      'Ya hay una liquidación de un mes posterior',
+    );
+
+    // The store sees it, and this month carries the 9,65 € pending.
+    const last = (
+      await get(vc, `/api/stores/${vcId}/commissions?month=${shift(-1)}`)
+    ).body;
+    expect(last.settlement).toMatchObject({ pending: '9.65' });
+    const current = (await get(vc, `/api/stores/${vcId}/commissions`)).body;
+    expect(current).toMatchObject({
+      toKenova: '256.00',
+      carriedIn: '9.65',
+      due: '265.65',
+      settlement: null,
+    });
+
+    // A mistake is undone from the latest settlement only.
+    expect(
+      (
+        await send(
+          'post',
+          vc,
+          `/api/stores/${vcId}/commissions/${shift(-1)}/settlement`,
+        )
+      ).status,
+    ).toBe(403);
+    const undo = await t
+      .http()
+      .delete(`/api/stores/${vcId}/commissions/${shift(-1)}/settlement`)
+      .set('Cookie', sa)
+      .set('Origin', ORIGIN);
+    expect(undo.status).toBe(204);
+    expect(
+      (await get(vc, `/api/stores/${vcId}/commissions`)).body.carriedIn,
+    ).toBe('0.00');
+    const audit = await t.db.query(
+      `SELECT action FROM audit_events WHERE "entityId" = $1 AND action LIKE 'COMMISSION_%' ORDER BY "createdAt"`,
+      [vcId],
+    );
+    expect(audit.map((r: { action: string }) => r.action)).toEqual([
+      'COMMISSION_SETTLED',
+      'COMMISSION_SETTLEMENT_UNDONE',
+    ]);
+  });
 });

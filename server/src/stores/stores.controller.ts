@@ -1,7 +1,9 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -13,6 +15,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import type { AuthUser } from '../auth/auth.types';
 import { UserRole } from '../users/entities/user.entity';
 import { CreateStoreDto } from './dto/create-store.dto';
+import { SettleCommissionDto } from './dto/settle-commission.dto';
 import { UpdateStoreDto } from './dto/update-store.dto';
 import { StoresService } from './stores.service';
 
@@ -50,6 +53,30 @@ export class StoresController {
     @Query('month') month?: string,
   ) {
     return this.storesService.commissionMonth(id, month, actor);
+  }
+
+  /** Records what the store handed over for a finished month (partners only). */
+  @Post(':id/commissions/:month/settlement')
+  @Roles(UserRole.SUPER_ADMIN)
+  settleMonth(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('month') month: string,
+    @Body() dto: SettleCommissionDto,
+    @CurrentUser() actor: AuthUser,
+  ) {
+    return this.storesService.settleMonth(id, month, dto, actor.id);
+  }
+
+  /** Undoes the store's latest settlement, to correct it. */
+  @Delete(':id/commissions/:month/settlement')
+  @Roles(UserRole.SUPER_ADMIN)
+  @HttpCode(204)
+  undoSettlement(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('month') month: string,
+    @CurrentUser() actor: AuthUser,
+  ) {
+    return this.storesService.undoSettlement(id, month, actor.id);
   }
 
   @Post()

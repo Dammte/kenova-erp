@@ -5,13 +5,16 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, LessThan, MoreThan, Repository } from 'typeorm';
 import { AuditService } from '../audit/audit.service';
 import type { AuthUser } from '../auth/auth.types';
 import { AuthService } from '../auth/auth.service';
+import { PaymentMethod } from '../service-order/entities/service-order.entity';
 import { User, UserRole } from '../users/entities/user.entity';
 import { CreateStoreDto } from './dto/create-store.dto';
+import { SettleCommissionDto } from './dto/settle-commission.dto';
 import { UpdateStoreDto } from './dto/update-store.dto';
+import { CommissionSettlement } from './entities/commission-settlement.entity';
 import { StoreCommissionChange } from './entities/store-commission-change.entity';
 import { CommissionType, Store } from './entities/store.entity';
 
@@ -37,7 +40,39 @@ export interface CommissionMonth {
   collected: string;
   commission: string;
   toKenova: string;
+  /** Left pending by the previous settlement. */
+  carriedIn: string;
+  /** toKenova + carriedIn: what the store has to hand over. */
+  due: string;
+  /** The month's settlement, once recorded (its totals as they stood then). */
+  settlement: SettlementView | null;
 }
+
+export interface SettlementView {
+  id: string;
+  month: string;
+  collected: string;
+  commission: string;
+  toKenova: string;
+  carriedIn: string;
+  due: string;
+  received: string;
+  /** due − received: carried to the next settlement. */
+  pending: string;
+  receivedOn: string;
+  method: PaymentMethod;
+  note: string | null;
+  createdBy: { id: string; fullName: string } | null;
+  createdAt: Date;
+}
+
+/** This month in Madrid, as AAAA-MM. */
+const thisMonth = () =>
+  new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Madrid',
+    year: 'numeric',
+    month: '2-digit',
+  }).format(new Date());
 
 const MONTH = /^(\d{4})-(0[1-9]|1[0-2])$/;
 const euros = (cents: number) => (cents / 100).toFixed(2);
@@ -150,17 +185,16 @@ export class StoresService {
     if (store.isMain) {
       throw new BadRequestException('La tienda principal no lleva comisión');
     }
-    const asked =
-      month ??
-      new Intl.DateTimeFormat('en-CA', {
-        timeZone: 'Europe/Madrid',
-        year: 'numeric',
-        month: '2-digit',
-      }).format(new Date());
-    if (!MONTH.test(asked)) {
-      throw new BadRequestException('El mes debe tener la forma AAAA-MM');
-    }
+    const asked = StoresService.checkMonth(month ?? thisMonth());
+    return this.monthOf(store, asked);
+  }
 
+  /** The month's totals and lines, the pending balance and its settlement. */
+  private async monthOf(
+    store: Store,
+    asked: string,
+    m: EntityManager = this.stores.manager,
+  ): Promise<CommissionMonth> {
     const rows: {
       orderId: string;
       orderCode: string;
@@ -172,7 +206,7 @@ export class StoresService {
       commissionValue: string;
       commissionAmount: string;
       warranty: boolean;
-    }[] = await this.stores.manager.query(
+    }[] = await m.query(
       `SELECT o.id AS "orderId", o.code AS "orderCode", o."deliveredAt",
               trim(concat_ws(' ', c."firstName", c."lastName")) AS "clientName",
               CASE WHEN d.id IS NULL THEN NULL
@@ -201,13 +235,177 @@ export class StoresService {
       (sum, l) => sum + cents(l.commissionAmount),
       0,
     );
+    const settlements = m.getRepository(CommissionSettlement);
+    const [settled, previous] = await Promise.all([
+      settlements.findOne({
+        where: { storeId: store.id, month: asked },
+        relations: { createdBy: true },
+      }),
+      settlements.findOne({
+        where: { storeId: store.id, month: LessThan(asked) },
+        order: { month: 'DESC' },
+      }),
+    ]);
+    const carriedIn = previous
+      ? cents(previous.due) - cents(previous.received)
+      : 0;
+    const toKenova = collected - commission;
     return {
       month: asked,
       store: { id: store.id, name: store.name },
       lines,
       collected: euros(collected),
       commission: euros(commission),
-      toKenova: euros(collected - commission),
+      toKenova: euros(toKenova),
+      carriedIn: euros(carriedIn),
+      due: euros(toKenova + carriedIn),
+      settlement: settled ? StoresService.settlementView(settled) : null,
+    };
+  }
+
+  /**
+   * Records what a partner store handed over for a finished month. The totals
+   * are copied as they stand; what is missing carries to the next month.
+   * Months are settled in order, so the pending balance always adds up.
+   */
+  async settleMonth(
+    id: string,
+    month: string,
+    dto: SettleCommissionDto,
+    actorId: string,
+  ): Promise<SettlementView> {
+    const asked = StoresService.checkMonth(month);
+    if (asked >= thisMonth()) {
+      throw new BadRequestException(
+        'El mes aún no ha terminado: se liquida a partir del día 1 del siguiente',
+      );
+    }
+    const saved = await this.stores.manager.transaction(async (m) => {
+      // One settlement at a time per store.
+      const store = await m.getRepository(Store).findOne({
+        where: { id },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!store) throw new NotFoundException('Tienda no encontrada');
+      if (store.isMain) {
+        throw new BadRequestException('La tienda principal no lleva comisión');
+      }
+      const settlements = m.getRepository(CommissionSettlement);
+      if (await settlements.exists({ where: { storeId: id, month: asked } })) {
+        throw new ConflictException('Este mes ya está liquidado');
+      }
+      if (
+        await settlements.exists({
+          where: { storeId: id, month: MoreThan(asked) },
+        })
+      ) {
+        throw new BadRequestException(
+          'Ya hay una liquidación de un mes posterior: los meses se liquidan en orden',
+        );
+      }
+      const totals = await this.monthOf(store, asked, m);
+      const row = await settlements.save(
+        settlements.create({
+          storeId: id,
+          month: asked,
+          collected: totals.collected,
+          commission: totals.commission,
+          toKenova: totals.toKenova,
+          carriedIn: totals.carriedIn,
+          due: totals.due,
+          received: dto.received.toFixed(2),
+          receivedOn: dto.receivedOn,
+          method: dto.method,
+          note: dto.note ?? null,
+          createdById: actorId,
+        }),
+      );
+      await this.audit.record(
+        {
+          action: 'COMMISSION_SETTLED',
+          actorUserId: actorId,
+          entityType: 'store',
+          entityId: id,
+          metadata: { month: asked, due: row.due, received: row.received },
+        },
+        m,
+      );
+      return row;
+    });
+    const view = await this.stores.manager
+      .getRepository(CommissionSettlement)
+      .findOneOrFail({
+        where: { id: saved.id },
+        relations: { createdBy: true },
+      });
+    return StoresService.settlementView(view);
+  }
+
+  /** Undoes the store's latest settlement, to correct a mistake. */
+  async undoSettlement(
+    id: string,
+    month: string,
+    actorId: string,
+  ): Promise<void> {
+    const asked = StoresService.checkMonth(month);
+    await this.stores.manager.transaction(async (m) => {
+      await m.getRepository(Store).findOne({
+        where: { id },
+        lock: { mode: 'pessimistic_write' },
+      });
+      const settlements = m.getRepository(CommissionSettlement);
+      const row = await settlements.findOne({
+        where: { storeId: id, month: asked },
+      });
+      if (!row) throw new NotFoundException('Este mes no está liquidado');
+      if (
+        await settlements.exists({
+          where: { storeId: id, month: MoreThan(asked) },
+        })
+      ) {
+        throw new BadRequestException(
+          'Solo se puede deshacer la última liquidación',
+        );
+      }
+      await settlements.delete(row.id);
+      await this.audit.record(
+        {
+          action: 'COMMISSION_SETTLEMENT_UNDONE',
+          actorUserId: actorId,
+          entityType: 'store',
+          entityId: id,
+          metadata: { month: asked, due: row.due, received: row.received },
+        },
+        m,
+      );
+    });
+  }
+
+  private static checkMonth(month: string): string {
+    if (!MONTH.test(month)) {
+      throw new BadRequestException('El mes debe tener la forma AAAA-MM');
+    }
+    return month;
+  }
+
+  private static settlementView(s: CommissionSettlement): SettlementView {
+    return {
+      id: s.id,
+      month: s.month,
+      collected: s.collected,
+      commission: s.commission,
+      toKenova: s.toKenova,
+      carriedIn: s.carriedIn,
+      due: s.due,
+      received: s.received,
+      pending: euros(cents(s.due) - cents(s.received)),
+      receivedOn: s.receivedOn,
+      method: s.method,
+      note: s.note,
+      createdBy: s.createdBy
+        ? { id: s.createdBy.id, fullName: s.createdBy.fullName }
+        : null,
+      createdAt: s.createdAt,
     };
   }
 
