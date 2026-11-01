@@ -28,7 +28,10 @@ export type PublicUser = Pick<
   | 'lastLoginAt'
   | 'createdAt'
   | 'updatedAt'
->;
+> & {
+  /** Locked out after too many failed logins; a password reset unlocks it. */
+  locked: boolean;
+};
 
 export function toPublicUser(u: User): PublicUser {
   return {
@@ -41,6 +44,7 @@ export function toPublicUser(u: User): PublicUser {
     storeId: u.storeId ?? null,
     mustChangePassword: u.mustChangePassword,
     lastLoginAt: u.lastLoginAt,
+    locked: Boolean(u.lockedUntil && u.lockedUntil > new Date()),
     createdAt: u.createdAt,
     updatedAt: u.updatedAt,
   };
@@ -91,9 +95,12 @@ export class UsersService {
   }
 
   async findAll(): Promise<PublicUser[]> {
-    const users = await this.userRepository.find({
-      order: { createdAt: 'ASC' },
-    });
+    // lockedUntil is not selected by default; only «locked» leaves the server.
+    const users = await this.userRepository
+      .createQueryBuilder('u')
+      .addSelect('u.lockedUntil')
+      .orderBy('u.createdAt', 'ASC')
+      .getMany();
     return users.map(toPublicUser);
   }
 

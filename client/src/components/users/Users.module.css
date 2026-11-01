@@ -1,0 +1,298 @@
+/* Design 3.6 «Usuarios»: the accounts on the left, «Nuevo usuario» in the side card. */
+.page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--k-space-4);
+  align-items: start;
+  min-height: 100%;
+  padding: var(--k-space-6);
+  background: var(--k-bg);
+  color: var(--k-text);
+  font: var(--k-text-base);
+}
+.page p {
+  margin: 0;
+}
+.withCard {
+  grid-template-columns: minmax(0, 1.6fr) minmax(320px, 1fr);
+}
+.listPane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-3);
+  min-width: 0;
+}
+.top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--k-space-3);
+}
+.title {
+  margin: 0;
+  font: var(--k-text-xl);
+}
+.error {
+  color: var(--k-danger);
+  font: var(--k-text-sm);
+}
+.muted {
+  color: var(--k-text-muted);
+  font: var(--k-text-sm);
+}
+.sub {
+  display: block;
+  color: var(--k-text-muted);
+  font: var(--k-text-xs);
+}
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--k-space-2);
+  padding: var(--k-space-6);
+  border: var(--k-border-w) dashed var(--k-border-strong);
+  border-radius: var(--k-radius-lg);
+  background: var(--k-surface);
+}
+.link {
+  color: var(--k-accent);
+  font: var(--k-text-sm);
+  font-weight: 500;
+  text-decoration: none;
+}
+.link:hover {
+  text-decoration: underline;
+}
+
+.table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  border: var(--k-border-w) solid var(--k-border);
+  border-radius: var(--k-radius-lg);
+  background: var(--k-surface);
+  overflow: hidden;
+}
+.table th {
+  padding: var(--k-space-2) var(--k-space-3);
+  background: var(--k-subtle);
+  color: var(--k-text-muted);
+  font: var(--k-text-xs);
+  text-align: left;
+  white-space: nowrap;
+}
+.table td {
+  padding: var(--k-space-3);
+  border-top: var(--k-border-w) solid var(--k-border);
+  vertical-align: middle;
+  font: var(--k-text-sm);
+}
+.off td {
+  color: var(--k-text-muted);
+}
+.who {
+  display: flex;
+  align-items: center;
+  gap: var(--k-space-3);
+}
+.avatar {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--k-radius-full);
+  background: var(--k-accent-subtle);
+  color: var(--k-accent);
+  font: var(--k-text-xs);
+  font-weight: 600;
+}
+.status {
+  font-weight: 600;
+}
+.ok {
+  color: var(--k-success);
+}
+.warn {
+  color: var(--k-warning);
+}
+.off .status,
+.status.off {
+  color: var(--k-text-muted);
+}
+.actions {
+  text-align: right;
+}
+.actions > :global(*) + :global(*) {
+  margin-left: var(--k-space-2);
+}
+.confirm {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--k-space-2);
+  max-width: 360px;
+  color: var(--k-text);
+  font: var(--k-text-xs);
+  text-align: right;
+}
+
+/* The temporary password, once. */
+.issued {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-2);
+  padding: var(--k-space-4);
+  border: var(--k-border-w) solid var(--k-status-pendiente-cliente);
+  border-radius: var(--k-radius-lg);
+  background: var(--k-status-pendiente-cliente-bg);
+}
+.password {
+  font-family: var(--k-font-mono, ui-monospace, monospace);
+  font-size: 1.375rem;
+  letter-spacing: 0.06em;
+  user-select: all;
+}
+.issuedActions {
+  display: flex;
+  gap: var(--k-space-2);
+}
+
+/* The side card. */
+.card {
+  position: sticky;
+  top: var(--k-space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-4);
+  min-width: 0;
+  padding: var(--k-space-4);
+  border: var(--k-border-w) solid var(--k-border);
+  border-radius: var(--k-radius-lg);
+  background: var(--k-surface);
+}
+.cardHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.cardHead h2 {
+  margin: 0;
+  font: var(--k-text-lg);
+}
+.close {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: var(--k-radius-md);
+  background: none;
+  color: var(--k-text-muted);
+  cursor: pointer;
+}
+.close:hover {
+  background: var(--k-subtle);
+}
+.close:focus-visible,
+.select:focus-visible {
+  outline: none;
+  box-shadow: var(--k-focus-ring);
+}
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-3);
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-1);
+}
+.fieldLabel {
+  padding: 0;
+  font: var(--k-text-sm);
+  font-weight: 500;
+}
+.select {
+  height: var(--k-control-h);
+  padding: 0 var(--k-space-2);
+  border: var(--k-border-w) solid var(--k-border-strong);
+  border-radius: var(--k-radius-md);
+  background: var(--k-surface);
+  color: var(--k-text);
+  font: var(--k-text-base);
+}
+.roles {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.role {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--k-space-2);
+  padding: var(--k-space-2) var(--k-space-3);
+  border: var(--k-border-w) solid var(--k-border);
+  border-radius: var(--k-radius-md);
+  font: var(--k-text-sm);
+  cursor: pointer;
+}
+.role:has(input:checked) {
+  border-color: var(--k-accent);
+  background: var(--k-accent-subtle);
+}
+.role input {
+  margin-top: 3px;
+}
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--k-space-2);
+}
+
+@media (max-width: 1100px) {
+  .wide {
+    display: none;
+  }
+  .withCard {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .withCard .listPane {
+    display: none;
+  }
+  .card {
+    position: static;
+  }
+}
+@media (max-width: 640px) {
+  .page {
+    padding: var(--k-space-4);
+    padding-bottom: calc(var(--k-bottom-bar-h) + var(--k-space-4));
+  }
+  /* On a phone each account is a block: the actions go under it. */
+  .table thead {
+    display: none;
+  }
+  .table tr {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    border-top: var(--k-border-w) solid var(--k-border);
+  }
+  .table td {
+    border-top: 0;
+  }
+  .table td:first-child {
+    grid-column: 1 / -1;
+  }
+  .table td.actions {
+    grid-column: 1 / -1;
+    text-align: left;
+  }
+}
