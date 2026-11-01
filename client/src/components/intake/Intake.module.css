@@ -386,3 +386,21 @@ li[aria-selected="true"] > .result {
   border-radius: var(--k-radius-md);
   background: var(--k-accent-subtle);
 }
+
+/* Design R2 3.8: «Usar «iPhone 13»» under a look-alike name. */
+.linkButton {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--k-accent);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+.linkButton:hover {
+  text-decoration: underline;
+}
+.linkButton:focus-visible {
+  outline: none;
+  box-shadow: var(--k-focus-ring);
+}

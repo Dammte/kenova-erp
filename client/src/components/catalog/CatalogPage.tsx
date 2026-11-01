@@ -280,7 +280,9 @@ function Catalog() {
         </div>
       )}
       <p className={styles.muted}>
-        Desactivar un modelo no borra sus equipos ni sus tarifas.
+        El tipo de cada modelo es el que se propone al dar de alta un equipo. Un
+        modelo desactivado no se ofrece en el alta ni en las tarifas, pero sus
+        equipos y tarifas se conservan.
       </p>
     </section>
   );

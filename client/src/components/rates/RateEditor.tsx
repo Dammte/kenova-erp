@@ -37,11 +37,15 @@ async function getJson<T>(url: string): Promise<T> {
 
 /** Models as "Samsung Galaxy A54", sorted, for the select. */
 export function modelOptions(
-  models: { id: string; name: string; brandId?: string | null }[],
+  models: { id: string; name: string; brandId?: string | null; active?: boolean }[],
   brands: { id: string; name: string }[],
+  /** Kept even if withdrawn: the model the rate already has. */
+  current: string | null = null,
 ): Option[] {
   const brand = new Map(brands.map((b) => [b.id, b.name]));
   return models
+    // Design R2 3.8: a withdrawn model is not offered any more.
+    .filter((m) => m.active !== false || m.id === current)
     .map((m) => ({ id: m.id, label: [m.brandId ? brand.get(m.brandId) : null, m.name].filter(Boolean).join(" ") }))
     .sort((a, b) => a.label.localeCompare(b.label, "es"));
 }
@@ -62,14 +66,14 @@ export function RateEditor({ id, onSaved, onCancel }: { id: string; onSaved: () 
     let live = true;
     Promise.all([
       getJson<ServiceDetail>(`${API_URL}/services/${id}`),
-      getJson<{ id: string; name: string; brandId?: string | null }[]>(`${API_URL}/models`),
+      getJson<{ id: string; name: string; brandId?: string | null; active?: boolean }[]>(`${API_URL}/models`),
       getJson<{ id: string; name: string }[]>(`${API_URL}/brands`),
       getJson<{ id: string; sku: string; name: string }[]>(`${API_URL}/inventory`).catch(() => []),
     ])
       .then(([service, m, b, inv]) => {
         if (!live) return;
         setForm(service);
-        setModels(modelOptions(m, b));
+        setModels(modelOptions(m, b, service.modelId));
         setParts(inv.map((p) => ({ id: p.id, label: `${p.name} · ${p.sku}` })).sort((x, y) => x.label.localeCompare(y.label, "es")));
       })
       .catch(() => live && setFailed(true));

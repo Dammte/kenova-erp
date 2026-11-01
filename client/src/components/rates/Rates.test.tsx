@@ -67,6 +67,16 @@ describe("rates helpers", () => {
       ).map((o) => o.label),
     ).toEqual(["Apple iPhone 12", "Genérico", "Samsung Galaxy A54"]);
   });
+
+  it("leaves out withdrawn models, except the one the rate already has", () => {
+    const models = [
+      { id: "m8", name: "iPhone 8", brandId: "b1", active: false },
+      { id: "m12", name: "iPhone 12", brandId: "b1", active: true },
+    ];
+    const brands = [{ id: "b1", name: "Apple" }];
+    expect(modelOptions(models, brands).map((o) => o.id)).toEqual(["m12"]);
+    expect(modelOptions(models, brands, "m8").map((o) => o.id)).toEqual(["m12", "m8"]);
+  });
 });
 
 describe("RatesPage", () => {

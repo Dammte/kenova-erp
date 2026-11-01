@@ -60,7 +60,7 @@ export function ServiceForm({ id, categories, onSaved, onCancel }: Props) {
     setLoadFailed(false);
     Promise.all([
       id ? getJson<ServiceData>(`${API_URL}/services/${id}`) : Promise.resolve(null),
-      getJson<{ id: string; name: string; brandId?: string | null }[]>(`${API_URL}/models`),
+      getJson<{ id: string; name: string; brandId?: string | null; active?: boolean }[]>(`${API_URL}/models`),
       getJson<{ id: string; name: string }[]>(`${API_URL}/brands`),
       getJson<{ id: string; sku: string; name: string }[]>(`${API_URL}/inventory`).catch(() => []),
     ])
@@ -70,7 +70,7 @@ export function ServiceForm({ id, categories, onSaved, onCancel }: Props) {
           setOriginal(service);
           setDraft(serviceDraftFrom(service));
         }
-        setModels(modelOptions(m, b));
+        setModels(modelOptions(m, b, service?.modelId ?? null));
         setParts(
           inv.map((p) => ({ id: p.id, label: `${p.name} · ${p.sku}` })).sort((x, y) => x.label.localeCompare(y.label, "es")),
         );
