@@ -52,6 +52,7 @@ describe("BottomBar", () => {
       "Servicios",
       "Plantillas",
       "Usuarios",
+      "Tienda",
     ]);
     fireEvent.keyDown(window, { key: "Escape" });
     expect(screen.queryByRole("dialog")).toBeNull();
