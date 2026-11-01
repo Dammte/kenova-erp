@@ -95,8 +95,10 @@ describe('Lista de clientes (GET /api/clients/list)', () => {
         totalPrice: 100,
       },
     });
+    // "createdAt" holds UTC wall-clock time: 23:30 UTC is 00:30 of the next
+    // day in Madrid.
     await t.db.query(
-      `UPDATE service_orders SET "createdAt" = '2026-10-29 10:00+01' WHERE "clientId" = $1`,
+      `UPDATE service_orders SET "createdAt" = '2026-10-29 23:30' WHERE "clientId" = $1`,
       [first.clientId],
     );
     const { rows, total, pageSize } = await list(sa);
@@ -105,7 +107,7 @@ describe('Lista de clientes (GET /api/clients/list)', () => {
     expect(rows.find((r) => r.id === first.clientId)).toMatchObject({
       firstName: 'Lucía',
       orders: 2,
-      lastVisit: '2026-10-29',
+      lastVisit: '2026-10-30',
       balance: '190.00',
       duplicate: false,
     });

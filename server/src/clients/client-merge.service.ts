@@ -7,6 +7,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { AuditService } from '../audit/audit.service';
 import type { AuthUser } from '../auth/auth.types';
+import { madridOfUtcNaive } from '../common/madrid-time';
 import { isClientVisible, scopedStoreId } from '../common/store-scope';
 import { ClientsService } from './clients.service';
 import { MergeClientsDto } from './dto/merge-clients.dto';
@@ -63,7 +64,7 @@ export class ClientMergeService {
               d.email, d.address, d."postalCode", d.city,
               (SELECT count(*)::int FROM service_orders so WHERE so."clientId" = d.id
                  AND so."deletedAt" IS NULL AND ($2::uuid IS NULL OR so."storeId" = $2)) AS orders,
-              (SELECT to_char(min(so."createdAt") AT TIME ZONE 'Europe/Madrid', 'YYYY-MM-DD')
+              (SELECT to_char(${madridOfUtcNaive('min(so."createdAt")')}, 'YYYY-MM-DD')
                  FROM service_orders so WHERE so."clientId" = d.id AND so."deletedAt" IS NULL
                   AND ($2::uuid IS NULL OR so."storeId" = $2)) AS "firstVisit",
               (right(regexp_replace(coalesce(d."phoneNumber", ''), '\\D', '', 'g'), 9)
