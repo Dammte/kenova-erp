@@ -24,6 +24,21 @@ export interface RateRow {
   stock: { units: number; low: boolean } | null;
 }
 
+/** One service of the catalog (design 3.5). */
+export interface CatalogRow {
+  id: string;
+  name: string;
+  description: string | null;
+  category: string | null;
+  price: string;
+  estimatedTime: string | null;
+  available: boolean;
+  quality: Service['quality'];
+  model: { id: string; name: string; brand: string | null } | null;
+  /** Only for SUPER_ADMIN, like the inventory (decision 5). */
+  part: { id: string; sku: string; name: string } | null;
+}
+
 /** Rows the search returns at most. */
 const RATES_SHOWN = 50;
 
@@ -116,6 +131,46 @@ export class ServicesService implements OnApplicationBootstrap {
           : null,
       };
     });
+  }
+
+  /**
+   * Design 3.5: the whole catalog, withdrawn services included, with the
+   * model and the linked part, by category and name. It is short (a few
+   * hundred rows at most), so the screen filters it without new requests.
+   */
+  async catalog(withPart: boolean): Promise<CatalogRow[]> {
+    const rows = await this.servicesRepository
+      .createQueryBuilder('s')
+      .leftJoinAndSelect('s.model', 'm')
+      .leftJoinAndSelect('m.brand', 'b')
+      .leftJoinAndSelect('s.inventory', 'i', 'i.deletedAt IS NULL')
+      .orderBy('s.category', 'ASC', 'NULLS LAST')
+      .addOrderBy('s.name', 'ASC')
+      .addOrderBy('b.name', 'ASC', 'NULLS LAST')
+      .addOrderBy('m.name', 'ASC', 'NULLS LAST')
+      .addOrderBy('s.quality', 'ASC', 'NULLS FIRST')
+      .getMany();
+    return rows.map((s) => ({
+      id: s.id,
+      name: s.name,
+      description: s.description?.trim() || null,
+      category: s.category ?? null,
+      price: String(s.price),
+      estimatedTime: s.estimatedTime ?? null,
+      available: s.available,
+      quality: s.quality,
+      model: s.model
+        ? {
+            id: s.model.id,
+            name: s.model.name,
+            brand: s.model.brand?.name ?? null,
+          }
+        : null,
+      part:
+        withPart && s.inventory
+          ? { id: s.inventory.id, sku: s.inventory.sku, name: s.inventory.name }
+          : null,
+    }));
   }
 
   async findByName(name: string): Promise<Service[]> {

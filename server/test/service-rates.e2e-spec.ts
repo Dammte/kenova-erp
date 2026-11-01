@@ -149,4 +149,37 @@ describe('Price list (tarifas)', () => {
     ).toBe(200);
     expect((await rates('conector'))[0].model).toBeNull();
   });
+
+  it('lists the whole catalog, withdrawn services included, with the part for partners only', async () => {
+    interface Row {
+      name: string;
+      available: boolean;
+      quality: string | null;
+      model: { brand: string | null } | null;
+      part: { sku: string } | null;
+    }
+    const catalog = async (cookie: string) =>
+      (await t.http().get('/api/services/catalog').set('Cookie', cookie))
+        .body as Row[];
+    const all = await catalog(sa);
+    const generic = all.find((r) => r.name === 'Batería genérica');
+    expect(generic?.available).toBe(false);
+    const linked = all.find((r) => r.quality === 'compatible');
+    expect(linked?.part?.sku).toBe('BAT-A54-C');
+    expect(linked?.model?.brand).toBe('Samsung');
+    const forStore = await catalog(store);
+    expect(forStore.length).toBe(all.length);
+    expect(forStore.every((r) => r.part === null)).toBe(true);
+  });
+
+  it('keeps a withdrawn service withdrawn when a PATCH does not mention it', async () => {
+    const id = (
+      await t.http().get('/api/services/catalog').set('Cookie', sa)
+    ).body.find((s: { name: string }) => s.name === 'Batería genérica')
+      .id as string;
+    const res = await send('patch', sa, `/api/services/${id}`, { price: 32 });
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ available: false });
+    expect((await rates('generica')).length).toBe(0);
+  });
 });

@@ -80,7 +80,10 @@ export class CreateServiceDto {
     default: true,
     required: false,
   })
-  available: boolean = true;
+  // No initializer: PartialType copies it into UpdateServiceDto, and every
+  // PATCH without «available» would make a withdrawn service available again.
+  // The column's default makes a new service available.
+  available?: boolean;
 
   @ValidateIf((_, v) => v !== null && v !== undefined)
   @IsUUID('4', { message: 'El modelo no es válido' })
