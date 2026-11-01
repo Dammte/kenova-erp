@@ -8,6 +8,7 @@ import { Button } from "@/components/ui";
 import { API_URL, apiFetch } from "@/lib/api";
 import { formatEur } from "@/lib/format";
 import { PartCard } from "./PartCard";
+import { PartForm } from "./PartForm";
 import { InvoiceImport } from "./InvoiceImport";
 import { PartOrders } from "./PartOrders";
 import { StockBadge } from "./StockBadge";
@@ -64,18 +65,19 @@ function Inventory() {
   );
 }
 
-/** Title, actions and the Repuestos / Pedidos tabs; switching starts clean. */
-function Header({ view }: { view: View }) {
+/** Title, actions and the tabs; switching starts clean. */
+function Header({ view, onNew }: { view: View; onNew?: () => void }) {
   const router = useRouter();
   const pathname = usePathname();
+  const startNew = onNew ?? (() => router.replace(`${pathname}?repuesto=nuevo`, { scroll: false }));
   return (
     <>
       <header className={styles.top}>
         <h1 className={styles.title}>Inventario</h1>
         <div className={styles.headActions}>
-          <Link href="/inventory/add-part" className={styles.primaryLink}>
+          <Button variant="primary" size="sm" onClick={startNew}>
             + Nuevo repuesto
-          </Link>
+          </Button>
         </div>
       </header>
       <div className={styles.tabs} role="tablist" aria-label="Vista">
@@ -107,6 +109,8 @@ function PartsList() {
   const provider = params.get("proveedor");
   const page = Math.max(1, Number(params.get("pagina")) || 1);
   const openId = params.get("repuesto");
+  const creating = openId === "nuevo";
+  const editing = !creating && Boolean(openId) && params.get("editar") === "1";
 
   const [draft, setDraft] = useState(q);
   const [data, setData] = useState<PartPage | null>(null);
@@ -120,6 +124,7 @@ function PartsList() {
       else all.delete(k);
     }
     if (!("pagina" in next) && !("repuesto" in next)) all.delete("pagina");
+    if ("repuesto" in next && !("editar" in next)) all.delete("editar");
     const s = all.toString();
     router.replace(s ? `${pathname}?${s}` : pathname, { scroll: false });
   };
@@ -160,7 +165,7 @@ function PartsList() {
   return (
     <div className={`${styles.page} ${openId ? styles.withCard : ""}`}>
       <section className={styles.listPane} aria-label="Repuestos">
-        <Header view="repuestos" />
+        <Header view="repuestos" onNew={() => go({ repuesto: "nuevo" })} />
 
         <input
           type="search"
@@ -249,9 +254,9 @@ function PartsList() {
             ) : (
               <>
                 <p>Aún no hay repuestos. Importa tu primera factura o crea uno.</p>
-                <Link href="/inventory/add-part" className={styles.link}>
+                <button type="button" className={styles.linkButton} onClick={() => go({ repuesto: "nuevo" })}>
                   + Nuevo repuesto
-                </Link>
+                </button>
               </>
             )}
           </div>
@@ -344,7 +349,30 @@ function PartsList() {
         )}
       </section>
 
-      {openId && <PartCard key={openId} id={openId} onClose={() => go({ repuesto: null })} />}
+      {(creating || editing) && data && (
+        <PartForm
+          key={`${openId}-form`}
+          id={creating ? undefined : (openId ?? undefined)}
+          suggestions={{
+            categories: Object.keys(data.counts.byCategory),
+            brands: data.brands,
+            providers: data.providers,
+          }}
+          onSaved={(saved) => {
+            go({ repuesto: saved, editar: null });
+            setAttempt((n) => n + 1);
+          }}
+          onCancel={() => go(creating ? { repuesto: null } : { editar: null })}
+        />
+      )}
+      {openId && !creating && !editing && (
+        <PartCard
+          key={`${openId}-${attempt}`}
+          id={openId}
+          onEdit={() => go({ editar: "1" })}
+          onClose={() => go({ repuesto: null })}
+        />
+      )}
     </div>
   );
 }

@@ -39,7 +39,7 @@ const MOVE_DETAIL: Record<StockLine["kind"], string> = {
 const statusOf = (stock: number, min: number): StockStatus => (stock === 0 ? "out" : stock < min ? "low" : "ok");
 
 /** A part's card: its data, prices and why its stock is what it is. */
-export function PartCard({ id, onClose }: { id: string; onClose: () => void }) {
+export function PartCard({ id, onEdit, onClose }: { id: string; onEdit: () => void; onClose: () => void }) {
   const [part, setPart] = useState<Part | null>(null);
   const [moves, setMoves] = useState<StockLine[] | null>(null);
   const [failed, setFailed] = useState(false);
@@ -106,9 +106,9 @@ export function PartCard({ id, onClose }: { id: string; onClose: () => void }) {
       </header>
 
       <div className={styles.cardActions}>
-        <Link href={`/inventory/${part.id}/edit`} className={styles.secondaryLink}>
+        <Button size="sm" onClick={onEdit}>
           Editar
-        </Link>
+        </Button>
       </div>
 
       <dl className={styles.stats}>
