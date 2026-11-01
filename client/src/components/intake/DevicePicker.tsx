@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { Button, TextField } from "@/components/ui";
 import { API_URL, apiFetch } from "@/lib/api";
 import { DEVICE_TYPE_LABEL } from "@/components/orders/orderDetail";
 import PatternLock from "@/components/serviceOrders/PatternLock";
 import { DEVICE_TYPES, EMPTY_DEVICE, UNLOCKS, cleanImei, isKnown, type KnownDevice, type NewDevice } from "./intake";
+import { ModelMatch, type KnownBrand, type KnownModel } from "./modelMatch";
 import styles from "./Intake.module.css";
 
 /** Previous devices shown as one-tap chips; the newest first. */
@@ -31,6 +32,24 @@ export function DevicePicker({
   onChange: (device: KnownDevice | NewDevice | null) => void;
 }) {
   const [devices, setDevices] = useState<KnownDevice[]>([]);
+  const [catalog, setCatalog] = useState<{ brands: KnownBrand[]; models: KnownModel[] }>({ brands: [], models: [] });
+  const listId = useId();
+
+  // The catalogue's brands and models, to suggest names and the device type.
+  useEffect(() => {
+    let live = true;
+    const read = <T,>(url: string) =>
+      apiFetch(url)
+        .then(async (res) => (res.ok ? ((await res.json()) as T[]) : []))
+        .catch(() => [] as T[]);
+    Promise.all([read<KnownBrand>(`${API_URL}/brands`), read<KnownModel>(`${API_URL}/models`)]).then(([brands, models]) => {
+      if (live) setCatalog({ brands, models });
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+  const match = useMemo(() => new ModelMatch(catalog.brands, catalog.models), [catalog]);
 
   useEffect(() => {
     setDevices([]);
@@ -101,7 +120,17 @@ export function DevicePicker({
     );
   }
 
-  const set = (patch: Partial<NewDevice>) => onChange({ ...value, ...patch });
+  const set = (patch: Partial<NewDevice>) => {
+    const next = { ...value, ...patch };
+    // Design R2 3.8: a known model proposes its device type.
+    if ("brand" in patch || "model" in patch) {
+      const type = match.typeOf(next.brand, next.model);
+      if (type) next.type = type;
+    }
+    onChange(next);
+  };
+  const brandHint = match.brandLookalike(value.brand);
+  const modelHint = match.modelLookalike(value.brand, value.model);
   return (
     <>
       {chips}
@@ -117,8 +146,52 @@ export function DevicePicker({
         </div>
       </fieldset>
       <div className={styles.grid2}>
-        <TextField name="device-brand" label="Marca" required value={value.brand} onChange={(e) => set({ brand: e.target.value })} />
-        <TextField name="device-model" label="Modelo" required value={value.model} onChange={(e) => set({ model: e.target.value })} />
+        <div>
+          <TextField
+            name="device-brand"
+            label="Marca"
+            required
+            list={`${listId}-brands`}
+            value={value.brand}
+            onChange={(e) => set({ brand: e.target.value })}
+          />
+          <datalist id={`${listId}-brands`}>
+            {match.brandNames().map((n) => (
+              <option key={n} value={n} />
+            ))}
+          </datalist>
+          {brandHint && (
+            <p className={styles.muted}>
+              Ya existe «{brandHint}».{" "}
+              <button type="button" className={styles.linkButton} onClick={() => set({ brand: brandHint })}>
+                Usar «{brandHint}»
+              </button>
+            </p>
+          )}
+        </div>
+        <div>
+          <TextField
+            name="device-model"
+            label="Modelo"
+            required
+            list={`${listId}-models`}
+            value={value.model}
+            onChange={(e) => set({ model: e.target.value })}
+          />
+          <datalist id={`${listId}-models`}>
+            {match.modelNames(value.brand).map((n) => (
+              <option key={n} value={n} />
+            ))}
+          </datalist>
+          {modelHint && (
+            <p className={styles.muted}>
+              Ya existe «{modelHint}».{" "}
+              <button type="button" className={styles.linkButton} onClick={() => set({ model: modelHint })}>
+                Usar «{modelHint}»
+              </button>
+            </p>
+          )}
+        </div>
         <TextField
           label="IMEI / nº de serie · opcional"
           hint="Marca *#06# en el móvil para verlo."
