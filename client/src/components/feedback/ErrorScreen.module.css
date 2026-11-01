@@ -1,0 +1,69 @@
+/* Design 4 «Pantallas de error»: one calm card, left-aligned, with what to do next. */
+.screen {
+  display: grid;
+  place-items: center;
+  min-height: 100%;
+  padding: var(--k-space-8) var(--k-space-4);
+}
+
+.card {
+  display: grid;
+  gap: var(--k-space-4);
+  width: 100%;
+  max-width: 520px;
+}
+
+.eyebrow {
+  margin: 0;
+  font: var(--k-text-sm);
+  font-weight: 600;
+  color: var(--k-text-muted);
+}
+
+.title {
+  margin: 0;
+  font: var(--k-text-xl);
+  color: var(--k-text);
+}
+
+.lead {
+  margin: 0;
+  font: var(--k-text-base);
+  color: var(--k-text-muted);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--k-space-2);
+  margin-top: var(--k-space-2);
+}
+
+/* The 404 search looks like the top bar's, and opens it. */
+.search {
+  display: flex;
+  align-items: center;
+  gap: var(--k-space-2);
+  width: 100%;
+  min-height: var(--k-control-h);
+  padding: 0 var(--k-space-3);
+  border: var(--k-border-w) solid var(--k-border);
+  border-radius: var(--k-radius-md);
+  background: var(--k-surface);
+  font: var(--k-text-base);
+  color: var(--k-text-muted);
+  text-align: left;
+  cursor: text;
+}
+
+.search:focus-visible {
+  outline: none;
+  box-shadow: var(--k-focus-ring);
+}
+
+/* Phones: the actions fill the width, easier to tap. */
+@media (max-width: 640px) {
+  .actions > * {
+    flex: 1 1 100%;
+  }
+}
