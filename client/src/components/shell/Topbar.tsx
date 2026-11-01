@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
-import { ChevronDown, KeyRound, LogOut, Search, Store } from "lucide-react";
+import { ChevronDown, KeyRound, LogOut, MonitorX, Search, Store } from "lucide-react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { API_URL, apiFetch } from "@/lib/api";
 import { OPEN_SEARCH_EVENT } from "./BottomBar";
@@ -45,7 +45,8 @@ function useStoreName(storeId: string | null): string | null {
  * them. Each screen keeps its own title.
  */
 export default function Topbar() {
-  const { user, logout } = useAuth();
+  const { user, logout, logoutEverywhere } = useAuth();
+  const [everywhereFailed, setEverywhereFailed] = useState(false);
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [searching, setSearching] = useState(false);
@@ -149,6 +150,17 @@ export default function Topbar() {
               <button type="button" className={styles.menuItem} onClick={logout}>
                 <LogOut size={16} aria-hidden />
                 Cerrar sesión
+              </button>
+              <button
+                type="button"
+                className={styles.menuItem}
+                onClick={() => {
+                  setEverywhereFailed(false);
+                  logoutEverywhere().catch(() => setEverywhereFailed(true));
+                }}
+              >
+                <MonitorX size={16} aria-hidden />
+                {everywhereFailed ? "No se pudo. Vuelve a probar" : "Cerrar sesión en todos los equipos"}
               </button>
             </div>
           )}

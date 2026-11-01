@@ -129,6 +129,65 @@ describe('Authentication and sessions', () => {
     expect(after.status).toBe(401);
   });
 
+  it('logs in with the username too, in any case, and fails the same way', async () => {
+    const user = await createUser(t.db, {
+      email: 'marta.ruiz@kenova.test',
+      role: 'STORE_ADMIN',
+    });
+    await t.db.query(`UPDATE users SET username = 'Marta.Ruiz' WHERE id = $1`, [
+      user.id,
+    ]);
+    const ok = await t
+      .http()
+      .post('/api/auth/login')
+      .set('Origin', ORIGIN)
+      .send({ email: '  MARTA.ruiz ', password: PASSWORD });
+    expect(ok.status).toBe(200);
+    expect(ok.body.user.id).toBe(user.id);
+
+    const wrong = await t
+      .http()
+      .post('/api/auth/login')
+      .set('Origin', ORIGIN)
+      .send({ email: 'marta.ruiz', password: 'nope' });
+    const nobody = await t
+      .http()
+      .post('/api/auth/login')
+      .set('Origin', ORIGIN)
+      .send({ email: 'nadie', password: 'nope' });
+    expect(wrong.status).toBe(401);
+    expect(nobody.status).toBe(401);
+    expect(wrong.body.message).toBe(nobody.body.message);
+  });
+
+  it('closes every session of the account, this one included', async () => {
+    const user = await createUser(t.db, {
+      email: 'everywhere@kenova.test',
+      role: 'STORE_ADMIN',
+    });
+    const counter = await t.login(user.email);
+    const home = await t.login(user.email);
+    const other = await t.login(t.storeAdmin.email);
+
+    const out = await t
+      .http()
+      .post('/api/auth/logout-all')
+      .set('Cookie', counter)
+      .set('Origin', ORIGIN);
+    expect(out.status).toBe(204);
+    for (const cookie of [counter, home]) {
+      const me = await t.http().get('/api/auth/me').set('Cookie', cookie);
+      expect(me.status).toBe(401);
+    }
+    const stillIn = await t.http().get('/api/auth/me').set('Cookie', other);
+    expect(stillIn.status).toBe(200);
+    const [event] = await t.db.query(
+      `SELECT action FROM audit_events WHERE "entityId" = $1 AND action = 'AUTH_LOGOUT_ALL'`,
+      [user.id],
+    );
+    expect(event).toBeDefined();
+  });
+
   it('rejects forged or garbage cookies', async () => {
     for (const cookie of ['sid=abc', 'sid=' + 'x'.repeat(500), 'sid=']) {
       const res = await t.http().get('/api/clients').set('Cookie', cookie);

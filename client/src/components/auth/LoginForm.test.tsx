@@ -23,7 +23,7 @@ afterEach(() => {
 });
 
 function fill(email: string, password: string) {
-  fireEvent.change(screen.getByLabelText("Email"), { target: { value: email } });
+  fireEvent.change(screen.getByLabelText("Email o usuario"), { target: { value: email } });
   fireEvent.change(screen.getByLabelText("Contraseña"), {
     target: { value: password },
   });
@@ -34,7 +34,7 @@ describe("LoginForm", () => {
     render(<LoginForm next={null} />);
     const button = screen.getByRole("button", { name: "Entrar" });
     expect(button.hasAttribute("disabled")).toBe(true);
-    expect(screen.getByText("Escribe tu email.")).toBeTruthy();
+    expect(screen.getByText("Escribe tu email o tu usuario.")).toBeTruthy();
     fill("ana@kenova.es", "");
     expect(screen.getByText("Escribe tu contraseña.")).toBeTruthy();
   });
@@ -63,9 +63,25 @@ describe("LoginForm", () => {
     fill("ana@kenova.es", "mala");
     fireEvent.click(screen.getByRole("button", { name: "Entrar" }));
     expect((await screen.findByRole("alert")).textContent).toMatch(
-      /^El email o la contraseña no son correctos/,
+      /^El usuario o la contraseña no son correctos/,
     );
     expect((screen.getByLabelText("Contraseña") as HTMLInputElement).value).toBe("");
+  });
+
+  it("after 5 failures in a row on the same account, says it is locked for 15 minutes", async () => {
+    render(<LoginForm next={null} />);
+    const attempt = async (login: string) => {
+      fill(login, "mala");
+      fireEvent.click(screen.getByRole("button", { name: "Entrar" }));
+      await waitFor(() => expect(screen.getByRole("button", { name: "Entrar" }).hasAttribute("disabled")).toBe(true));
+      return screen.getByRole("alert").textContent;
+    };
+    for (let i = 0; i < 4; i++) expect(await attempt("Marta")).toMatch(/^El usuario o la contraseña/);
+    expect(await attempt(" marta ")).toBe(
+      "Demasiados intentos. Espera 15 minutos o pide a un socio que te restablezca la contraseña.",
+    );
+    // Another account starts again: nothing here tells which accounts exist.
+    expect(await attempt("ana")).toMatch(/^El usuario o la contraseña/);
   });
 
   it("goes to the requested page, or to change the password first", async () => {

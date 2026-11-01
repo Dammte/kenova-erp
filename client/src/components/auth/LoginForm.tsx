@@ -14,9 +14,14 @@ export function safeNext(next: string | null): string {
   return next;
 }
 
-// Neutral on purpose: it never tells whether the email has an account.
+// Neutral on purpose: it never tells whether the account exists.
 const WRONG =
-  "El email o la contraseña no son correctos. Revisa las mayúsculas o pide a un socio que te restablezca la contraseña.";
+  "El usuario o la contraseña no son correctos. Revisa las mayúsculas o pide a un socio que te restablezca la contraseña.";
+
+/** Same as the server (MAX_FAILED_LOGINS, LOCKOUT_MS). */
+const MAX_FAILED_LOGINS = 5;
+const LOCKED =
+  "Demasiados intentos. Espera 15 minutos o pide a un socio que te restablezca la contraseña.";
 
 interface Props {
   /** Where to go after signing in, from the `next` query parameter. */
@@ -33,6 +38,10 @@ export function LoginForm({ next, navigate = (url) => window.location.assign(url
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [canReset, setCanReset] = useState(false);
+  // Failures in a row on this screen, per account typed. The server answers a
+  // locked account exactly like a wrong password, so the count stays here and
+  // never reveals whether the account exists.
+  const [failures, setFailures] = useState({ login: "", count: 0 });
 
   useEffect(() => {
     fetch(`${API_URL}/auth/password-reset/available`)
@@ -60,7 +69,10 @@ export function LoginForm({ next, navigate = (url) => window.location.assign(url
         return;
       }
       if (!res.ok) {
-        setError(WRONG);
+        const login = email.trim().toLowerCase();
+        const count = failures.login === login ? failures.count + 1 : 1;
+        setFailures({ login, count });
+        setError(count >= MAX_FAILED_LOGINS ? LOCKED : WRONG);
         return;
       }
       const { user } = await res.json();
@@ -74,7 +86,7 @@ export function LoginForm({ next, navigate = (url) => window.location.assign(url
   };
 
   const missing = !email.trim()
-    ? "Escribe tu email."
+    ? "Escribe tu email o tu usuario."
     : !password
       ? "Escribe tu contraseña."
       : undefined;
@@ -88,9 +100,11 @@ export function LoginForm({ next, navigate = (url) => window.location.assign(url
           </p>
         )}
         <TextField
-          label="Email"
-          type="email"
+          label="Email o usuario"
+          type="text"
           autoComplete="username"
+          autoCapitalize="none"
+          spellCheck={false}
           autoFocus
           value={email}
           onChange={(e) => setEmail(e.target.value)}
