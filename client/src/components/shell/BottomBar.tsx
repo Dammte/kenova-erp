@@ -6,6 +6,7 @@ import { useEffect, useId, useState } from "react";
 import { Menu, Plus, Search, X } from "lucide-react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { isActive, navFor, type NavItem } from "./nav";
+import { usePartnerStores } from "./usePartnerStores";
 import styles from "./BottomBar.module.css";
 
 /** Event the "Buscar" tab sends; the top bar opens the search on it. */
@@ -20,6 +21,7 @@ const TABS = ["/panel", "/ordenes"];
  */
 export default function BottomBar() {
   const { user } = useAuth();
+  const shipments = usePartnerStores(user?.role);
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const sheetId = useId();
@@ -35,7 +37,7 @@ export default function BottomBar() {
   }, [menuOpen]);
 
   if (!user) return null;
-  const { main, settings } = navFor(user.role);
+  const { main, settings } = navFor(user.role, shipments);
   const tabs = main.filter((n) => TABS.includes(n.href));
   const more = main.filter((n) => !TABS.includes(n.href));
   const menuActive = [...more, ...settings].some((n) => isActive(n.href, pathname));

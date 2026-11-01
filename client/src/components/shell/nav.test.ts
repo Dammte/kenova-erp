@@ -5,15 +5,22 @@ const labels = (items: { label: string }[]) => items.map((i) => i.label);
 
 describe("navFor", () => {
   it("the partners see stock and settings", () => {
-    const nav = navFor("SUPER_ADMIN");
+    const nav = navFor("SUPER_ADMIN", true);
     expect(labels(nav.main)).toEqual(["Panel", "Órdenes", "Envíos", "Presupuestos", "Tarifas", "Clientes", "Inventario", "Dinero"]);
     expect(labels(nav.settings)).toEqual(["Servicios", "Plantillas", "Usuarios", "Tienda"]);
   });
 
   it("a store sees no stock and only its own notice texts in settings", () => {
-    const nav = navFor("STORE_ADMIN");
+    const nav = navFor("STORE_ADMIN", true);
     expect(labels(nav.main)).toEqual(["Panel", "Órdenes", "Envíos", "Presupuestos", "Tarifas", "Clientes", "Dinero"]);
     expect(labels(nav.settings)).toEqual(["Plantillas"]);
+  });
+});
+
+describe("Envíos", () => {
+  it("is in the menu only when there are partner stores", () => {
+    expect(labels(navFor("SUPER_ADMIN").main)).not.toContain("Envíos");
+    expect(labels(navFor("SUPER_ADMIN", true).main)).toContain("Envíos");
   });
 });
 

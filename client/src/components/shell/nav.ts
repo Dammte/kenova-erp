@@ -44,16 +44,18 @@ const STORE: NavItem = { label: "Tienda", href: "/tienda", icon: Store };
  * The menu approved for each role. Sections whose screen does not exist yet
  * (Catálogo, Papelera, Copia de seguridad) are added
  * as each screen is built. Stock belongs to the partners only; a store's only
- * setting is its own notice texts (design 2.5).
+ * setting is its own notice texts (design 2.5). «Envíos» only when there are
+ * partner stores (see usePartnerStores).
  */
-export function navFor(role: Role): NavSections {
+export function navFor(role: Role, shipments = false): NavSections {
+  const ship = shipments ? [SHIPMENTS] : [];
   if (role === "SUPER_ADMIN") {
     return {
-      main: [PANEL, ORDERS, SHIPMENTS, QUOTES, RATES, CLIENTS, INVENTORY, MONEY],
+      main: [PANEL, ORDERS, ...ship, QUOTES, RATES, CLIENTS, INVENTORY, MONEY],
       settings: [SERVICES, TEMPLATES, USERS, STORE],
     };
   }
-  return { main: [PANEL, ORDERS, SHIPMENTS, QUOTES, RATES, CLIENTS, MONEY], settings: [TEMPLATES] };
+  return { main: [PANEL, ORDERS, ...ship, QUOTES, RATES, CLIENTS, MONEY], settings: [TEMPLATES] };
 }
 
 /**

@@ -7,6 +7,7 @@ import type { Role } from "@/components/auth/AuthProvider";
 import { STATUS_LABEL, type OrderStatus } from "@/components/ui";
 import { API_URL, apiFetch } from "@/lib/api";
 import { navFor } from "./nav";
+import { usePartnerStores } from "./usePartnerStores";
 import styles from "./CommandPalette.module.css";
 
 interface SearchResult {
@@ -30,8 +31,8 @@ const PER_GROUP = 4;
 export const fold = (text: string): string =>
   text.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 
-function actionsFor(role: Role, query: string): Item[] {
-  const { main, settings } = navFor(role);
+function actionsFor(role: Role, shipments: boolean, query: string): Item[] {
+  const { main, settings } = navFor(role, shipments);
   const all: Item[] = [
     {
       key: "new-order",
@@ -97,6 +98,7 @@ interface Props {
  * name, phone, DNI or IMEI, and jumps to any section.
  */
 export default function CommandPalette({ role, onClose }: Props) {
+  const shipments = usePartnerStores(role);
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
@@ -123,8 +125,8 @@ export default function CommandPalette({ role, onClose }: Props) {
       href: `/clients/${c.id}`,
       icon: User,
     }));
-    return [...actionsFor(role, query).slice(0, PER_GROUP), ...orders, ...clients];
-  }, [result, role, query]);
+    return [...actionsFor(role, shipments, query).slice(0, PER_GROUP), ...orders, ...clients];
+  }, [result, role, shipments, query]);
 
   useEffect(() => setActive(0), [items]);
 
