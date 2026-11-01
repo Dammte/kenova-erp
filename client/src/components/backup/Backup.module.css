@@ -1,0 +1,67 @@
+/* Design R2 3.13 «Configuración › Copia de seguridad». */
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-4);
+  min-width: 0;
+  max-width: 720px;
+  padding: var(--k-space-6);
+  color: var(--k-text);
+  font: var(--k-text-base);
+}
+.page p {
+  margin: 0;
+}
+.title {
+  margin: 0;
+  font: var(--k-text-xl);
+}
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-3);
+  padding: var(--k-space-4);
+  border: var(--k-border-w) solid var(--k-border);
+  border-radius: var(--k-radius-lg);
+  background: var(--k-surface);
+}
+/* No copy, or an old one: the card says so in the warning colour. */
+.stale {
+  border-color: var(--k-warning);
+  background: var(--k-status-pendiente-cliente-bg);
+}
+.muted {
+  color: var(--k-text-muted);
+  font: var(--k-text-sm);
+}
+.ok {
+  color: var(--k-success);
+  font: var(--k-text-sm);
+}
+.error {
+  color: var(--k-danger);
+  font: var(--k-text-sm);
+}
+.link {
+  color: var(--k-accent);
+  font-weight: 500;
+}
+.linkButton {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--k-accent);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+.link:hover,
+.linkButton:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 640px) {
+  .page {
+    padding: var(--k-space-4);
+  }
+}
