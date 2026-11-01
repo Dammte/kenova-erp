@@ -90,6 +90,13 @@ export class ServicesController {
     );
   }
 
+  /** Design 3.5: the catalog with withdrawn services; the part only for partners. */
+  @Get('catalog')
+  @ApiOperation({ summary: 'Catálogo de servicios con modelo y pieza' })
+  catalog(@CurrentUser() user: AuthUser) {
+    return this.servicesService.catalog(user.role === UserRole.SUPER_ADMIN);
+  }
+
   @Get('name/:name')
   @ApiOperation({ summary: 'Obtener un servicio por nombre' })
   @ApiResponse({
