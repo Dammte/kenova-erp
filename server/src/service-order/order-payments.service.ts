@@ -1,12 +1,14 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager, IsNull } from 'typeorm';
 import type { AuthUser } from '../auth/auth.types';
+import { cashDay } from '../cash/cash.service';
 import { creditByStore } from '../common/client-credit';
 import { assertOrderVisible, orderScope } from '../common/store-scope';
 import { CreatePaymentDto } from './dto/create-payment.dto';
@@ -18,6 +20,7 @@ import {
   PaymentOrigin,
 } from './entities/order-payment.entity';
 import { Client } from '../clients/entities/client.entity';
+import { UserRole } from '../users/entities/user.entity';
 import { PaymentMethod, ServiceOrder } from './entities/service-order.entity';
 import { derivePayment, toCents } from './payment-status';
 
@@ -33,18 +36,65 @@ function slimAuthor(p: OrderPayment): OrderPayment {
   return p;
 }
 
+/** A charge, with what has been given back of it and whether its cash day is over. */
+export type ListedPayment = OrderPayment & {
+  refunded?: string;
+  dayClosed?: boolean;
+};
+
+interface ChargeState {
+  id: string;
+  amount: string;
+  method: OrderPaymentMethod;
+  refunded: string;
+  dayClosed: boolean;
+}
+
+/**
+ * The charges of an order: what refunds have given back of each, and
+ * whether the cash day of the store that took it is already over.
+ */
+function chargeStates(
+  m: EntityManager,
+  orderId: string,
+): Promise<ChargeState[]> {
+  return m.query<ChargeState[]>(
+    `SELECT p.id, p.amount::text AS amount, p.method,
+            coalesce((SELECT sum(r.amount) FROM order_payments r
+                       WHERE r."refundOfId" = p.id), 0)::numeric(12,2)::text AS refunded,
+            (${cashDay('p."createdAt"')} < ${cashDay('now()')}) AS "dayClosed"
+       FROM order_payments p JOIN stores s ON s.id = p."storeId"
+      WHERE p."orderId" = $1 AND p.kind = 'charge'`,
+    [orderId],
+  );
+}
+
 @Injectable()
 export class OrderPaymentsService {
   constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
 
-  async list(orderId: string, actor: AuthUser): Promise<OrderPayment[]> {
+  async list(orderId: string, actor: AuthUser): Promise<ListedPayment[]> {
     await assertOrderVisible(this.dataSource.manager, orderId, actor);
     const rows = await this.dataSource.getRepository(OrderPayment).find({
       where: { orderId },
       relations: { createdBy: true },
       order: { createdAt: 'ASC' },
     });
-    return rows.map(slimAuthor);
+    const charges = new Map(
+      (await chargeStates(this.dataSource.manager, orderId)).map((c) => [
+        c.id,
+        c,
+      ]),
+    );
+    return rows.map((p) => {
+      const c = charges.get(p.id);
+      const listed: ListedPayment = slimAuthor(p);
+      if (c) {
+        listed.refunded = c.refunded;
+        listed.dayClosed = c.dayClosed;
+      }
+      return listed;
+    });
   }
 
   /**
@@ -85,6 +135,11 @@ export class OrderPaymentsService {
 
       const paid = toCents(order.amountPaid);
       const total = toCents(order.totalPrice);
+      if (dto.refundOf && dto.kind !== PaymentKind.REFUND) {
+        throw new BadRequestException(
+          'Solo una devolución indica el cobro que devuelve',
+        );
+      }
       if (dto.kind === PaymentKind.CHARGE) {
         const pending = total - paid;
         if (pending <= 0) {
@@ -120,6 +175,9 @@ export class OrderPaymentsService {
             `Máximo ${euros(paid)}: es lo cobrado en esta orden`,
           );
         }
+        if (dto.refundOf) {
+          await this.checkRefundOf(m, orderId, dto, amount, actor);
+        }
       }
 
       const saved = await this.insert(m, order, {
@@ -128,6 +186,7 @@ export class OrderPaymentsService {
         amount,
         method: dto.method,
         note: dto.note ?? null,
+        refundOfId: dto.refundOf ?? null,
         origin: PaymentOrigin.COUNTER,
         createdById: actor.id,
         storeId,
@@ -171,6 +230,47 @@ export class OrderPaymentsService {
     });
   }
 
+  /**
+   * Design R2 «Devolver cobro»: a refund of a given charge gives back at most
+   * what is left of it, to the saldo a favor if that is how it was paid. A
+   * store account refunds only charges of the cash day still open, with the
+   * client in front; earlier days are for the partners.
+   */
+  private async checkRefundOf(
+    m: EntityManager,
+    orderId: string,
+    dto: CreatePaymentDto,
+    amount: number,
+    actor: AuthUser,
+  ): Promise<void> {
+    const charge = (await chargeStates(m, orderId)).find(
+      (c) => c.id === dto.refundOf,
+    );
+    if (!charge) {
+      throw new NotFoundException('Ese cobro no es de esta orden');
+    }
+    if (actor.role !== UserRole.SUPER_ADMIN && charge.dayClosed) {
+      throw new ForbiddenException(
+        'Los cobros de días cerrados los devuelve un socio',
+      );
+    }
+    if ((charge.method === CREDIT) !== (dto.method === CREDIT)) {
+      throw new BadRequestException(
+        charge.method === CREDIT
+          ? 'Ese cobro se pagó con saldo a favor: se devuelve al saldo'
+          : 'Ese cobro se pagó con dinero: se devuelve con dinero',
+      );
+    }
+    const left = toCents(charge.amount) - toCents(charge.refunded);
+    if (amount > left) {
+      throw new BadRequestException(
+        left > 0
+          ? `Máximo ${euros(left)}: es lo que queda de ese cobro`
+          : 'Ese cobro ya está devuelto',
+      );
+    }
+  }
+
   private insert(
     m: EntityManager,
     order: ServiceOrder,
@@ -180,6 +280,7 @@ export class OrderPaymentsService {
       amount: number;
       method: OrderPaymentMethod;
       note: string | null;
+      refundOfId?: string | null;
       origin: PaymentOrigin;
       createdById: string | null;
       storeId: string;
