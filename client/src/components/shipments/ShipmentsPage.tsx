@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { Button } from "@/components/ui";
 import { API_URL, apiFetch } from "@/lib/api";
+import { Commissions } from "./Commissions";
 import { NewShipment } from "./NewShipment";
 import { Reception } from "./Reception";
 import {
@@ -27,8 +28,35 @@ import styles from "./Shipments.module.css";
 /** ?envio=nuevo opens the form to create one. */
 const NEW = "nuevo";
 
-/** Design R2 3.14 «Envíos»: the shipments on the left, the open one on the right. */
+/** Design R2 3.14: the shipments and, apart, the partner stores' commissions. */
 export function ShipmentsPage() {
+  const params = useSearchParams();
+  const commissions = params.get("vista") === "comisiones";
+  return (
+    <div className={styles.screen}>
+      <nav className={styles.tabs} aria-label="Secciones de envíos">
+        <Link
+          href="/envios"
+          className={styles.tab}
+          aria-current={commissions ? undefined : "page"}
+        >
+          Envíos
+        </Link>
+        <Link
+          href="/envios?vista=comisiones"
+          className={styles.tab}
+          aria-current={commissions ? "page" : undefined}
+        >
+          Comisiones
+        </Link>
+      </nav>
+      {commissions ? <Commissions /> : <ShipmentList />}
+    </div>
+  );
+}
+
+/** The shipments on the left, the open one on the right. */
+function ShipmentList() {
   const { user } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
