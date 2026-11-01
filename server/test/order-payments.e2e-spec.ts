@@ -200,6 +200,100 @@ describe('Order payments: charges and refunds', () => {
     expect(charge.body.storeId).toBe(store.id);
   });
 
+  describe('refunding a given charge', () => {
+    const charges = async (id: string) =>
+      (
+        (await get(main, `/api/service-orders/${id}/payments`)).body as {
+          id: string;
+          kind: string;
+          refunded?: string;
+          dayClosed?: boolean;
+        }[]
+      ).filter((p) => p.kind === 'charge');
+    const refund = (
+      id: string,
+      refundOf: string,
+      body: object = {},
+      cookie = main,
+    ) =>
+      pay(
+        id,
+        { kind: 'refund', amount: 10, note: 'Funda', refundOf, ...body },
+        cookie,
+      );
+
+    it('gives back at most what is left of that charge', async () => {
+      const id = await newOrder({ totalPrice: 149 });
+      const first = (await pay(id, { kind: 'charge', amount: 59 })).body.id;
+      await pay(id, { kind: 'charge', amount: 90 });
+
+      const ok = await refund(id, first, { amount: 50 });
+      expect(ok.status).toBe(201);
+      expect(ok.body.refundOfId).toBe(first);
+      const tooMuch = await refund(id, first, { amount: 10 });
+      expect(tooMuch.status).toBe(400);
+      expect(tooMuch.body.message).toBe(
+        'Máximo 9,00 €: es lo que queda de ese cobro',
+      );
+      expect((await refund(id, first, { amount: 9 })).status).toBe(201);
+      const done = await refund(id, first, { amount: 1 });
+      expect(done.body.message).toBe('Ese cobro ya está devuelto');
+
+      expect(await charges(id)).toEqual([
+        expect.objectContaining({ refunded: '59.00', dayClosed: false }),
+        expect.objectContaining({ refunded: '0.00', dayClosed: false }),
+      ]);
+      expect((await order(id)).amountPaid).toBe('90.00');
+    });
+
+    it('only refunds a charge of the same order, and only as a refund', async () => {
+      const a = await newOrder({ totalPrice: 50 });
+      const b = await newOrder({ totalPrice: 50 });
+      const chargeA = (await pay(a, { kind: 'charge', amount: 50 })).body.id;
+      await pay(b, { kind: 'charge', amount: 50 });
+
+      const other = await refund(b, chargeA);
+      expect(other.status).toBe(404);
+      expect(other.body.message).toBe('Ese cobro no es de esta orden');
+      const asCharge = await send(
+        'post',
+        main,
+        `/api/service-orders/${a}/payments`,
+        { kind: 'charge', amount: 1, method: 'cash', refundOf: chargeA },
+      );
+      expect(asCharge.status).toBe(400);
+    });
+
+    it('gives saldo a favor back as saldo, and money as money', async () => {
+      const id = await newOrder({ totalPrice: 50 });
+      const cash = (await pay(id, { kind: 'charge', amount: 50 })).body.id;
+      const res = await refund(id, cash, { method: 'credit' });
+      expect(res.status).toBe(400);
+      expect(res.body.message).toBe(
+        'Ese cobro se pagó con dinero: se devuelve con dinero',
+      );
+      // Another method of real money is fine: the card terminal may be down.
+      expect((await refund(id, cash, { method: 'card' })).status).toBe(201);
+    });
+
+    it("a store refunds only today's charges; partners refund any day", async () => {
+      const id = await newOrder({ totalPrice: 100 });
+      const old = (await pay(id, { kind: 'charge', amount: 60 })).body.id;
+      await t.db.query(
+        `UPDATE order_payments SET "createdAt" = now() - interval '3 days' WHERE id = $1`,
+        [old],
+      );
+      expect((await charges(id))[0]).toMatchObject({ dayClosed: true });
+
+      const store = await refund(id, old);
+      expect(store.status).toBe(403);
+      expect(store.body.message).toBe(
+        'Los cobros de días cerrados los devuelve un socio',
+      );
+      expect((await refund(id, old, {}, sa)).status).toBe(201);
+    });
+  });
+
   it('charges minus refunds always equal what each order has paid', async () => {
     const mismatches = await t.db.query(`
       SELECT o.id FROM service_orders o

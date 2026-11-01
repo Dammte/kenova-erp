@@ -94,6 +94,18 @@ export class OrderPayment {
   @Column({ type: 'varchar', length: 20, default: PaymentOrigin.COUNTER })
   origin: PaymentOrigin;
 
+  /** For a refund: the charge it gives back, when the screen says which. */
+  @ManyToOne(() => OrderPayment, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({
+    name: 'refundOfId',
+    foreignKeyConstraintName: 'FK_order_payments_refund_of',
+  })
+  refundOf?: OrderPayment | null;
+
+  @Index('IDX_order_payments_refundOfId')
+  @Column({ type: 'uuid', nullable: true })
+  refundOfId: string | null;
+
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({
     name: 'createdById',

@@ -22,7 +22,7 @@ export type CashMethod = (typeof CASH_METHODS)[number];
  * or the next one when it falls at or after the store's closing time.
  * Before opening it stays on the same date, the day about to open.
  */
-const cashDay = (ts: string) =>
+export const cashDay = (ts: string) =>
   `(CASE WHEN (${ts} AT TIME ZONE '${TZ}')::time >= s."cashClosesAt"
          THEN (${ts} AT TIME ZONE '${TZ}')::date + 1
          ELSE (${ts} AT TIME ZONE '${TZ}')::date END)`;

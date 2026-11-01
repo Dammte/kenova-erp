@@ -43,4 +43,9 @@ export class CreatePaymentDto {
   @IsString()
   @MaxLength(300)
   note?: string | null;
+
+  /** For a refund: the charge it gives back. */
+  @IsOptional()
+  @IsUUID()
+  refundOf?: string;
 }
