@@ -4,6 +4,7 @@ import { TodayPage } from "./TodayPage";
 import { ago, longDate, versusLastWeek, type TodaySummary } from "./today";
 
 let role: "SUPER_ADMIN" | "STORE_ADMIN" = "SUPER_ADMIN";
+let backup: { lastExportAt: string | null; by: string | null } = { lastExportAt: new Date().toISOString(), by: "Ana" };
 vi.mock("@/components/auth/AuthProvider", () => ({ useAuth: () => ({ user: { id: "u1", role, storeId: null } }) }));
 
 const fetchMock = vi.fn();
@@ -35,10 +36,12 @@ const SUMMARY: TodaySummary = {
 
 beforeEach(() => {
   role = "SUPER_ADMIN";
+  backup = { lastExportAt: new Date().toISOString(), by: "Ana" };
   fetchMock.mockReset();
   fetchMock.mockImplementation(async (url: string) => {
     if (url === "/api/stores") return json([{ id: "mp", name: "Medina" }, { id: "vc", name: "Villarcayo" }]);
     if (url.startsWith("/api/today")) return json(SUMMARY);
+    if (url === "/api/backup/status") return json(backup);
     return json([]);
   });
   vi.stubGlobal("fetch", fetchMock);
@@ -93,5 +96,28 @@ describe("TodayPage", () => {
     await act(async () => {});
     screen.getByText(/No se ha podido cargar el panel/);
     expect(screen.queryByRole("combobox")).toBeNull();
+  });
+
+  it("warns the partners when the last backup is over 7 days old, and only then", async () => {
+    render(<TodayPage />);
+    await act(async () => {});
+    expect(screen.queryByRole("note", { name: "Copia de seguridad" })).toBeNull();
+    cleanup();
+
+    backup = { lastExportAt: new Date(Date.now() - 9 * 24 * 3600 * 1000).toISOString(), by: "Ana" };
+    render(<TodayPage />);
+    await act(async () => {});
+    const note = screen.getByRole("note", { name: "Copia de seguridad" });
+    expect(note.textContent).toContain("Hace 9 días que no se hace una copia de seguridad");
+    expect(screen.getByRole("link", { name: "Hacer copia" }).getAttribute("href")).toBe("/copia-seguridad");
+  });
+
+  it("does not ask a store about backups", async () => {
+    role = "STORE_ADMIN";
+    backup = { lastExportAt: null, by: null };
+    render(<TodayPage />);
+    await act(async () => {});
+    expect(screen.queryByRole("note", { name: "Copia de seguridad" })).toBeNull();
+    expect(fetchMock.mock.calls.map((c) => c[0])).not.toContain("/api/backup/status");
   });
 });
