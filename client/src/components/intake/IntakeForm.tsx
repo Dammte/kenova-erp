@@ -174,7 +174,8 @@ export function IntakeForm() {
         return;
       }
       const order = (await res.json()) as { id: string };
-      router.push(`/ordenes?orden=${order.id}`);
+      // «creada» puts the focus on «Imprimir resguardo»: one Enter prints it.
+      router.push(`/ordenes?orden=${order.id}&creada=1`);
     } catch {
       setProblem("No se ha podido crear la orden. Comprueba la conexión; los datos siguen aquí.");
     } finally {

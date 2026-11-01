@@ -140,8 +140,27 @@ describe("OrderList", () => {
     await show();
     const panel = screen.getByRole("dialog", { name: "Orden MP-0142" });
     expect(fetchMock.mock.calls.map((c) => c[0])).toContain("/api/service-orders/o1");
-    fireEvent.click(within(panel).getByRole("button", { name: "Cerrar" }));
+    // The focus goes to the panel's title and the row stays marked.
+    expect(document.activeElement).toBe(within(panel).getByRole("heading", { name: "MP-0142" }));
+    const link = screen.getByRole("link", { name: "MP-0142" });
+    expect(link.getAttribute("aria-current")).toBe("true");
+    fireEvent.keyDown(window, { key: "Escape" });
     expect(replace).toHaveBeenCalledWith("/ordenes", { scroll: false });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+    expect(document.activeElement).toBe(link);
+  });
+
+  it("right after creating an order, the focus is on printing its receipt", async () => {
+    search = "orden=o1&creada=1";
+    fetchMock.mockImplementation(async (url: string) =>
+      url.startsWith("/api/service-orders/list")
+        ? new Response(JSON.stringify(PAGE))
+        : new Response("{}", { status: 500 }),
+    );
+    await show();
+    expect(document.activeElement).toBe(screen.getByRole("link", { name: "Imprimir resguardo" }));
   });
 
   it("asks for what the address says and changes tab from page 1", async () => {

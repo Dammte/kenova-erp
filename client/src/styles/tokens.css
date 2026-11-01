@@ -85,6 +85,12 @@
     0 0 0 1px rgba(22, 27, 31, 0.06);
   --k-shadow-drawer: -8px 0 24px rgba(22, 27, 31, 0.08);
 
+  /* Motion (design 4). Nothing lasts over 200 ms except the toast's bar. */
+  --k-dur-fast: 120ms;
+  --k-dur-base: 160ms;
+  --k-dur-panel: 200ms;
+  --k-ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+
   /* Layers. */
   --k-z-sidebar: 10;
   --k-z-topbar: 20;
@@ -105,5 +111,14 @@
 @media (pointer: coarse) {
   :root {
     --k-control-h: 44px;
+  }
+}
+
+/* «Reducir movimiento»: things appear in place, without sliding. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --k-dur-fast: 0ms;
+    --k-dur-base: 0ms;
+    --k-dur-panel: 0ms;
   }
 }

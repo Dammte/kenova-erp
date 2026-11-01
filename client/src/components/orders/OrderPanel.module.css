@@ -3,6 +3,22 @@
   inset: 0;
   background: rgba(22, 27, 31, 0.24);
   z-index: var(--k-z-drawer);
+  animation: fade var(--k-dur-panel) var(--k-ease-out);
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Design 4: in from the right with a soft stop; with «reducir movimiento»
+   the duration tokens are 0 and it simply appears. */
+@keyframes slideIn {
+  from {
+    transform: translateX(32px);
+    opacity: 0;
+  }
 }
 
 .panel {
@@ -18,6 +34,7 @@
   color: var(--k-text);
   font: var(--k-text-base);
   z-index: var(--k-z-drawer);
+  animation: slideIn var(--k-dur-panel) var(--k-ease-out);
 }
 
 .header {
@@ -38,6 +55,9 @@
 .code {
   margin: 0;
   font: 600 22px/28px var(--k-font-mono);
+}
+.code:focus {
+  outline: none;
 }
 
 .priority {
