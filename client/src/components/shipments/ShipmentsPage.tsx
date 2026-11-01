@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { Button } from "@/components/ui";
 import { API_URL, apiFetch } from "@/lib/api";
+import { NewShipment } from "./NewShipment";
 import { Reception } from "./Reception";
 import {
   SHIPMENT_STATUSES,
@@ -22,6 +23,9 @@ import {
   type ShipmentQuery,
 } from "./shipments";
 import styles from "./Shipments.module.css";
+
+/** ?envio=nuevo opens the form to create one. */
+const NEW = "nuevo";
 
 /** Design R2 3.14 «Envíos»: the shipments on the left, the open one on the right. */
 export function ShipmentsPage() {
@@ -69,7 +73,14 @@ export function ShipmentsPage() {
   return (
     <div className={styles.page}>
       <section className={styles.listPane} aria-label="Envíos">
-        <h1 className={styles.title}>Envíos</h1>
+        <div className={styles.top}>
+          <h1 className={styles.title}>Envíos</h1>
+          <Button size="sm" onClick={() => go({ envio: NEW })}>
+            {user?.role === "SUPER_ADMIN"
+              ? "+ Envío a tienda"
+              : "+ Nuevo envío"}
+          </Button>
+        </div>
         <div
           className={styles.filters}
           role="group"
@@ -166,7 +177,17 @@ export function ShipmentsPage() {
         )}
       </section>
 
-      {openId && user && (
+      {openId === NEW && user && (
+        <NewShipment
+          partner={user.role === "SUPER_ADMIN"}
+          onCreated={(id) => {
+            setAttempt((a) => a + 1);
+            go({ envio: id });
+          }}
+          onCancel={() => go({ envio: null })}
+        />
+      )}
+      {openId && openId !== NEW && user && (
         <ShipmentDetail
           key={openId}
           id={openId}
@@ -280,22 +301,28 @@ function ShipmentDetail({ id, user, onChanged, onClose }: DetailProps) {
         />
       ) : (
         <>
-          {shipment.status === "sent" &&
-            (mayReceive ? (
-              <div className={styles.actions}>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={() => setReceiving(true)}
-                >
-                  Recibir equipos
-                </Button>
-              </div>
-            ) : (
-              <p className={styles.sub}>
-                Este envío lo recibe {shipment.toStore.name}.
-              </p>
-            ))}
+          <div className={styles.actions}>
+            <Link
+              href={`/envios/${shipment.id}/hoja`}
+              className={styles.linkButton}
+            >
+              Imprimir hoja de envío
+            </Link>
+            {mayReceive && (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setReceiving(true)}
+              >
+                Recibir equipos
+              </Button>
+            )}
+          </div>
+          {shipment.status === "sent" && !mayReceive && (
+            <p className={styles.sub}>
+              Este envío lo recibe {shipment.toStore.name}.
+            </p>
+          )}
 
           <div className={styles.tableWrap}>
             <table className={styles.table}>

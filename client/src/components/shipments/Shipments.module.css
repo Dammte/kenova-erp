@@ -4,6 +4,7 @@
   grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
   gap: var(--k-space-6);
   align-items: start;
+  align-content: start;
   min-height: 100%;
   padding: var(--k-space-6);
   background: var(--k-bg);
@@ -19,6 +20,12 @@
   flex-direction: column;
   gap: var(--k-space-3);
   min-width: 0;
+}
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--k-space-3);
 }
 .title {
   margin: 0;
@@ -231,6 +238,68 @@ a.code:hover {
 }
 .state_muted {
   color: var(--k-text-muted);
+}
+
+/* New shipment. */
+.cardHeading {
+  margin: 0;
+  font: var(--k-text-lg);
+}
+.newForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-4);
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-1);
+  font: var(--k-text-sm);
+  font-weight: 500;
+}
+.select {
+  height: var(--k-control-h);
+  max-width: 360px;
+  padding: 0 var(--k-space-3);
+  border: var(--k-border-w) solid var(--k-border-strong);
+  border-radius: var(--k-radius-md);
+  background: var(--k-surface);
+  color: var(--k-text);
+  font: var(--k-text-base);
+}
+.select:focus-visible {
+  outline: none;
+  box-shadow: var(--k-focus-ring);
+}
+.pickList {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.pickList legend {
+  margin-bottom: var(--k-space-2);
+}
+.pickAll,
+.pick {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--k-space-1) var(--k-space-3);
+  padding: var(--k-space-2) 0;
+  border-bottom: var(--k-border-w) solid var(--k-border);
+  cursor: pointer;
+}
+.pickAll {
+  font-weight: 600;
+}
+.pickAll input,
+.pick input {
+  accent-color: var(--k-accent);
+}
+.pick:has(input:checked) {
+  background: var(--k-accent-subtle);
 }
 
 /* Reception with the scanner. */

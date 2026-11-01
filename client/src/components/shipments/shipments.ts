@@ -45,6 +45,16 @@ export interface ShipmentPage {
   total: number;
 }
 
+/** GET /api/shipments/candidates: a device that can go in a new shipment. */
+export interface ShipmentCandidate {
+  orderId: string;
+  orderCode: string;
+  status: string;
+  clientName: string;
+  device: string | null;
+  accessories: string | null;
+}
+
 /** POST /api/shipments/:id/scan. */
 export interface ScanResult {
   result: "received" | "already" | "late" | "foreign" | "unknown";
