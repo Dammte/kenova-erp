@@ -213,4 +213,64 @@ describe('Commission of each partner store', () => {
       (await get(vc, `/api/stores/${mainId}/commission-history`)).status,
     ).toBe(404);
   });
+
+  it("adds up the month's delivered orders: collected, commission and what goes to Kenova", async () => {
+    const res = await get(vc, `/api/stores/${vcId}/commissions`);
+    expect(res.status).toBe(200);
+    const month = res.body.month as string;
+    expect(month).toMatch(/^\d{4}-\d{2}$/);
+    // 129 € at 15 %, 200 € and 80 € at 12 € fixed, a warranty claim at 0;
+    // the reopened order and the workshop's order do not count.
+    expect(res.body).toMatchObject({
+      store: { id: vcId, name: 'Villarcayo' },
+      collected: '409.00',
+      commission: '43.35',
+      toKenova: '365.65',
+    });
+    expect(res.body.lines).toHaveLength(4);
+    expect(res.body.lines[0]).toMatchObject({
+      clientName: 'Iker',
+      amountPaid: '129.00',
+      commissionType: 'percent',
+      commissionValue: '15.00',
+      commissionAmount: '19.35',
+      warranty: false,
+    });
+    expect(
+      res.body.lines.filter((l: { warranty: boolean }) => l.warranty),
+    ).toHaveLength(1);
+
+    // An order delivered last month belongs to last month.
+    const moved = res.body.lines[0].orderId as string;
+    await t.db.query(
+      `UPDATE service_orders SET "deliveredAt" = date_trunc('month', now() AT TIME ZONE 'Europe/Madrid') AT TIME ZONE 'Europe/Madrid' - interval '1 minute' WHERE id = $1`,
+      [moved],
+    );
+    const [y, m] = month.split('-').map(Number);
+    const previous =
+      m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}`;
+    const before = (
+      await get(sa, `/api/stores/${vcId}/commissions?month=${previous}`)
+    ).body;
+    expect(before.lines.map((l: { orderId: string }) => l.orderId)).toEqual([
+      moved,
+    ]);
+    expect(before.commission).toBe('19.35');
+    expect(
+      (await get(sa, `/api/stores/${vcId}/commissions?month=${month}`)).body
+        .commission,
+    ).toBe('24.00');
+  });
+
+  it('only the store itself or a partner sees it, and the workshop has none', async () => {
+    expect((await get(vc, `/api/stores/${mainId}/commissions`)).status).toBe(
+      404,
+    );
+    const main = await get(sa, `/api/stores/${mainId}/commissions`);
+    expect(main.status).toBe(400);
+    expect(main.body.message).toBe('La tienda principal no lleva comisión');
+    const bad = await get(sa, `/api/stores/${vcId}/commissions?month=2026-13`);
+    expect(bad.status).toBe(400);
+    expect(bad.body.message).toBe('El mes debe tener la forma AAAA-MM');
+  });
 });
