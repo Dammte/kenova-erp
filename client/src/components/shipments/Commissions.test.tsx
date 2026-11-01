@@ -14,6 +14,7 @@ import {
   shiftMonth,
   type CommissionMonth,
 } from "./Commissions";
+import { pendingText, today } from "./Settlement";
 import { ShipmentsPage } from "./ShipmentsPage";
 
 const replace = vi.fn();
@@ -70,6 +71,27 @@ const OCTOBER: CommissionMonth = {
   collected: "129.00",
   commission: "19.35",
   toKenova: "109.65",
+  carriedIn: "0.00",
+  due: "109.65",
+  settlement: null,
+};
+const SETTLED: CommissionMonth = {
+  ...OCTOBER,
+  carriedIn: "20.00",
+  due: "129.65",
+  settlement: {
+    id: "l1",
+    month: "2026-10",
+    toKenova: "109.65",
+    carriedIn: "20.00",
+    due: "129.65",
+    received: "100.00",
+    pending: "29.65",
+    receivedOn: "2026-11-03",
+    method: "transfer",
+    note: "Falta el ticket de VC-0040",
+    createdBy: { id: "u1", fullName: "Ana Rojo" },
+  },
 };
 
 const fetchMock = vi.fn();
@@ -191,6 +213,168 @@ describe("Comisiones", () => {
     );
     await show();
     screen.getByText("La tienda principal no lleva comisión");
+  });
+});
+
+describe("Liquidación", () => {
+  /** Answers the month with `month`, and settlement calls with `answer`. */
+  function api(month: CommissionMonth, answer = json({}, 201)) {
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
+      if (url === "/api/stores")
+        return json([{ id: "s2", name: "Villarcayo", isMain: false }]);
+      if (url.endsWith("/settlement")) {
+        return init?.method === "DELETE"
+          ? new Response(null, { status: 204 })
+          : answer;
+      }
+      return json(month);
+    });
+  }
+  const monthCalls = () => calls().filter((u) => u.includes("?month="));
+
+  it("the partners record what the store handed over; the rest carries to next month", async () => {
+    api(OCTOBER);
+    await show();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Registrar liquidación" }),
+    );
+    const form = screen.getByRole("form", { name: "Registrar liquidación" });
+    const amount = within(form).getByLabelText(
+      "Ha entregado",
+    ) as HTMLInputElement;
+    expect(amount.value).toBe("109,65");
+    fireEvent.change(amount, { target: { value: "80" } });
+    within(form).getByText(
+      "Quedan 29,65 € pendientes: se suman a la próxima liquidación.",
+      { normalizer: (t) => t.replace(/\s/g, " ") },
+    );
+    fireEvent.change(within(form).getByLabelText("Forma de pago"), {
+      target: { value: "cash" },
+    });
+    fireEvent.change(within(form).getByLabelText("Nota · opcional"), {
+      target: { value: " En mano " },
+    });
+    fireEvent.submit(form);
+    await act(async () => {});
+    const [url, init] = fetchMock.mock.calls.find((c) =>
+      (c[0] as string).endsWith("/settlement"),
+    ) as [string, RequestInit];
+    expect(url).toBe("/api/stores/s2/commissions/2026-10/settlement");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body as string)).toEqual({
+      received: 80,
+      receivedOn: today(),
+      method: "cash",
+      note: "En mano",
+    });
+    // The month reloads with its settlement.
+    expect(monthCalls()).toHaveLength(2);
+  });
+
+  it("says why the server refuses it and keeps the form", async () => {
+    api(
+      OCTOBER,
+      json({ message: "Ya hay una liquidación de un mes posterior" }, 400),
+    );
+    await show();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Registrar liquidación" }),
+    );
+    fireEvent.submit(
+      screen.getByRole("form", { name: "Registrar liquidación" }),
+    );
+    await act(async () => {});
+    screen.getByText("Ya hay una liquidación de un mes posterior");
+    screen.getByRole("form", { name: "Registrar liquidación" });
+  });
+
+  it("adds what was left pending to what the store has to hand over", async () => {
+    api({ ...OCTOBER, carriedIn: "20.00", due: "129.65" });
+    await show();
+    const totals = screen
+      .getAllByRole("definition")
+      .map((d) => money(d.textContent));
+    expect(totals).toEqual([
+      "129,00 €",
+      "19,35 €",
+      "109,65 €",
+      "20,00 €",
+      "129,65 €",
+    ]);
+    screen.getByText("Saldo de meses anteriores");
+  });
+
+  it("a settled month says what was handed over, and the partners can undo it", async () => {
+    api(SETTLED);
+    await show();
+    const box = screen.getByRole("region", { name: "Liquidación" });
+    expect(money(box.textContent)).toContain(
+      "Villarcayo entregó 100,00 € de 129,65 € el 03/11/2026 · Transferencia · Anotado por Ana Rojo",
+    );
+    within(box).getByText(
+      "Quedan 29,65 € pendientes: se suman a la próxima liquidación.",
+      { normalizer: (t) => t.replace(/\s/g, " ") },
+    );
+    within(box).getByText("Falta el ticket de VC-0040");
+    expect(
+      screen.queryByRole("button", { name: "Registrar liquidación" }),
+    ).toBeNull();
+
+    fireEvent.click(
+      within(box).getByRole("button", { name: "Deshacer liquidación" }),
+    );
+    const ask = within(box).getByRole("alertdialog");
+    expect(calls().some((u) => u.endsWith("/settlement"))).toBe(false);
+    fireEvent.click(
+      within(ask).getByRole("button", { name: "Deshacer liquidación" }),
+    );
+    await act(async () => {});
+    const undo = fetchMock.mock.calls.find((c) =>
+      (c[0] as string).endsWith("/settlement"),
+    ) as [string, RequestInit];
+    expect(undo[1].method).toBe("DELETE");
+    expect(monthCalls()).toHaveLength(2);
+  });
+
+  it("a store sees its settlement read only, and what it still owes", async () => {
+    user = STORE;
+    api(SETTLED);
+    await show();
+    screen.getByRole("region", { name: "Liquidación" });
+    expect(
+      screen.queryByRole("button", { name: "Deshacer liquidación" }),
+    ).toBeNull();
+    cleanup();
+    api(OCTOBER);
+    await show();
+    expect(
+      screen.queryByRole("button", { name: "Registrar liquidación" }),
+    ).toBeNull();
+    screen.getByText("Pendiente de liquidar: 109,65 € a entregar a Kenova.", {
+      normalizer: (t) => t.replace(/\s/g, " "),
+    });
+  });
+
+  it("the month in progress cannot be settled yet", async () => {
+    search = `vista=comisiones&mes=${currentMonth()}`;
+    api({ ...OCTOBER, month: currentMonth() });
+    await show();
+    screen.getByText(
+      `${monthLabel(currentMonth())} se podrá liquidar cuando termine el mes.`,
+    );
+    expect(
+      screen.queryByRole("button", { name: "Registrar liquidación" }),
+    ).toBeNull();
+  });
+
+  it("names what is left for next month", () => {
+    const n = (t: string) => t.replace(/\s/g, " ");
+    expect(n(pendingText("0.00"))).toBe(
+      "Liquidado del todo: no queda nada pendiente.",
+    );
+    expect(n(pendingText("-5.00"))).toBe(
+      "La tienda entregó 5,00 € de más: se descuentan de la próxima liquidación.",
+    );
   });
 });
 
