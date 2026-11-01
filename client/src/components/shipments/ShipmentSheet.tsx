@@ -4,9 +4,16 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Printer } from "lucide-react";
 import { Button } from "@/components/ui";
+import { FAULT_LABEL } from "@/components/orders/orderList";
 import { API_URL, apiFetch } from "@/lib/api";
-import { formatDay, type Shipment } from "./shipments";
+import { formatDay, type Shipment, type ShipmentLine } from "./shipments";
 import styles from "./ShipmentSheet.module.css";
+
+/** «Pantalla rota, Batería · El táctil falla abajo», or null if none was noted. */
+export function faultText(line: ShipmentLine): string | null {
+  const faults = line.reportedFaults.map((f) => FAULT_LABEL[f] ?? f).join(", ");
+  return [faults, line.faultNotes?.trim()].filter(Boolean).join(" · ") || null;
+}
 
 /**
  * /envios/:id/hoja (design R2 3.14): the A4 sheet that travels with the
@@ -90,6 +97,7 @@ export function ShipmentSheet({ id }: { id: string }) {
                 <th scope="col">Orden</th>
                 <th scope="col">Cliente</th>
                 <th scope="col">Equipo</th>
+                <th scope="col">Avería</th>
                 <th scope="col">Acces.</th>
               </tr>
             </thead>
@@ -102,6 +110,9 @@ export function ShipmentSheet({ id }: { id: string }) {
                   <td className={styles.mono}>{l.orderCode}</td>
                   <td>{l.clientName || "—"}</td>
                   <td>{l.device ?? "—"}</td>
+                  <td className={faultText(l) ? styles.fault : undefined}>
+                    {faultText(l) ?? "Sin indicar"}
+                  </td>
                   <td>{l.accessories || "—"}</td>
                 </tr>
               ))}

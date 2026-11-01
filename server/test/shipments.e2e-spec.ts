@@ -12,8 +12,8 @@ describe('Shipments between partner stores and the workshop', () => {
     t.http().post(url).set('Cookie', cookie).set('Origin', ORIGIN).send(body);
   const get = (cookie: string, url: string) =>
     t.http().get(url).set('Cookie', cookie);
-  const newOrder = async (cookie: string) =>
-    (await send(cookie, '/api/service-orders', { clientId })).body as {
+  const newOrder = async (cookie: string, more: object = {}) =>
+    (await send(cookie, '/api/service-orders', { clientId, ...more })).body as {
       id: string;
       code: string;
       location: string | null;
@@ -59,7 +59,10 @@ describe('Shipments between partner stores and the workshop', () => {
   });
 
   it('a partner store ships its devices to the workshop', async () => {
-    const a = await newOrder(vc);
+    const a = await newOrder(vc, {
+      reportedFaults: ['broken_screen', 'battery'],
+      faultNotes: 'El táctil falla abajo',
+    });
     const b = await newOrder(vc);
     expect(
       (await send(vc, '/api/shipments', { orderIds: [] })).body.message,
@@ -81,6 +84,17 @@ describe('Shipments between partner stores and the workshop', () => {
     expect(
       res.body.lines.map((l: { orderCode: string }) => l.orderCode),
     ).toEqual([a.code, b.code].sort());
+    // The sheet says what to repair in each device.
+    const lineOf = (code: string) =>
+      res.body.lines.find((l: { orderCode: string }) => l.orderCode === code);
+    expect(lineOf(a.code)).toMatchObject({
+      reportedFaults: ['broken_screen', 'battery'],
+      faultNotes: 'El táctil falla abajo',
+    });
+    expect(lineOf(b.code)).toMatchObject({
+      reportedFaults: [],
+      faultNotes: null,
+    });
     expect(await location(a.id)).toBe('to_workshop');
 
     const again = await send(vc, '/api/shipments', { orderIds: [a.id] });
