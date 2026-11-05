@@ -1,4 +1,4 @@
-import { PartialType } from '@nestjs/mapped-types';
+import { OmitType, PartialType } from '@nestjs/mapped-types';
 import { Transform, Type } from 'class-transformer';
 import {
   ArrayMaxSize,
@@ -58,6 +58,14 @@ export class QuoteLineDto {
 
 /** Design 2.4: name and phone are enough; the rest is filled in when it becomes an order. */
 export class CreateQuoteDto {
+  /**
+   * Design 2.4: a quote made for a device already in the workshop. It takes
+   * the order's store, client and device, and is answered from the quote.
+   */
+  @IsOptional()
+  @IsUUID('4')
+  orderId?: string;
+
   @IsOptional()
   @ValidateIf(isSet)
   @IsUUID('4')
@@ -116,4 +124,7 @@ export class CreateQuoteDto {
   lines: QuoteLineDto[];
 }
 
-export class UpdateQuoteDto extends PartialType(CreateQuoteDto) {}
+/** The order a quote belongs to is fixed when it is made. */
+export class UpdateQuoteDto extends PartialType(
+  OmitType(CreateQuoteDto, ['orderId'] as const),
+) {}

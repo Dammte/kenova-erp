@@ -27,6 +27,11 @@ export async function lockQuoteToAccept(
         : 'El cliente rechazó este presupuesto',
     );
   }
+  if (quote.orderId) {
+    throw new ConflictException(
+      'Este presupuesto es de una orden que ya está en el taller: acéptalo desde el presupuesto',
+    );
+  }
   if (quote.validUntil < todayInSpain()) {
     throw new ConflictException(
       'El presupuesto ha caducado: renuévalo antes de aceptarlo',

@@ -76,6 +76,13 @@ export interface UsedPart {
   stock: number;
 }
 
+/** The quote linked to an order, as stored (expiry is the quote's to show). */
+export interface OrderQuote {
+  id: string;
+  code: string;
+  status: string;
+}
+
 @Injectable()
 export class ServiceOrderService {
   private readonly UUID_REGEX =
@@ -532,7 +539,10 @@ export class ServiceOrderService {
   }
 
   /** Without an actor (internal calls) the order is not limited to a store. */
-  async findOne(id: string, actor?: AuthUser): Promise<ServiceOrder> {
+  async findOne(
+    id: string,
+    actor?: AuthUser,
+  ): Promise<ServiceOrder & { quote: OrderQuote | null }> {
     const serviceOrder = await this.serviceOrderRepository.findOne({
       where: { id, deletedAt: IsNull(), ...(actor ? orderScope(actor) : {}) },
       relations: [
@@ -559,7 +569,12 @@ export class ServiceOrderService {
       serviceOrder.warrantyOf = { id: originalId, code } as ServiceOrder;
     }
     await this.resolveBrandNames([serviceOrder]);
-    return serviceOrder;
+    // Its quote (design 2.4): the one it came from or the one made for it.
+    const [quote] = await this.dataSource.query<OrderQuote[]>(
+      `SELECT id, code, status FROM quotes WHERE "orderId" = $1`,
+      [id],
+    );
+    return Object.assign(serviceOrder, { quote: quote ?? null });
   }
 
   async update(
