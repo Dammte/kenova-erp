@@ -16,6 +16,7 @@ interface Order {
   clientId: string;
   deviceId: string | null;
   services?: { id: string }[];
+  quote: { id: string; code: string; status: string } | null;
 }
 
 /** Design 2.4: a quote for a device already in the workshop. */
@@ -106,6 +107,7 @@ describe('Quote made from an order', () => {
 
   it('takes the order’s client and device and puts the order on hold', async () => {
     const id = await intake();
+    expect((await order(id)).quote).toBeNull();
     const res = await quoteFor(id);
     expect(res.status).toBe(201);
     const quote = res.body as Quote;
@@ -117,6 +119,7 @@ describe('Quote made from an order', () => {
       order: { id },
     });
     expect(o.status).toBe('pendiente_cliente');
+    expect(o.quote).toMatchObject({ id: quote.id, status: 'draft' });
     expect((await quoteFor(id)).status).toBe(409); // one quote per order
   });
 
