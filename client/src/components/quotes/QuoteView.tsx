@@ -5,7 +5,7 @@ import { Pencil, Printer } from "lucide-react";
 import { Button } from "@/components/ui";
 import { formatEur } from "@/lib/format";
 import { QuoteActions } from "./QuoteActions";
-import { QUALITY_LABEL, QUOTE_STATUS_LABEL, formatDay, validityText, type QuoteDetail } from "./quotes";
+import { QUALITY_LABEL, QUOTE_STATUS_LABEL, formatDay, orderText, validityText, type QuoteDetail } from "./quotes";
 import styles from "./Quotes.module.css";
 
 /** Design 2.4: one quote as the client got it, with its validity and who made it. */
@@ -50,7 +50,7 @@ export function QuoteView({
       )}
       {quote.order && (
         <p className={styles.notice}>
-          Convertido en la orden <Link href={`/ordenes?orden=${quote.order.id}`}>{quote.order.code}</Link>.
+          {orderText(quote)} <Link href={`/ordenes?orden=${quote.order.id}`}>Ver orden</Link>
         </p>
       )}
 

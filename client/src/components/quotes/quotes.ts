@@ -54,6 +54,18 @@ export interface QuoteDetail {
   lines: QuoteLine[];
 }
 
+/**
+ * Design 2.4: what the quote's order is to it. An accepted quote is its
+ * order; any other with an order was made for a device in the workshop.
+ */
+export function orderText(quote: Pick<QuoteDetail, "status" | "order">): string | null {
+  if (!quote.order) return null;
+  const code = quote.order.code;
+  if (quote.status === "accepted") return `Aceptado: es la orden ${code}.`;
+  if (quote.status === "rejected") return `Rechazado: la orden ${code} se devuelve sin reparar.`;
+  return `Para la orden ${code}, que espera la respuesta del cliente.`;
+}
+
 export const QUOTE_STATUS_LABEL: Record<QuoteStatus, string> = {
   draft: "Borrador",
   sent: "Enviado",

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { ClipboardPlus, MessageCircle, RefreshCw, Trash2, X } from "lucide-react";
+import { Check, ClipboardPlus, MessageCircle, RefreshCw, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui";
 import { API_URL, apiFetch, errorMessage } from "@/lib/api";
 import { formatEur } from "@/lib/format";
@@ -20,6 +20,13 @@ export function renewNotice(changes: PriceChange[]): string {
   if (changes.length === 0) return "Renovado 30 días. Los precios no han cambiado.";
   const list = changes.map((c) => `${c.description}: ${formatEur(c.before)} → ${formatEur(c.after)}`).join("; ");
   return `Renovado 30 días con las tarifas de hoy. Cambian: ${list}. Revísalo antes de enviarlo.`;
+}
+
+/** What rejecting says back; for an order, what happens to the device. */
+export function rejectNotice(orderCode: string | null, fee: number): string {
+  if (!orderCode) return "Marcado como rechazado.";
+  const charge = fee > 0 ? ` Cobra el diagnóstico (${formatEur(fee)}) al devolverlo.` : "";
+  return `Rechazado. La orden ${orderCode} queda finalizada sin reparar, lista para devolver.${charge}`;
 }
 
 /**
@@ -41,6 +48,9 @@ export function QuoteActions({
   const [problem, setProblem] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const open = quote.status === "draft" || quote.status === "sent" || quote.status === "expired";
+  // Made for a device already in the workshop: answered here, not at intake.
+  const order = quote.order && quote.status !== "accepted" ? quote.order : null;
+  const fee = Number(quote.diagnosticFee ?? 0);
 
   const call = async (path: string, method: "POST" | "DELETE" = "POST") => {
     setBusy(true);
@@ -75,7 +85,20 @@ export function QuoteActions({
   return (
     <div className={styles.quoteActions}>
       <p className={styles.actions}>
-        {quote.status === "sent" && (
+        {order && (quote.status === "draft" || quote.status === "sent") && (
+          <Button
+            variant={quote.status === "sent" ? "primary" : "secondary"}
+            icon={<Check size={16} aria-hidden />}
+            loading={busy}
+            onClick={async () => {
+              const q = (await call("/accept")) as QuoteDetail | null;
+              if (q) onChanged(q, `Aceptado. La orden ${order.code} vuelve a «En progreso» con este precio.`);
+            }}
+          >
+            Aceptado
+          </Button>
+        )}
+        {!order && quote.status === "sent" && (
           <Link className={styles.primaryLink} href={`/ordenes/nueva?presupuesto=${quote.id}`}>
             <ClipboardPlus size={16} aria-hidden /> Aceptado: convertir en orden
           </Link>
@@ -110,7 +133,7 @@ export function QuoteActions({
            
             onClick={async () => {
               const q = (await call("/reject")) as QuoteDetail | null;
-              if (q) onChanged(q, "Marcado como rechazado.");
+              if (q) onChanged(q, rejectNotice(order?.code ?? null, fee));
             }}
           >
             Rechazado
