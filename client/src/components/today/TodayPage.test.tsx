@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { TodayPage } from "./TodayPage";
-import { ago, longDate, versusLastWeek, type TodaySummary } from "./today";
+import { ago, expiresIn, longDate, versusLastWeek, type TodaySummary } from "./today";
 
 let role: "SUPER_ADMIN" | "STORE_ADMIN" = "SUPER_ADMIN";
 let backup: { lastExportAt: string | null; by: string | null } = { lastExportAt: new Date().toISOString(), by: "Ana" };
@@ -29,6 +29,7 @@ const SUMMARY: TodaySummary = {
     total: 1,
     rows: [{ id: "o8", code: "MP-0088", clientName: "Raúl Ortiz", phone: "611 222 333", model: "iPhone 11", days: 44, balance: "59.00", notices: 2 }],
   },
+  expiringQuotes: { total: 0, rows: [] },
   lowStock: { total: 1, rows: [{ id: "i1", sku: "PAN-IP13", name: "Pantalla iPhone 13", stock: 0, minimalStock: 2 }] },
   week: ["23", "24", "25", "26", "27", "28", "29"].map((d) => ({ day: `2026-10-${d}`, received: 4, delivered: 3 })),
   openByStatus: { en_progreso: 12, pendiente_cliente: 4, pendiente_piezas: 3, finalizado: 5 },
@@ -58,6 +59,7 @@ describe("today helpers", () => {
     expect(versusLastWeek(1, 3, "2026-10-29")).toBe("2 menos que el jueves pasado");
     expect(longDate("2026-10-29")).toBe("Jueves, 29/10/2026");
     expect([ago(0), ago(1), ago(3)]).toEqual(["hoy", "ayer", "hace 3 días"]);
+    expect([expiresIn(0), expiresIn(1), expiresIn(4)]).toEqual(["Caduca hoy", "Caduca mañana", "Caduca en 4 días"]);
   });
 });
 
@@ -119,5 +121,33 @@ describe("TodayPage", () => {
     await act(async () => {});
     expect(screen.queryByRole("note", { name: "Copia de seguridad" })).toBeNull();
     expect(fetchMock.mock.calls.map((c) => c[0])).not.toContain("/api/backup/status");
+  });
+
+  it("lists the quotes about to lapse, and leaves the card out when there are none", async () => {
+    render(<TodayPage />);
+    await act(async () => {});
+    expect(screen.queryByRole("region", { name: /Presupuestos por caducar/ })).toBeNull();
+    cleanup();
+
+    const expiring = {
+      total: 2,
+      rows: [
+        { id: "q1", code: "PMP-0012", clientName: "Aitor Etxeberria", validUntil: "2026-10-30", daysLeft: 1 },
+        { id: "q2", code: "PMP-0015", clientName: "Lucía Pardo", validUntil: "2026-11-02", daysLeft: 4 },
+      ],
+    };
+    fetchMock.mockImplementation(async (url: string) =>
+      url.startsWith("/api/today") ? json({ ...SUMMARY, expiringQuotes: expiring }) : json([]),
+    );
+    render(<TodayPage />);
+    await act(async () => {});
+    const card = screen.getByRole("region", { name: /Presupuestos por caducar/ });
+    within(card).getByText("PMP-0012 · Aitor Etxeberria");
+    within(card).getByText("Caduca mañana");
+    within(card).getByText("Caduca en 4 días");
+    expect(within(card).getAllByRole("link", { name: "Ver presupuesto" })[0].getAttribute("href")).toBe(
+      "/presupuestos?presupuesto=q1",
+    );
+    expect(within(card).getByRole("link", { name: "Ver todo" }).getAttribute("href")).toBe("/presupuestos");
   });
 });

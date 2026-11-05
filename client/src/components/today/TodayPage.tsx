@@ -9,7 +9,7 @@ import { PickupReminders } from "@/components/notices/PickupReminders";
 import { Button, STATUS_LABEL } from "@/components/ui";
 import { API_URL, apiFetch } from "@/lib/api";
 import { formatEur } from "@/lib/format";
-import { ago, dayLabel, longDate, versusLastWeek, type TodaySummary } from "./today";
+import { ago, dayLabel, expiresIn, longDate, versusLastWeek, type TodaySummary } from "./today";
 import styles from "./Today.module.css";
 
 interface StoreOption {
@@ -177,6 +177,23 @@ export function TodayPage() {
                 />
               ))}
             </Card>
+            {data.expiringQuotes.total > 0 && (
+              <Card title="Presupuestos por caducar" total={data.expiringQuotes.total} empty="" more="/presupuestos">
+                {data.expiringQuotes.rows.map((r) => (
+                  <Row
+                    key={r.id}
+                    head={`${r.code} · ${r.clientName}`}
+                    sub={expiresIn(r.daysLeft)}
+                    late={r.daysLeft <= 1}
+                    action={
+                      <Link href={`/presupuestos?presupuesto=${r.id}`} className={styles.action}>
+                        Ver presupuesto
+                      </Link>
+                    }
+                  />
+                ))}
+              </Card>
+            )}
             {data.lowStock && (
               <Card title="Stock bajo" total={data.lowStock.total} empty="Todo por encima del mínimo." more="/inventario?bajo=1">
                 {data.lowStock.rows.map((r) => (
