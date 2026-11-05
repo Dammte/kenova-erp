@@ -27,6 +27,8 @@ export interface OrderDetail {
   /** A warranty claim that turned out not to be covered, and why. */
   warrantyRejectedReason?: string | null;
   storeId?: string;
+  /** Its quote: the one it came from, or the one made for it in the workshop. */
+  quote?: { id: string; code: string; status: string } | null;
   /** The customer waived a written quote; prints skip "presupuesto válido". */
   waivesQuote?: boolean;
   client: {
@@ -112,6 +114,9 @@ export const CONTACT_LABEL: Record<OrderDetail["client"]["preferredContact"], st
 };
 
 const OPEN: OrderStatus[] = ["en_progreso", "pendiente_cliente", "pendiente_piezas"];
+
+/** Design 2.4: a quote can be made for a device still in the workshop, once. */
+export const canQuote = (order: Pick<OrderDetail, "status" | "quote">) => OPEN.includes(order.status) && !order.quote;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**

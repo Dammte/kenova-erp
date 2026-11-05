@@ -5,6 +5,8 @@ import { Plus, Trash2 } from "lucide-react";
 import { Button, MoneyInput, TextField } from "@/components/ui";
 import { API_URL, apiFetch, errorMessage } from "@/lib/api";
 import { formatEur } from "@/lib/format";
+import { FAULT_LABEL } from "@/components/orders/orderList";
+import type { OrderDetail } from "@/components/orders/orderDetail";
 import { linesTotal, QUALITY_LABEL, type Quality, type QuoteDetail } from "./quotes";
 import styles from "./Quotes.module.css";
 
@@ -95,12 +97,15 @@ function RateSearch({ onPick }: { onPick: (rate: Rate) => void }) {
 export function QuoteForm({
   quote,
   serviceId,
+  orderId,
   onSaved,
   onCancel,
 }: {
   quote?: QuoteDetail;
   /** A rate to start with, from «Crear presupuesto» in Tarifas. */
   serviceId?: string | null;
+  /** The order of a device already in the workshop («Hacer presupuesto»). */
+  orderId?: string | null;
   onSaved: (q: QuoteDetail) => void;
   onCancel: () => void;
 }) {
@@ -115,6 +120,29 @@ export function QuoteForm({
   );
   const [saving, setSaving] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+  const [orderCode, setOrderCode] = useState<string | null>(null);
+
+  // From an order, the client and the device are already known.
+  useEffect(() => {
+    if (!orderId || quote) return;
+    const controller = new AbortController();
+    apiFetch(`${API_URL}/service-orders/${encodeURIComponent(orderId)}`, { signal: controller.signal })
+      .then(async (res) => {
+        if (!res.ok) {
+          setProblem("No se ha podido leer la orden.");
+          return;
+        }
+        const o = (await res.json()) as OrderDetail;
+        setOrderCode(o.code);
+        setClientName([o.client.firstName, o.client.lastName].filter(Boolean).join(" "));
+        setClientPhone(o.client.phoneNumber ?? "");
+        setBrand(o.device?.brand ?? "");
+        setModel(o.device?.model ?? "");
+        setFault([...o.reportedFaults.map((f) => FAULT_LABEL[f] ?? f), o.faultNotes].filter(Boolean).join(", ").slice(0, 300));
+      })
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [orderId, quote]);
 
   useEffect(() => {
     if (!serviceId) return;
@@ -155,6 +183,7 @@ export function QuoteForm({
         method: quote ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          ...(orderId && !quote ? { orderId } : {}),
           clientName,
           clientPhone,
           brand: brand || null,
@@ -181,9 +210,20 @@ export function QuoteForm({
     }
   };
 
+  const title = quote
+    ? `Editar ${quote.code}`
+    : orderId
+      ? `Presupuesto de la orden ${orderCode ?? ""}`.trim()
+      : "Nuevo presupuesto";
+
   return (
-    <form className={styles.form} onSubmit={(e) => void submit(e)} aria-label={quote ? `Editar ${quote.code}` : "Nuevo presupuesto"}>
-      <h2 className={styles.formTitle}>{quote ? `Editar ${quote.code}` : "Nuevo presupuesto"}</h2>
+    <form className={styles.form} onSubmit={(e) => void submit(e)} aria-label={title}>
+      <h2 className={styles.formTitle}>{title}</h2>
+      {orderId && !quote && (
+        <p className={styles.muted}>
+          La orden pasa a «Pendiente cliente» hasta que el cliente responda.
+        </p>
+      )}
       <fieldset className={styles.fields}>
         <legend>
           Cliente <span className={styles.muted}>· basta nombre y teléfono</span>

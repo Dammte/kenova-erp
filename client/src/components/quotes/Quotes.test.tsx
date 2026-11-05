@@ -2,11 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { QuotesPage } from "./QuotesPage";
 import { QuoteDocument } from "./QuoteDocument";
-import { renewNotice } from "./QuoteActions";
+import { rejectNotice, renewNotice } from "./QuoteActions";
 import {
   daysLeft,
   formatDay,
   linesTotal,
+  orderText,
   quoteWhatsappText,
   validityText,
   whatsappLink, type QuoteDetail, type QuoteListPage } from "./quotes";
@@ -106,6 +107,16 @@ describe("quote helpers", () => {
     expect(renewNotice([{ description: "Batería", before: "100.00", after: "120.00" }])).toMatch(
       /Batería: 100,00\s€ → 120,00\s€/,
     );
+  });
+
+  it("says what the quote's order is to it and what rejecting does to it", () => {
+    const order = { id: "o1", code: "MP-0144" };
+    expect(orderText({ status: "sent", order: null })).toBeNull();
+    expect(orderText({ status: "sent", order })).toBe("Para la orden MP-0144, que espera la respuesta del cliente.");
+    expect(orderText({ status: "rejected", order })).toBe("Rechazado: la orden MP-0144 se devuelve sin reparar.");
+    expect(rejectNotice(null, 20)).toBe("Marcado como rechazado.");
+    expect(rejectNotice("MP-0144", 0)).toBe("Rechazado. La orden MP-0144 queda finalizada sin reparar, lista para devolver.");
+    expect(rejectNotice("MP-0144", 20)).toMatch(/lista para devolver\. Cobra el diagnóstico \(20,00\s€\) al devolverlo\.$/);
   });
 
   it("adds the lines in cents", () => {
@@ -262,7 +273,8 @@ describe("QuotesPage", () => {
     );
     render(<QuotesPage />);
     await act(async () => {});
-    expect(screen.getByRole("link", { name: "MP-0144" }).getAttribute("href")).toBe("/ordenes?orden=o1");
+    expect(screen.getByText(/Aceptado: es la orden MP-0144\./)).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Ver orden" }).getAttribute("href")).toBe("/ordenes?orden=o1");
     expect(screen.queryByRole("button", { name: "Borrar" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Rechazado" })).toBeNull();
   });
@@ -300,5 +312,56 @@ describe("QuotesPage", () => {
     const form = screen.getByRole("form", { name: "Nuevo presupuesto" });
     expect((within(form).getByLabelText("Concepto 1") as HTMLInputElement).value).toBe("Batería Galaxy A54");
     expect(within(form).getByLabelText("Total del presupuesto").textContent).toMatch(/55,00\s€/);
+  });
+
+  it("makes a quote for an order with its client and device, and sends the order id", async () => {
+    search = "presupuesto=nuevo&orden=o7";
+    const ORDER = {
+      id: "o7",
+      code: "MP-0150",
+      client: { firstName: "Aitor", lastName: "Etxeberria", phoneNumber: "688 450 117" },
+      device: { brand: "Apple", model: "MacBook Air M1" },
+      reportedFaults: ["liquid_damage"],
+      faultNotes: "Café en el teclado",
+    };
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
+      if (init?.method === "POST") return json({ ...DETAIL, status: "draft", order: { id: "o7", code: "MP-0150" } }, 201);
+      if (url.endsWith("/service-orders/o7")) return json(ORDER);
+      return json(LIST);
+    });
+    render(<QuotesPage />);
+    await act(async () => {});
+    const form = screen.getByRole("form", { name: "Presupuesto de la orden MP-0150" });
+    expect((within(form).getByLabelText(/^Nombre/) as HTMLInputElement).value).toBe("Aitor Etxeberria");
+    expect((within(form).getByLabelText(/^Modelo/) as HTMLInputElement).value).toBe("MacBook Air M1");
+    expect((within(form).getByLabelText("Avería") as HTMLInputElement).value).toContain("Café en el teclado");
+    within(form).getByText(/La orden pasa a «Pendiente cliente»/);
+    fireEvent.click(within(form).getByRole("button", { name: "Línea libre" }));
+    fireEvent.change(within(form).getByLabelText("Concepto 1"), { target: { value: "Placa base" } });
+    fireEvent.change(within(form).getByLabelText("Importe 1"), { target: { value: "380" } });
+    await act(async () => {
+      fireEvent.submit(form);
+    });
+    const post = fetchMock.mock.calls.find((c) => (c[1] as RequestInit | undefined)?.method === "POST");
+    expect(post?.[0]).toBe("/api/quotes");
+    expect(JSON.parse(String((post?.[1] as RequestInit).body))).toMatchObject({ orderId: "o7", clientName: "Aitor Etxeberria" });
+  });
+
+  it("answers a quote made for an order here, not at intake", async () => {
+    search = "presupuesto=q1";
+    const forOrder = { ...DETAIL, order: { id: "o7", code: "MP-0150" } };
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
+      if (init?.method === "POST") return json({ ...forOrder, status: url.endsWith("/accept") ? "accepted" : "rejected" });
+      return url.endsWith("/quotes/q1") ? json(forOrder) : json(LIST);
+    });
+    render(<QuotesPage />);
+    await act(async () => {});
+    screen.getByText(/Para la orden MP-0150, que espera la respuesta del cliente\./);
+    expect(screen.queryByRole("link", { name: /convertir en orden/ })).toBeNull();
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Aceptado" }));
+    });
+    expect(posts()).toEqual(["POST /api/quotes/q1/accept"]);
+    expect(screen.getByRole("status").textContent).toBe("Aceptado. La orden MP-0150 vuelve a «En progreso» con este precio.");
   });
 });

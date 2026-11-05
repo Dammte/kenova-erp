@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { AlertTriangle, Banknote, Undo2, ExternalLink, Eye, EyeOff, MessageCircle, Phone, Printer, Send, Tag, X } from "lucide-react";
+import { AlertTriangle, Banknote, Undo2, ExternalLink, Eye, EyeOff, FileText, MessageCircle, Phone, Printer, Send, Tag, X } from "lucide-react";
 import { Button, StatusChip } from "@/components/ui";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { API_URL, apiFetch, errorMessage } from "@/lib/api";
@@ -11,6 +11,7 @@ import {
   CONTACT_LABEL,
   DEVICE_TYPE_LABEL,
   METHOD_LABEL,
+  canQuote,
   formatDateTime,
   shopDays,
   whatsappHref,
@@ -164,6 +165,20 @@ export default function OrderPanel({
               <Tag size={14} aria-hidden />
               Imprimir etiqueta
             </Link>
+            {order?.quote ? (
+              <Link href={`/presupuestos?presupuesto=${order.quote.id}`} className={styles.full}>
+                <FileText size={14} aria-hidden />
+                Presupuesto {order.quote.code}
+              </Link>
+            ) : (
+              order &&
+              canQuote(order) && (
+                <Link href={`/presupuestos?presupuesto=nuevo&orden=${order.id}`} className={styles.full}>
+                  <FileText size={14} aria-hidden />
+                  Hacer presupuesto
+                </Link>
+              )
+            )}
             <Link href={fullHref} className={styles.full}>
               <ExternalLink size={14} aria-hidden />
               Abrir la orden completa para editar

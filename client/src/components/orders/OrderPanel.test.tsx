@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import OrderPanel, { REVEAL_MS } from "./OrderPanel";
-import { shopDays, whatsappHref, type OrderDetail, type OrderNote, type OrderPayment } from "./orderDetail";
+import { canQuote, shopDays, whatsappHref, type OrderDetail, type OrderNote, type OrderPayment } from "./orderDetail";
 import { sortNotes } from "./OrderNotes";
 import { lastMethod } from "./CancelForm";
 
@@ -941,5 +941,25 @@ describe("OrderPanel · devolver cobro", () => {
     await act(async () => {});
     const [a, b] = refunds();
     expect(b.id).toBe(a.id);
+  });
+
+  it("offers a quote for a device in the workshop, or links the one it has", async () => {
+    expect(canQuote({ status: "en_progreso", quote: null })).toBe(true);
+    expect(canQuote({ status: "finalizado", quote: null })).toBe(false);
+    expect(canQuote({ status: "pendiente_cliente", quote: { id: "q1", code: "MP-P0031", status: "sent" } })).toBe(false);
+
+    serve();
+    render(<OrderPanel id="o1" code="MP-0142" fullHref="/serviceOrders/o1" onClose={onClose} onChanged={onChanged} />);
+    await act(async () => {});
+    expect(screen.getByRole("link", { name: "Hacer presupuesto" }).getAttribute("href")).toBe(
+      "/presupuestos?presupuesto=nuevo&orden=o1",
+    );
+    cleanup();
+
+    serve({ "/api/service-orders/o1": new Response(JSON.stringify({ ...ORDER, quote: { id: "q1", code: "MP-P0031", status: "sent" } })) });
+    render(<OrderPanel id="o1" code="MP-0142" fullHref="/serviceOrders/o1" onClose={onClose} onChanged={onChanged} />);
+    await act(async () => {});
+    expect(screen.queryByRole("link", { name: "Hacer presupuesto" })).toBeNull();
+    expect(screen.getByRole("link", { name: "Presupuesto MP-P0031" }).getAttribute("href")).toBe("/presupuestos?presupuesto=q1");
   });
 });
