@@ -13,6 +13,11 @@ import {
   scopedStoreId,
 } from '../common/store-scope';
 import { digitsSql, foldSql, likeTerms } from '../common/text-search';
+import {
+  OrderResult,
+  ServiceOrder,
+  ServiceStatus,
+} from '../service-order/entities/service-order.entity';
 import { toCents } from '../service-order/payment-status';
 import { ServiceOrderService } from '../service-order/service-order.service';
 import { Service } from '../services/entities/service.entity';
@@ -63,7 +68,7 @@ export interface QuoteDetail
   status: QuoteStatus;
   lines: QuoteLine[];
   createdBy: { fullName: string } | null;
-  /** The order it became, once accepted. */
+  /** The order it became once accepted, or was made for (design 2.4). */
   order: { id: string; code: string } | null;
 }
 
@@ -76,6 +81,16 @@ export interface PriceChange {
 
 const euros = (cents: number) => (cents / 100).toFixed(2);
 
+/** Orders still in the workshop, the only ones a quote can be made for. */
+const OPEN_ORDER: ServiceStatus[] = [
+  ServiceStatus.EN_PROGRESO,
+  ServiceStatus.PENDIENTE_CLIENTE,
+  ServiceStatus.PENDIENTE_PIEZAS,
+];
+
+/** Why an order whose quote was turned down is returned unrepaired. */
+export const QUOTE_REJECTED_REASON = 'El cliente no aceptó el presupuesto';
+
 @Injectable()
 export class QuotesService {
   constructor(
@@ -84,9 +99,14 @@ export class QuotesService {
   ) {}
 
   async create(dto: CreateQuoteDto, actor: AuthUser): Promise<QuoteDetail> {
-    const id = await this.dataSource.transaction(async (m) => {
-      await this.assertLinks(m, dto, actor);
-      const storeId = await this.orders.storeIdFor(actor, m);
+    const { id, order } = await this.dataSource.transaction(async (m) => {
+      const order = dto.orderId
+        ? await this.orderToQuote(m, dto.orderId, actor)
+        : null;
+      if (!order) await this.assertLinks(m, dto, actor);
+      else await this.assertLinks(m, { lines: dto.lines }, actor);
+      const storeId =
+        order?.storeId ?? (await this.orders.storeIdFor(actor, m));
       const { number, code } = await takeNumber(m, storeId);
       const quote = await m.getRepository(Quote).save(
         m.getRepository(Quote).create({
@@ -94,21 +114,31 @@ export class QuotesService {
           number,
           code,
           status: 'draft',
-          clientId: dto.clientId ?? null,
+          // From an order, the client and device are the order's.
+          clientId: order ? order.clientId : (dto.clientId ?? null),
           clientName: dto.clientName,
           clientPhone: dto.clientPhone,
-          deviceId: dto.deviceId ?? null,
+          deviceId: order ? (order.deviceId ?? null) : (dto.deviceId ?? null),
           brand: dto.brand ?? null,
           model: dto.model,
           fault: dto.fault ?? null,
           diagnosticFee: dto.diagnosticFee?.toFixed(2) ?? null,
           validUntil: addDays(todayInSpain(), QUOTE_VALID_DAYS),
+          orderId: order?.id ?? null,
           createdById: actor.id,
         }),
       );
       await this.replaceLines(m, quote, dto.lines);
-      return quote.id;
+      return { id: quote.id, order };
     });
+    // The order waits for the client's answer (design 2.4).
+    if (order && order.status !== ServiceStatus.PENDIENTE_CLIENTE) {
+      await this.orders.update(
+        order.id,
+        { status: ServiceStatus.PENDIENTE_CLIENTE },
+        actor,
+      );
+    }
     return this.findOne(id, actor);
   }
 
@@ -241,20 +271,115 @@ export class QuotesService {
     return this.findOne(id, actor);
   }
 
-  /** The client said no. An expired quote can still be closed this way. */
-  async reject(id: string, actor: AuthUser): Promise<QuoteDetail> {
-    await this.dataSource.transaction(async (m) => {
-      const quote = await this.load(m, id, actor, true);
-      if (quote.status !== 'draft' && quote.status !== 'sent') {
-        throw new ConflictException(
-          'Este presupuesto ya tiene respuesta del cliente',
-        );
-      }
-      await m
-        .getRepository(Quote)
-        .update(id, { status: 'rejected', decidedAt: new Date() });
+  /**
+   * The client said yes to a quote made from an order: the order goes back
+   * to work at the quoted price. Other quotes are accepted at intake.
+   */
+  async accept(id: string, actor: AuthUser): Promise<QuoteDetail> {
+    const quote = await this.load(this.dataSource.manager, id, actor);
+    if (!quote.orderId) {
+      throw new ConflictException(
+        'Este presupuesto no tiene orden: conviértelo en orden para aceptarlo',
+      );
+    }
+    const status = effectiveStatus(quote);
+    if (status === 'expired') {
+      throw new ConflictException(
+        'El presupuesto ha caducado: renuévalo antes de aceptarlo',
+      );
+    }
+    const lines = await this.dataSource
+      .getRepository(QuoteLine)
+      .find({ where: { quoteId: id } });
+    const serviceIds = [
+      ...new Set(lines.flatMap((l) => (l.serviceId ? [l.serviceId] : []))),
+    ];
+    // Withdrawn rates cannot go on an order; their price stays in the total.
+    const available = serviceIds.length
+      ? (
+          await this.dataSource.getRepository(Service).find({
+            where: { id: In(serviceIds), available: true },
+            select: { id: true },
+          })
+        ).map((s) => s.id)
+      : [];
+    await this.answer(quote, 'accepted', actor, {
+      status: ServiceStatus.EN_PROGRESO,
+      totalPrice: Number(quote.total),
+      serviceIds: available,
     });
     return this.findOne(id, actor);
+  }
+
+  /**
+   * The client said no. An expired quote can still be closed this way. Made
+   * from an order, the device is returned unrepaired and only the diagnostic
+   * is charged.
+   */
+  async reject(id: string, actor: AuthUser): Promise<QuoteDetail> {
+    const quote = await this.load(this.dataSource.manager, id, actor);
+    // An order closed some other way meanwhile is left as it is.
+    const orderOpen = !!quote.order && OPEN_ORDER.includes(quote.order.status);
+    await this.answer(
+      quote,
+      'rejected',
+      actor,
+      orderOpen
+        ? {
+            status: ServiceStatus.FINALIZADO,
+            result: OrderResult.NOT_REPAIRED,
+            notRepairedReason: QUOTE_REJECTED_REASON,
+            totalPrice: Number(quote.diagnosticFee ?? 0),
+          }
+        : null,
+    );
+    return this.findOne(id, actor);
+  }
+
+  /**
+   * Records the client's answer once (a second click finds it answered),
+   * then applies it to the quote's order. If the order refuses the change,
+   * the answer is undone so both stay as they were.
+   */
+  private async answer(
+    quote: Quote,
+    status: 'accepted' | 'rejected',
+    actor: AuthUser,
+    orderChange: Parameters<ServiceOrderService['update']>[1] | null,
+  ): Promise<void> {
+    if (orderChange && quote.orderId) {
+      const order = await this.dataSource
+        .getRepository(ServiceOrder)
+        .findOne({ where: { id: quote.orderId }, select: { status: true } });
+      if (!order || !OPEN_ORDER.includes(order.status)) {
+        throw new ConflictException(
+          'La orden de este presupuesto ya está cerrada',
+        );
+      }
+    }
+    const claimed = await this.dataSource
+      .createQueryBuilder()
+      .update(Quote)
+      .set({ status, decidedAt: new Date() })
+      .where('id = :id AND status IN (:...open)', {
+        id: quote.id,
+        open: ['draft', 'sent'],
+      })
+      .execute();
+    if (!claimed.affected) {
+      throw new ConflictException(
+        'Este presupuesto ya tiene respuesta del cliente',
+      );
+    }
+    if (!orderChange || !quote.orderId) return;
+    try {
+      await this.orders.update(quote.orderId, orderChange, actor);
+    } catch (err) {
+      await this.dataSource
+        .getRepository(Quote)
+        .update(quote.id, { status: quote.status, decidedAt: null });
+      throw err;
+    }
   }
 
   /**
@@ -306,9 +431,12 @@ export class QuotesService {
     return { quote: await this.findOne(id, actor), changes };
   }
 
-  /** An accepted quote already has its order, so it stays. */
+  /**
+   * An accepted quote already has its order, so it stays. Deleting an open
+   * quote made from an order puts the order back to work.
+   */
   async remove(id: string, actor: AuthUser): Promise<void> {
-    await this.dataSource.transaction(async (m) => {
+    const orderId = await this.dataSource.transaction(async (m) => {
       const quote = await this.load(m, id, actor, true);
       if (quote.status === 'accepted') {
         throw new ConflictException(
@@ -316,7 +444,44 @@ export class QuotesService {
         );
       }
       await m.getRepository(Quote).delete(id);
+      return quote.status === 'rejected' ? null : quote.orderId;
     });
+    if (!orderId) return;
+    const order = await this.dataSource
+      .getRepository(ServiceOrder)
+      .findOne({ where: { id: orderId }, select: { status: true } });
+    if (order?.status === ServiceStatus.PENDIENTE_CLIENTE) {
+      await this.orders.update(
+        orderId,
+        { status: ServiceStatus.EN_PROGRESO },
+        actor,
+      );
+    }
+  }
+
+  /** The order a quote is made for: visible, still in the workshop, no quote yet. */
+  private async orderToQuote(
+    m: EntityManager,
+    orderId: string,
+    actor: AuthUser,
+  ): Promise<ServiceOrder> {
+    const storeId = scopedStoreId(actor);
+    const order = await m.getRepository(ServiceOrder).findOne({
+      where: { id: orderId, ...(storeId ? { storeId } : {}) },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (!order || order.deletedAt) {
+      throw new NotFoundException('Orden no encontrada');
+    }
+    if (!OPEN_ORDER.includes(order.status)) {
+      throw new ConflictException(
+        'Solo se hace presupuesto de una orden que sigue en el taller',
+      );
+    }
+    if (await m.getRepository(Quote).exists({ where: { orderId } })) {
+      throw new ConflictException('Esta orden ya tiene presupuesto');
+    }
+    return order;
   }
 
   /** 404 unless the actor may see it; another store's quote is not revealed. */

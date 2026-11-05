@@ -54,6 +54,16 @@ export class QuotesController {
     return this.quotes.send(id, user);
   }
 
+  /** Only for a quote made from an order; the others become one at intake. */
+  @Post(':id/accept')
+  @HttpCode(200)
+  accept(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.quotes.accept(id, user);
+  }
+
   @Post(':id/reject')
   @HttpCode(200)
   reject(
