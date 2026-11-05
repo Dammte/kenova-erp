@@ -29,6 +29,7 @@ export interface TodaySummary {
     balance: string;
     notices: number;
   }>;
+  expiringQuotes: List<{ id: string; code: string; clientName: string; validUntil: string; daysLeft: number }>;
   lowStock: List<{ id: string; sku: string; name: string; stock: number; minimalStock: number }> | null;
   week: { day: string; received: number; delivered: number }[];
   openByStatus: Record<"en_progreso" | "pendiente_cliente" | "pendiente_piezas" | "finalizado", number>;
@@ -58,3 +59,7 @@ export function longDate(iso: string): string {
 
 /** «hoy», «ayer», «hace 3 días». */
 export const ago = (days: number) => (days <= 0 ? "hoy" : days === 1 ? "ayer" : `hace ${days} días`);
+
+/** «Caduca hoy», «Caduca mañana», «Caduca en 3 días». */
+export const expiresIn = (days: number) =>
+  days <= 0 ? "Caduca hoy" : days === 1 ? "Caduca mañana" : `Caduca en ${days} días`;

@@ -4,6 +4,7 @@ import { DataSource } from 'typeorm';
 import type { AuthUser } from '../auth/auth.types';
 import { madridOfUtcNaive } from '../common/madrid-time';
 import { scopedStoreId } from '../common/store-scope';
+import { QUOTE_VALID_DAYS } from '../quotes/entities/quote.entity';
 import { Store } from '../stores/entities/store.entity';
 import { UserRole } from '../users/entities/user.entity';
 
@@ -11,6 +12,11 @@ import { UserRole } from '../users/entities/user.entity';
 export const LATE_PART_DAYS = 7;
 /** Days finished and not collected after which the device needs a call. */
 export const UNCOLLECTED_DAYS = 30;
+/**
+ * Design 2.4: open quotes are flagged on the Panel from day 25 of their 30,
+ * so the client can still be called before the price lapses.
+ */
+export const QUOTE_WARN_DAYS_LEFT = QUOTE_VALID_DAYS - 25;
 /** Rows shown in each list; the total says how many there are. */
 const LIST_LIMIT = 5;
 const TZ = 'Europe/Madrid';
@@ -63,6 +69,14 @@ export interface TodaySummary {
     days: number;
     balance: string;
     notices: number;
+  }>;
+  /** Draft or sent quotes that lapse within QUOTE_WARN_DAYS_LEFT days. */
+  expiringQuotes: List<{
+    id: string;
+    code: string;
+    clientName: string;
+    validUntil: string;
+    daysLeft: number;
   }>;
   /** Partners only: stock is theirs (decision 5); null for a store. */
   lowStock: List<{
@@ -194,6 +208,19 @@ export class TodayService {
           AND o."finishedAt" <= now() - make_interval(days => ${UNCOLLECTED_DAYS})
         ORDER BY o."finishedAt" ASC LIMIT ${LIST_LIMIT}`,
     );
+    const expiringQuotes = await list<
+      TodaySummary['expiringQuotes']['rows'][number]
+    >(
+      `SELECT q.id, q.code, q."clientName",
+              to_char(q."validUntil", 'YYYY-MM-DD') AS "validUntil",
+              (q."validUntil" - ${TODAY})::int AS "daysLeft",
+              count(*) OVER () AS total
+         FROM quotes q
+        WHERE ($1::uuid IS NULL OR q."storeId" = $1)
+          AND q.status IN ('draft', 'sent')
+          AND q."validUntil" BETWEEN ${TODAY} AND ${TODAY} + ${QUOTE_WARN_DAYS_LEFT}
+        ORDER BY q."validUntil" ASC, q.code LIMIT ${LIST_LIMIT}`,
+    );
     const lowStock =
       actor.role === UserRole.SUPER_ADMIN
         ? await list<NonNullable<TodaySummary['lowStock']>['rows'][number]>(
@@ -238,6 +265,7 @@ export class TodayService {
       toNotify,
       lateParts,
       uncollected,
+      expiringQuotes,
       lowStock,
       week,
       openByStatus: {

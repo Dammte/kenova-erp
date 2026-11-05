@@ -8,6 +8,10 @@ interface Summary {
     total: number;
     rows: { id: string; days: number; balance: string; notices: number }[];
   };
+  expiringQuotes: {
+    total: number;
+    rows: { id: string; code: string; validUntil: string; daysLeft: number }[];
+  };
   lowStock: { total: number; rows: { sku: string; stock: number }[] } | null;
   week: { day: string; received: number; delivered: number }[];
   openByStatus: Record<string, number>;
@@ -185,5 +189,41 @@ describe('Panel «Hoy» (GET /api/today)', () => {
     const { counts, week } = await today(vc);
     expect(counts.received).toBe(Number(before) + 1);
     expect(week[6].received).toBe(Number(before) + 1);
+  });
+
+  it('lists open quotes that lapse within 5 days, soonest first', async () => {
+    const quote = async (daysLeft: number, status = 'sent') => {
+      const res = await send('post', vc, '/api/quotes', {
+        clientName: 'Aitor Etxeberria',
+        clientPhone: '688 450 117',
+        model: 'MacBook Air M1',
+        lines: [{ description: 'Reparación de placa base', unitPrice: 380 }],
+      });
+      expect(res.status).toBe(201);
+      const id = (res.body as { id: string }).id;
+      await t.db.query(
+        `UPDATE quotes SET status = $2,
+           "validUntil" = (now() AT TIME ZONE 'Europe/Madrid')::date + $3::int
+         WHERE id = $1`,
+        [id, status, daysLeft],
+      );
+      return id;
+    };
+    const inThree = await quote(3);
+    const lastDay = await quote(0, 'draft');
+    await quote(6); // still more than 5 days
+    await quote(-1); // already expired: its own tab in Presupuestos
+    await quote(2, 'accepted');
+    await quote(1, 'rejected');
+
+    const { expiringQuotes } = await today(vc);
+    expect(expiringQuotes.total).toBe(2);
+    expect(expiringQuotes.rows.map((r) => [r.id, r.daysLeft])).toEqual([
+      [lastDay, 0],
+      [inThree, 3],
+    ]);
+    expect((await today(sa, `?storeId=${vcStore}`)).expiringQuotes.total).toBe(
+      2,
+    );
   });
 });
