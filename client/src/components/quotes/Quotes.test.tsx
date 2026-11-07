@@ -364,4 +364,21 @@ describe("QuotesPage", () => {
     expect(posts()).toEqual(["POST /api/quotes/q1/accept"]);
     expect(screen.getByRole("status").textContent).toBe("Aceptado. La orden MP-0150 vuelve a «En progreso» con este precio.");
   });
+
+  it("leads to the order to charge the diagnostic once a quote for an order is turned down", async () => {
+    search = "presupuesto=q1";
+    const rejected = { ...DETAIL, status: "rejected" as const, order: { id: "o7", code: "MP-0150" } };
+    fetchMock.mockImplementation(async (url: string) => (url.endsWith("/quotes/q1") ? json(rejected) : json(LIST)));
+    render(<QuotesPage />);
+    await act(async () => {});
+    expect(screen.getByRole("link", { name: /^Cobrar diagnóstico 20,00\s€$/ }).getAttribute("href")).toBe("/ordenes?orden=o7");
+    cleanup();
+
+    fetchMock.mockImplementation(async (url: string) =>
+      url.endsWith("/quotes/q1") ? json({ ...rejected, diagnosticFee: null }) : json(LIST),
+    );
+    render(<QuotesPage />);
+    await act(async () => {});
+    expect(screen.queryByRole("link", { name: /Cobrar diagnóstico/ })).toBeNull();
+  });
 });

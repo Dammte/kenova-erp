@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Check, ClipboardPlus, MessageCircle, RefreshCw, Trash2, X } from "lucide-react";
+import { Banknote, Check, ClipboardPlus, MessageCircle, RefreshCw, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui";
 import { API_URL, apiFetch, errorMessage } from "@/lib/api";
 import { formatEur } from "@/lib/format";
@@ -97,6 +97,12 @@ export function QuoteActions({
           >
             Aceptado
           </Button>
+        )}
+        {/* Design 2.4: turned down in the workshop, the diagnostic is charged when the device goes back. */}
+        {order && quote.status === "rejected" && fee > 0 && (
+          <Link className={styles.primaryLink} href={`/ordenes?orden=${order.id}`}>
+            <Banknote size={16} aria-hidden /> Cobrar diagnóstico {formatEur(fee)}
+          </Link>
         )}
         {!order && quote.status === "sent" && (
           <Link className={styles.primaryLink} href={`/ordenes/nueva?presupuesto=${quote.id}`}>
