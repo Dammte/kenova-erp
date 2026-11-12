@@ -265,3 +265,60 @@
   background: var(--k-accent-subtle);
   font-weight: 600;
 }
+
+/* Design 3.2 «Día / Semana». */
+.view {
+  display: inline-flex;
+  gap: var(--k-space-1);
+}
+.weekNav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--k-space-2);
+}
+.tableWrap {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.linkButton {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--k-accent);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+.linkButton:hover {
+  text-decoration: underline;
+}
+.linkButton:focus-visible {
+  outline: none;
+  box-shadow: var(--k-focus-ring);
+}
+.strongCell {
+  font-weight: 600;
+}
+/* The week keeps its columns on a phone and scrolls sideways. */
+.weekTable {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: collapse;
+  font: var(--k-text-sm);
+}
+.weekTable th {
+  color: var(--k-text-muted);
+  font-weight: 500;
+  text-align: left;
+  white-space: nowrap;
+}
+.weekTable th,
+.weekTable td {
+  padding: var(--k-space-2);
+  border-bottom: var(--k-border-w) solid var(--k-border);
+}
+.weekTable td:first-child {
+  white-space: nowrap;
+}
