@@ -88,6 +88,31 @@ export interface CashDay {
   movements: CashLine[];
 }
 
+/** One cash day in the week summary. */
+export interface CashWeekDay {
+  date: string;
+  status: 'open' | 'closed';
+  /** Payments by method, net of refunds. */
+  byMethod: Record<CashMethod, string>;
+  total: string;
+  /** Entries minus exits. */
+  manual: string;
+  /** Payments plus entries and exits. */
+  movements: number;
+  counted: boolean;
+}
+
+/** Design 3.2 «Semana»: Monday to Sunday, one row per cash day up to today's. */
+export interface CashWeek {
+  store: CashDay['store'];
+  from: string;
+  to: string;
+  days: CashWeekDay[];
+  byMethod: Record<CashMethod, string>;
+  total: string;
+  manual: string;
+}
+
 /**
  * Design 3.2 «Movimientos de dinero»: a record of the money that came in and
  * went out of a store's till, per cash day. Nobody opens or closes the day:
@@ -235,6 +260,125 @@ export class CashService {
       },
       count: count ?? null,
       movements,
+    };
+  }
+
+  /**
+   * Design 3.2 «Semana»: the Monday-to-Sunday week holding `date` (default
+   * the current cash day), summed per cash day like the day view. Days that
+   * have not started yet are left out.
+   */
+  async week(
+    actor: AuthUser,
+    storeId?: string,
+    date?: string,
+  ): Promise<CashWeek> {
+    const store = await this.storeFor(actor, storeId);
+    const [{ current }] = await this.db.query<{ current: string }[]>(
+      `SELECT ${cashDay('now()')}::text AS current FROM stores s WHERE s.id = $1`,
+      [store.id],
+    );
+    const day = date ?? current;
+    if (
+      Number.isNaN(Date.parse(day)) ||
+      new Date(day).toISOString().slice(0, 10) !== day
+    ) {
+      throw new BadRequestException('Fecha no válida');
+    }
+    if (day > current) {
+      throw new BadRequestException('Ese día de caja todavía no ha empezado');
+    }
+    const rows = await this.db.query<
+      {
+        date: string;
+        method: CashMethod | null;
+        payments: string;
+        manual: string;
+        movements: number;
+        counted: boolean;
+      }[]
+    >(
+      `WITH bounds AS (
+         SELECT date_trunc('week', $2::date)::date AS since,
+                least(date_trunc('week', $2::date)::date + 6, $3::date) AS until
+       ), days AS (
+         SELECT g::date AS d FROM bounds, generate_series(since, until, interval '1 day') g
+       ), pay AS (
+         SELECT ${cashDay('p."createdAt"')} AS d, p.method, ${signed} AS amount
+           FROM order_payments p JOIN stores s ON s.id = p."storeId"
+          WHERE p."storeId" = $1 AND ${TILL}
+       ), man AS (
+         SELECT ${cashDay('m."createdAt"')} AS d, ${manualSigned} AS amount
+           FROM cash_movements m JOIN stores s ON s.id = m."storeId"
+          WHERE m."storeId" = $1
+       )
+       SELECT days.d::text AS date, x.method,
+              coalesce(x.amount, 0)::numeric(12,2)::text AS payments,
+              (SELECT coalesce(sum(amount), 0) FROM man WHERE man.d = days.d)::numeric(12,2)::text AS manual,
+              ((SELECT count(*) FROM pay WHERE pay.d = days.d)
+                + (SELECT count(*) FROM man WHERE man.d = days.d))::int AS movements,
+              EXISTS (SELECT 1 FROM cash_counts k WHERE k."storeId" = $1 AND k.date = days.d) AS counted
+         FROM days
+         LEFT JOIN LATERAL (
+           SELECT pay.method, sum(pay.amount) AS amount FROM pay
+            WHERE pay.d = days.d GROUP BY pay.method
+         ) x ON true
+        ORDER BY days.d`,
+      [store.id, day, current],
+    );
+
+    const cents = (v: string) => Math.round(Number(v) * 100);
+    const eur = (c: number) => (c / 100).toFixed(2);
+    const zero = () =>
+      Object.fromEntries(CASH_METHODS.map((m) => [m, 0])) as Record<
+        CashMethod,
+        number
+      >;
+    const byDay = new Map<
+      string,
+      { methods: Record<CashMethod, number>; row: (typeof rows)[number] }
+    >();
+    for (const r of rows) {
+      const entry = byDay.get(r.date) ?? { methods: zero(), row: r };
+      if (r.method) entry.methods[r.method] += cents(r.payments);
+      byDay.set(r.date, entry);
+    }
+    const week = zero();
+    let manual = 0;
+    const days: CashWeekDay[] = [...byDay.entries()].map(([d, e]) => {
+      for (const m of CASH_METHODS) week[m] += e.methods[m];
+      manual += cents(e.row.manual);
+      return {
+        date: d,
+        status: d === current ? 'open' : 'closed',
+        byMethod: Object.fromEntries(
+          CASH_METHODS.map((m) => [m, eur(e.methods[m])]),
+        ) as Record<CashMethod, string>,
+        total: eur(CASH_METHODS.reduce((t, m) => t + e.methods[m], 0)),
+        manual: e.row.manual,
+        movements: e.row.movements,
+        counted: e.row.counted,
+      };
+    });
+    const [{ from }] = await this.db.query<{ from: string }[]>(
+      `SELECT date_trunc('week', $1::date)::date::text AS from`,
+      [day],
+    );
+    return {
+      store: {
+        id: store.id,
+        name: store.name,
+        opensAt: store.cashOpensAt.slice(0, 5),
+        closesAt: store.cashClosesAt.slice(0, 5),
+      },
+      from,
+      to: days.at(-1)?.date ?? from,
+      days,
+      byMethod: Object.fromEntries(
+        CASH_METHODS.map((m) => [m, eur(week[m])]),
+      ) as Record<CashMethod, string>,
+      total: eur(CASH_METHODS.reduce((t, m) => t + week[m], 0)),
+      manual: eur(manual),
     };
   }
 

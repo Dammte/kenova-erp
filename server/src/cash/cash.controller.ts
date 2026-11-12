@@ -26,6 +26,12 @@ export class CashController {
     return this.cash.day(user, query.storeId, query.date);
   }
 
+  /** Design 3.2 «Semana»: the week holding `date`, one row per cash day. */
+  @Get('week')
+  week(@Query() query: CashDayQueryDto, @CurrentUser() user: AuthUser) {
+    return this.cash.week(user, query.storeId, query.date);
+  }
+
   /** Cash put into or taken out of the till by hand. */
   @Post('movements')
   addMovement(
