@@ -1,7 +1,28 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { CashPage } from "./CashPage";
-import { countDifferences, dayChip, shiftDate, weekDayState, weekLabel, type CashDay, type CashWeek } from "./cash";
+import {
+  cashFileName,
+  countDifferences,
+  dayChip,
+  dayExportRows,
+  shiftDate,
+  weekDayState,
+  weekExportRows,
+  weekLabel,
+  type CashDay,
+  type CashWeek,
+} from "./cash";
+
+const written: { book: { sheets: { sheet: { rows: unknown[][] }; name: string }[] }; name: string }[] = [];
+vi.mock("xlsx", () => ({
+  utils: {
+    aoa_to_sheet: (rows: unknown[][]) => ({ rows }),
+    book_new: () => ({ sheets: [] as unknown[] }),
+    book_append_sheet: (book: { sheets: unknown[] }, sheet: unknown, name: string) => book.sheets.push({ sheet, name }),
+  },
+  writeFile: (book: (typeof written)[number]["book"], name: string) => written.push({ book, name }),
+}));
 
 let role: "SUPER_ADMIN" | "STORE_ADMIN" = "STORE_ADMIN";
 vi.mock("@/components/auth/AuthProvider", () => ({ useAuth: () => ({ user: { id: "u1", role, storeId: "vc" } }) }));
@@ -83,6 +104,7 @@ const WEEK: CashWeek = {
 
 beforeEach(() => {
   role = "STORE_ADMIN";
+  written.length = 0;
   fetchMock.mockReset();
   fetchMock.mockImplementation(async (url: string) => {
     if (url.startsWith("/api/cash/week")) return json(WEEK);
@@ -208,5 +230,59 @@ describe("CashPage", () => {
     });
     expect(screen.queryByRole("region", { name: "Semana" })).toBeNull();
     expect(fetchMock.mock.calls.map((c) => c[0])).toContain("/api/cash/day?date=2026-10-28");
+  });
+});
+
+describe("Imprimir y exportar", () => {
+  it("builds the day's sheet with the filter applied and the whole day's totals", () => {
+    const rows = dayExportRows(DAY, "manual");
+    expect(rows[0]).toEqual(["Hora", "Tipo", "Orden", "Cliente", "Nota", "Forma", "Usuario", "Importe (€)"]);
+    expect(rows[1]).toEqual(["12:10", "Salida", "", "", "Compra de adhesivo", "Efectivo", "Marta Ibáñez", -12.5]);
+    expect(rows[2]).toEqual([]);
+    expect(rows.find((r) => r[0] === "Total cobrado")?.at(-1)).toBe(144);
+    expect(rows.at(-1)).toEqual(["Efectivo esperado", "", "", "", "", "", "", 102.5]);
+    // The charge of the day before, cashed after closing, shows its date.
+    expect(dayExportRows(DAY, "charge")[1][0]).toBe("29/10 21:20");
+  });
+
+  it("builds the week's sheet with a row per day and the week", () => {
+    const rows = weekExportRows(WEEK);
+    expect(rows).toHaveLength(WEEK.days.length + 2);
+    expect(rows[1]).toEqual(["26/10/2026", 35, 129, 0, 0, 164, 0, "Cerrado · con recuento"]);
+    expect(rows.at(-1)).toEqual(["Semana", 15, 129, 50, 0, 194, -12.5, ""]);
+  });
+
+  it("names the files after the store, the day or week and the filter", () => {
+    expect(cashFileName("Medina de Pomar", "2026-11-12", "day")).toBe("Caja_Medina de Pomar_2026-11-12.xlsx");
+    expect(cashFileName("Tienda 1/B", "2026-11-12", "day", "manual")).toBe("Caja_Tienda 1B_2026-11-12_entradas-y-salidas.xlsx");
+    expect(cashFileName("Villarcayo", "2026-11-09", "week")).toBe("Caja_Villarcayo_semana_2026-11-09.xlsx");
+  });
+
+  it("exports what the screen shows and prints the page", async () => {
+    const print = vi.fn();
+    vi.stubGlobal("print", print);
+    render(<CashPage />);
+    fireEvent.click(await screen.findByRole("tab", { name: "Devoluciones · 1" }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Exportar a Excel" }));
+    });
+    expect(written).toHaveLength(1);
+    expect(written[0].name).toBe("Caja_Villarcayo_2026-10-30_devoluciones.xlsx");
+    expect(written[0].book.sheets[0].name).toBe("Caja 2026-10-30");
+    expect(written[0].book.sheets[0].sheet.rows[1][1]).toBe("Devolución");
+    expect(written[0].book.sheets[0].sheet.rows[2]).toEqual([]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Imprimir" }));
+    expect(print).toHaveBeenCalledTimes(1);
+    expect(screen.getByText(/Día de caja 30\/10\/2026 · solo devoluciones/)).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Semana" }));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Exportar a Excel" }));
+    });
+    expect(written[1].name).toBe("Caja_Villarcayo_semana_2026-10-26.xlsx");
+    expect(written[1].book.sheets[0].name).toBe("Semana del 26-10 al 30-10");
   });
 });

@@ -24,3 +24,15 @@
     padding-bottom: calc(var(--k-bottom-bar-h) + env(safe-area-inset-bottom));
   }
 }
+
+/* Paper: only the page, without the bars and their fixed heights. */
+@media print {
+  .adminContainer,
+  .mainContent,
+  .pageContent {
+    display: block;
+    height: auto;
+    overflow: visible;
+    padding-bottom: 0;
+  }
+}

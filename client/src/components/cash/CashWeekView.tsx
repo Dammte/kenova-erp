@@ -7,13 +7,16 @@ import { API_URL, apiFetch } from "@/lib/api";
 import { formatEur } from "@/lib/format";
 import {
   METHOD_LABEL,
+  cashFileName,
   dayChip,
   shiftDate,
   weekDayState,
+  weekExportRows,
   weekLabel,
   type CashMethod,
   type CashWeek,
 } from "./cash";
+import { CashExportBar } from "./CashExportBar";
 import styles from "./Cash.module.css";
 
 const METHODS: CashMethod[] = ["cash", "card", "transfer", "other"];
@@ -160,6 +163,14 @@ export function CashWeekView({
             </tfoot>
           </table>
         </div>
+      )}
+      {data && (
+        <CashExportBar
+          rows={() => weekExportRows(data)}
+          sheet={weekLabel(data.from, data.to).replace(/\//g, "-")}
+          fileName={cashFileName(data.store.name, data.from, "week")}
+          cols={[12, 12, 12, 15, 10, 17, 20, 22]}
+        />
       )}
     </section>
   );

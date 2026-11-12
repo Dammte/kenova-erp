@@ -7,9 +7,12 @@ import { Button, MoneyInput, TextField } from "@/components/ui";
 import { API_URL, apiFetch, errorMessage } from "@/lib/api";
 import { formatEur } from "@/lib/format";
 import {
+  FILTER_LABEL,
   KIND_LABEL,
   METHOD_LABEL,
+  cashFileName,
   countDifferences,
+  dayExportRows,
   dayChip,
   lineTime,
   matches,
@@ -19,6 +22,7 @@ import {
   type CashMethod,
   type Filter,
 } from "./cash";
+import { CashExportBar } from "./CashExportBar";
 import { CashWeekView } from "./CashWeekView";
 import styles from "./Cash.module.css";
 
@@ -104,7 +108,7 @@ export function CashPage() {
           )}
         </div>
         {isPartner && stores.length > 1 && (
-          <label className={styles.store}>
+          <label className={`${styles.store} ${styles.noPrint}`}>
             Tienda
             <select
               value={storeId}
@@ -125,7 +129,7 @@ export function CashPage() {
       </header>
 
       {today && (
-        <div className={styles.view} role="group" aria-label="Vista">
+        <div className={`${styles.view} ${styles.noPrint}`} role="group" aria-label="Vista">
           {(["day", "week"] as const).map((v) => (
             <button key={v} type="button" className={styles.day} aria-pressed={view === v} onClick={() => setView(v)}>
               {v === "day" ? "Día" : "Semana"}
@@ -145,7 +149,7 @@ export function CashPage() {
       )}
 
       {today && view === "day" && (
-        <nav className={styles.days} aria-label="Día de caja">
+        <nav className={`${styles.days} ${styles.noPrint}`} aria-label="Día de caja">
           {days.map((d) => (
             <button
               key={d}
@@ -186,6 +190,10 @@ export function CashPage() {
 
       {data && view === "day" && (
         <>
+          <p className={styles.printOnly}>
+            Día de caja {data.date.slice(8, 10)}/{data.date.slice(5, 7)}/{data.date.slice(0, 4)}
+            {filter !== "all" && ` · solo ${FILTER_LABEL[filter].toLowerCase()}`}
+          </p>
           <p className={open ? styles.chipOpen : styles.chipClosed}>
             {open
               ? `En curso · se cierra sola a las ${data.store.closesAt}. Los cobros posteriores irán al siguiente día.`
@@ -213,7 +221,8 @@ export function CashPage() {
 
           <div className={styles.columns}>
             <section className={styles.card} aria-label="Movimientos">
-              <div className={styles.filters} role="tablist">
+              <div className={styles.cardHead}>
+              <div className={`${styles.filters} ${styles.noPrint}`} role="tablist">
                 {FILTERS.map((f) => (
                   <button
                     key={f.id}
@@ -226,6 +235,13 @@ export function CashPage() {
                     {f.label} · {count(f.id)}
                   </button>
                 ))}
+              </div>
+              <CashExportBar
+                rows={() => dayExportRows(data, filter)}
+                sheet={`Caja ${data.date}`}
+                fileName={cashFileName(data.store.name, data.date, "day", filter)}
+                cols={[8, 12, 10, 22, 26, 13, 16, 12]}
+              />
               </div>
               {shown.length === 0 ? (
                 <p className={styles.muted}>Nada que mostrar.</p>
@@ -353,7 +369,7 @@ function CountForm({
   };
 
   return (
-    <form className={styles.card} onSubmit={save} aria-labelledby="count-title">
+    <form className={`${styles.card} ${editable ? styles.noPrint : ""}`} onSubmit={save} aria-labelledby="count-title">
       <h2 id="count-title" className={styles.cardTitle}>
         Recuento <span className={styles.muted}>opcional</span>
       </h2>
@@ -427,7 +443,7 @@ function MovementForm({ storeId, onSaved }: { storeId: string; onSaved: (message
   };
 
   return (
-    <form className={styles.card} onSubmit={save} aria-labelledby="move-title">
+    <form className={`${styles.card} ${styles.noPrint}`} onSubmit={save} aria-labelledby="move-title">
       <h2 id="move-title" className={styles.cardTitle}>
         Entrada o salida
       </h2>
