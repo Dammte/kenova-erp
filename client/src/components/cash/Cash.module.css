@@ -322,3 +322,55 @@
 .weekTable td:first-child {
   white-space: nowrap;
 }
+
+/* Design 3.2 «Imprimir / Exportar a Excel». */
+.cardHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--k-space-2);
+}
+.exportBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--k-space-2);
+  margin-left: auto;
+}
+.printOnly {
+  display: none;
+}
+@media print {
+  .page {
+    padding: 0;
+    background: #fff;
+  }
+  .noPrint,
+  .weekNav > :not(h2) {
+    display: none !important;
+  }
+  .printOnly {
+    display: block;
+    font: var(--k-text-md);
+  }
+  .columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .card,
+  .tile {
+    break-inside: avoid;
+  }
+  .table a,
+  .linkButton {
+    color: inherit;
+    text-decoration: none;
+  }
+  .tableWrap {
+    overflow: visible;
+  }
+  .weekTable {
+    min-width: 0;
+  }
+}

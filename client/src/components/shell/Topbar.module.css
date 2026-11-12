@@ -195,3 +195,9 @@
 .menuItem svg {
   flex-shrink: 0;
 }
+
+@media print {
+  .topbar {
+    display: none;
+  }
+}

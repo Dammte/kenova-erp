@@ -127,3 +127,67 @@ export function weekDayState(day: CashWeek["days"][number]): string {
   if (day.movements === 0) return "Sin movimientos";
   return day.counted ? "Cerrado · con recuento" : "Cerrado · sin recuento";
 }
+
+export const FILTER_LABEL: Record<Filter, string> = {
+  all: "Todos",
+  charge: "Cobros",
+  refund: "Devoluciones",
+  manual: "Entradas y salidas",
+};
+
+const money = (v: string) => Math.round(Number(v) * 100) / 100;
+const fileSafe = (s: string) => s.replace(/[\\/:*?"<>|]/g, "").trim();
+
+/** «Caja_Medina de Pomar_2026-11-12.xlsx», «…_2026-11-12_cobros.xlsx», «…_semana_2026-11-09.xlsx». */
+export function cashFileName(storeName: string, from: string, kind: "day" | "week", filter: Filter = "all"): string {
+  const suffix = filter === "all" ? "" : `_${FILTER_LABEL[filter].toLowerCase().replace(/ /g, "-")}`;
+  return `Caja_${fileSafe(storeName)}_${kind === "week" ? "semana_" : ""}${from}${suffix}.xlsx`;
+}
+
+/**
+ * The day's sheet: the movements the filter shows, amounts as numbers so
+ * they add up in Excel, then the whole day's totals (they ignore the filter,
+ * as the tiles on screen do).
+ */
+export function dayExportRows(day: CashDay, filter: Filter): (string | number)[][] {
+  const methods: CashMethod[] = ["cash", "card", "transfer", "other"];
+  const rows: (string | number)[][] = [
+    ["Hora", "Tipo", "Orden", "Cliente", "Nota", "Forma", "Usuario", "Importe (€)"],
+    ...day.movements
+      .filter((m) => matches(m, filter))
+      .map((m) => [
+        lineTime(m, day.date),
+        KIND_LABEL[m.kind],
+        m.orderCode ?? "",
+        m.clientName ?? "",
+        m.note ?? "",
+        METHOD_LABEL[m.method],
+        m.userName ?? "",
+        money(m.amount),
+      ]),
+    [],
+    ...methods.map((m) => [METHOD_LABEL[m], "", "", "", "", "", "", money(day.byMethod[m].amount)]),
+    ["Total cobrado", "", "", "", "", "", "", money(day.total)],
+    ["Entradas y salidas", "", "", "", "", "", "", money(day.cash.manual)],
+    ["Efectivo esperado", "", "", "", "", "", "", money(day.cash.expected)],
+  ];
+  if (day.count?.cash != null) rows.push(["Efectivo contado", "", "", "", "", "", "", money(day.count.cash)]);
+  if (day.count?.terminal != null) rows.push(["Datáfono", "", "", "", "", "", "", money(day.count.terminal)]);
+  return rows;
+}
+
+/** The week's sheet: one row per cash day, then the week. */
+export function weekExportRows(week: CashWeek): (string | number)[][] {
+  const methods: CashMethod[] = ["cash", "card", "transfer", "other"];
+  return [
+    ["Día", ...methods.map((m) => `${METHOD_LABEL[m]} (€)`), "Total cobrado (€)", "Entradas y salidas (€)", "Estado"],
+    ...week.days.map((d) => [
+      `${d.date.slice(8, 10)}/${d.date.slice(5, 7)}/${d.date.slice(0, 4)}`,
+      ...methods.map((m) => money(d.byMethod[m])),
+      money(d.total),
+      money(d.manual),
+      weekDayState(d),
+    ]),
+    ["Semana", ...methods.map((m) => money(week.byMethod[m])), money(week.total), money(week.manual), ""],
+  ];
+}
