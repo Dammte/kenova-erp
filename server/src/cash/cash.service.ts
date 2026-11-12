@@ -8,8 +8,15 @@ import { DataSource } from 'typeorm';
 import type { AuthUser } from '../auth/auth.types';
 import { scopedStoreId } from '../common/store-scope';
 import { Store } from '../stores/entities/store.entity';
+import { OrderPayment } from '../service-order/entities/order-payment.entity';
+import { PaymentMethod } from '../service-order/entities/service-order.entity';
+import { CorrectCashLineDto } from './dto/correct-cash-line.dto';
 import { CreateCashMovementDto } from './dto/create-cash-movement.dto';
 import { SaveCashCountDto } from './dto/save-cash-count.dto';
+import {
+  CashCorrection,
+  CashCorrectionField,
+} from './entities/cash-correction.entity';
 import { CashCount } from './entities/cash-count.entity';
 import { CashMovement as CashMovementEntity } from './entities/cash-movement.entity';
 
@@ -55,6 +62,14 @@ export interface CashLine {
   orderCode: string | null;
   clientName: string | null;
   userName: string | null;
+  /** The last correction of a closed day's line, if any. */
+  corrected: {
+    by: string | null;
+    at: string;
+    /** A method, or an amount with two decimals. */
+    before: string;
+    reason: string;
+  } | null;
 }
 
 export interface CashDay {
@@ -116,7 +131,7 @@ export interface CashWeek {
 /**
  * Design 3.2 «Movimientos de dinero»: a record of the money that came in and
  * went out of a store's till, per cash day. Nobody opens or closes the day:
- * the store's cash hours do. Correcting a closed day comes in a later change.
+ * the store's cash hours do. A partner may correct a closed day's line.
  */
 @Injectable()
 export class CashService {
@@ -164,7 +179,10 @@ export class CashService {
                 p.method, (${signed})::numeric(12,2)::text AS amount, p.note,
                 o.id AS "orderId", o.code AS "orderCode",
                 trim(c."firstName" || ' ' || coalesce(c."lastName", '')) AS "clientName",
-                u."fullName" AS "userName"
+                u."fullName" AS "userName",
+                (SELECT json_build_object('by', cu."fullName", 'at', k."createdAt", 'before', k.before, 'reason', k.reason)
+                   FROM cash_corrections k LEFT JOIN users cu ON cu.id = k."createdById"
+                  WHERE k."paymentId" = p.id ORDER BY k."createdAt" DESC LIMIT 1) AS corrected
            FROM order_payments p
            JOIN stores s ON s.id = p."storeId"
            JOIN service_orders o ON o.id = p."orderId"
@@ -174,7 +192,10 @@ export class CashService {
          UNION ALL
          SELECT m.id, m.kind, m."createdAt", ${offHours('m."createdAt"')},
                 'cash', (${manualSigned})::numeric(12,2)::text, m.reason,
-                NULL, NULL, NULL, u."fullName"
+                NULL, NULL, NULL, u."fullName",
+                (SELECT json_build_object('by', cu."fullName", 'at', k."createdAt", 'before', k.before, 'reason', k.reason)
+                   FROM cash_corrections k LEFT JOIN users cu ON cu.id = k."createdById"
+                  WHERE k."movementId" = m.id ORDER BY k."createdAt" DESC LIMIT 1) AS corrected
            FROM cash_movements m
            JOIN stores s ON s.id = m."storeId"
            LEFT JOIN users u ON u.id = m."createdById"
@@ -403,6 +424,95 @@ export class CashService {
       [store.id, saved.createdAt],
     );
     return { id: saved.id, date };
+  }
+
+  /**
+   * Design 3.2 «Corregir un día cerrado» (partners only): the method of a
+   * charge or refund, or the amount of an entry or exit, of a closed cash
+   * day. A payment's amount is not corrected here: that is a refund, so the
+   * order's payments keep adding up to what it has paid.
+   */
+  async correct(actor: AuthUser, dto: CorrectCashLineDto): Promise<CashDay> {
+    const store = await this.storeFor(actor, dto.storeId);
+    const [line] = await this.db.query<
+      {
+        source: 'payment' | 'movement';
+        method: string;
+        amount: string;
+        date: string;
+        current: string;
+      }[]
+    >(
+      `SELECT 'payment' AS source, p.method, p.amount::text AS amount,
+              ${cashDay('p."createdAt"')}::text AS date, ${cashDay('now()')}::text AS current
+         FROM order_payments p JOIN stores s ON s.id = p."storeId"
+        WHERE p.id = $2 AND p."storeId" = $1 AND ${TILL}
+       UNION ALL
+       SELECT 'movement', 'cash', m.amount::text,
+              ${cashDay('m."createdAt"')}::text, ${cashDay('now()')}::text
+         FROM cash_movements m JOIN stores s ON s.id = m."storeId"
+        WHERE m.id = $2 AND m."storeId" = $1`,
+      [store.id, dto.lineId],
+    );
+    if (!line) throw new NotFoundException('Movimiento no encontrado');
+    if (line.date >= line.current) {
+      throw new BadRequestException(
+        'El día de caja sigue abierto: se corrige desde la orden',
+      );
+    }
+
+    let field: CashCorrectionField;
+    let before: string;
+    let after: string;
+    if (line.source === 'payment') {
+      if (dto.amount !== undefined) {
+        throw new BadRequestException(
+          'El importe de un cobro se corrige con una devolución',
+        );
+      }
+      if (!dto.method) throw new BadRequestException('Elige la forma de pago');
+      field = CashCorrectionField.METHOD;
+      before = line.method;
+      after = dto.method;
+    } else {
+      if (dto.method !== undefined) {
+        throw new BadRequestException(
+          'Las entradas y salidas son siempre en efectivo',
+        );
+      }
+      if (dto.amount === undefined) {
+        throw new BadRequestException('Escribe el importe');
+      }
+      field = CashCorrectionField.AMOUNT;
+      before = line.amount;
+      after = dto.amount.toFixed(2);
+    }
+    if (before === after) {
+      throw new BadRequestException('No hay nada que corregir');
+    }
+
+    await this.db.transaction(async (tx) => {
+      if (line.source === 'payment') {
+        await tx
+          .getRepository(OrderPayment)
+          .update({ id: dto.lineId }, { method: after as PaymentMethod });
+      } else {
+        await tx
+          .getRepository(CashMovementEntity)
+          .update({ id: dto.lineId }, { amount: after });
+      }
+      await tx.getRepository(CashCorrection).insert({
+        storeId: store.id,
+        paymentId: line.source === 'payment' ? dto.lineId : null,
+        movementId: line.source === 'movement' ? dto.lineId : null,
+        field,
+        before,
+        after,
+        reason: dto.reason,
+        createdById: actor.id,
+      });
+    });
+    return this.day(actor, store.id, line.date);
   }
 
   /**
