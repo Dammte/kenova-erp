@@ -14,6 +14,8 @@ export interface CashLine {
   orderCode: string | null;
   clientName: string | null;
   userName: string | null;
+  /** The last correction of a closed day's line (design 3.2). */
+  corrected: { by: string | null; at: string; before: string; reason: string } | null;
 }
 export interface CashDay {
   store: { id: string; name: string; opensAt: string; closesAt: string };
@@ -190,4 +192,15 @@ export function weekExportRows(week: CashWeek): (string | number)[][] {
     ]),
     ["Semana", ...methods.map((m) => money(week.byMethod[m])), money(week.total), money(week.manual), ""],
   ];
+}
+
+/** «Corregido · Ana Rojo · antes Tarjeta», «… · antes 12,50 €». */
+export function correctedNote(line: CashLine): string | null {
+  const c = line.corrected;
+  if (!c) return null;
+  const before =
+    line.kind === "in" || line.kind === "out"
+      ? formatEur((line.kind === "out" ? -1 : 1) * Number(c.before))
+      : METHOD_LABEL[c.before as CashMethod] ?? c.before;
+  return `Corregido${c.by ? ` · ${c.by}` : ""} · antes ${before}`;
 }
