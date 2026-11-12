@@ -2,7 +2,10 @@ import { Body, Controller, Get, Post, Put, Query } from '@nestjs/common';
 import { IsOptional, IsUUID, Matches } from 'class-validator';
 import type { AuthUser } from '../auth/auth.types';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { UserRole } from '../users/entities/user.entity';
 import { CashService } from './cash.service';
+import { CorrectCashLineDto } from './dto/correct-cash-line.dto';
 import { CreateCashMovementDto } from './dto/create-cash-movement.dto';
 import { SaveCashCountDto } from './dto/save-cash-count.dto';
 
@@ -39,6 +42,13 @@ export class CashController {
     @CurrentUser() user: AuthUser,
   ) {
     return this.cash.addMovement(user, dto);
+  }
+
+  /** Design 3.2 «Corregir un día cerrado»: partners only, with a reason. */
+  @Post('corrections')
+  @Roles(UserRole.SUPER_ADMIN)
+  correct(@Body() dto: CorrectCashLineDto, @CurrentUser() user: AuthUser) {
+    return this.cash.correct(user, dto);
   }
 
   /** The optional count of the cash day running now. */
