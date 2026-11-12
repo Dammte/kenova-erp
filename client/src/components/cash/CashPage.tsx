@@ -11,6 +11,7 @@ import {
   KIND_LABEL,
   METHOD_LABEL,
   cashFileName,
+  correctedNote,
   countDifferences,
   dayExportRows,
   dayChip,
@@ -19,10 +20,12 @@ import {
   offHoursNote,
   shiftDate,
   type CashDay,
+  type CashLine,
   type CashMethod,
   type Filter,
 } from "./cash";
 import { CashExportBar } from "./CashExportBar";
+import { CorrectionForm } from "./CorrectionForm";
 import { CashWeekView } from "./CashWeekView";
 import styles from "./Cash.module.css";
 
@@ -58,6 +61,7 @@ export function CashPage() {
   const [filter, setFilter] = useState<Filter>("all");
   const [notice, setNotice] = useState<string | null>(null);
   const [view, setView] = useState<"day" | "week">("day");
+  const [fixing, setFixing] = useState<CashLine | null>(null);
 
   useEffect(() => {
     if (!isPartner) return;
@@ -70,6 +74,7 @@ export function CashPage() {
   useEffect(() => {
     let live = true;
     setFailed(false);
+    setFixing(null);
     const qs = new URLSearchParams();
     if (storeId) qs.set("storeId", storeId);
     if (date) qs.set("date", date);
@@ -272,12 +277,27 @@ export function CashPage() {
                           )}
                           {m.orderId && m.note && <span className={styles.muted}> · {m.note}</span>}
                           {m.offHours && <span className={styles.offHours}>{offHoursNote(m)}</span>}
+                          {m.corrected && (
+                            <span className={styles.corrected} title={`Motivo: ${m.corrected.reason}`}>
+                              {correctedNote(m)}
+                            </span>
+                          )}
                         </td>
                         <td>{METHOD_LABEL[m.method]}</td>
                         <td>{m.userName ?? "—"}</td>
                         <td className={`${styles.num} ${Number(m.amount) < 0 ? styles.negative : ""}`}>
                           {m.kind === "in" ? "+" : ""}
                           {formatEur(m.amount)}
+                          {isPartner && !open && (
+                            <button
+                              type="button"
+                              className={`${styles.linkButton} ${styles.fix} ${styles.noPrint}`}
+                              aria-label={`Corregir ${KIND_LABEL[m.kind].toLowerCase()} de ${formatEur(m.amount)}`}
+                              onClick={() => setFixing(m)}
+                            >
+                              Corregir
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -287,6 +307,20 @@ export function CashPage() {
             </section>
 
             <aside className={styles.side}>
+              {fixing && (
+                <CorrectionForm
+                  key={fixing.id}
+                  line={fixing}
+                  day={data.date}
+                  storeId={storeId}
+                  onCancel={() => setFixing(null)}
+                  onSaved={(day) => {
+                    setData(day);
+                    setFixing(null);
+                    setNotice("Corrección guardada");
+                  }}
+                />
+              )}
               <section className={styles.card} aria-labelledby="cash-box">
                 <h2 id="cash-box" className={styles.cardTitle}>
                   Efectivo

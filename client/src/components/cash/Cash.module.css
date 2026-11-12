@@ -374,3 +374,22 @@
     min-width: 0;
   }
 }
+
+/* Design 3.2 «Corregir un día cerrado». */
+.fix {
+  display: block;
+  margin-left: auto;
+  font: var(--k-text-xs);
+}
+.corrected {
+  display: block;
+  width: fit-content;
+  margin-top: 2px;
+  padding: 0 var(--k-space-2);
+  border-radius: var(--k-radius-sm);
+  background: var(--k-status-pendiente-cliente-bg);
+  font: var(--k-text-xs);
+}
+.methods {
+  grid-template-columns: repeat(2, 1fr);
+}

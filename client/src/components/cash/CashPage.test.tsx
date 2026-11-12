@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, screen, within } from "@testing-librar
 import { CashPage } from "./CashPage";
 import {
   cashFileName,
+  correctedNote,
   countDifferences,
   dayChip,
   dayExportRows,
@@ -55,6 +56,7 @@ const DAY: CashDay = {
       orderCode: "VC-0031",
       clientName: "Jon Arana",
       userName: "Marta Ibáñez",
+      corrected: null,
     },
     {
       id: "p2",
@@ -68,6 +70,7 @@ const DAY: CashDay = {
       orderCode: "VC-0029",
       clientName: "Marta Ruiz",
       userName: "Marta Ibáñez",
+      corrected: null,
     },
     {
       id: "m1",
@@ -81,6 +84,7 @@ const DAY: CashDay = {
       orderCode: null,
       clientName: null,
       userName: "Marta Ibáñez",
+      corrected: null,
     },
   ],
 };
@@ -284,5 +288,75 @@ describe("Imprimir y exportar", () => {
     });
     expect(written[1].name).toBe("Caja_Villarcayo_semana_2026-10-26.xlsx");
     expect(written[1].book.sheets[0].name).toBe("Semana del 26-10 al 30-10");
+  });
+});
+
+describe("Corregir un día cerrado", () => {
+  const CLOSED: CashDay = { ...DAY, date: "2026-10-29", status: "closed" };
+  const FIXED: CashDay = {
+    ...CLOSED,
+    movements: CLOSED.movements.map((m) =>
+      m.id === "p1"
+        ? { ...m, method: "cash", corrected: { by: "Ana Rojo", at: "2026-11-01T10:00:00Z", before: "card", reason: "Pagó en efectivo" } }
+        : m,
+    ),
+  };
+
+  it("says what a corrected line was", () => {
+    expect(correctedNote(FIXED.movements[0])).toBe("Corregido · Ana Rojo · antes Tarjeta");
+    const exit = { ...DAY.movements[2], corrected: { by: null, at: "", before: "12.50", reason: "x" } };
+    expect(correctedNote(exit)?.replace(/\s/g, " ")).toBe("Corregido · antes -12,50 €");
+    expect(correctedNote(DAY.movements[0])).toBeNull();
+  });
+
+  it("lets a partner change the method of a closed day's charge, with a reason", async () => {
+    role = "SUPER_ADMIN";
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
+      if (url === "/api/cash/corrections") return json(FIXED, 201);
+      if (url.startsWith("/api/cash/day?date=2026-10-29")) return json(CLOSED);
+      if (url.startsWith("/api/cash/day")) return json(DAY);
+      return json(init ? {} : []);
+    });
+    render(<CashPage />);
+    // Not on the open day.
+    await screen.findByText(/En curso/);
+    expect(screen.queryByRole("button", { name: /^Corregir/ })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Jue 29/10" }));
+    fireEvent.click(await screen.findByRole("button", { name: /Corregir cobro de 129,00/ }));
+    const form = screen.getByRole("form", { name: "Corregir cobro" });
+    expect(within(form).getByText("Elige la forma de pago correcta")).toBeTruthy();
+    fireEvent.click(within(form).getByRole("radio", { name: "Efectivo" }));
+    expect(within(form).getByText("Escribe el motivo")).toBeTruthy();
+    fireEvent.change(within(form).getByLabelText("Motivo"), { target: { value: "Pagó en efectivo" } });
+    await act(async () => {
+      fireEvent.click(within(form).getByRole("button", { name: "Guardar corrección" }));
+    });
+    const call = fetchMock.mock.calls.find(([url]) => url === "/api/cash/corrections");
+    expect(JSON.parse(call?.[1].body as string)).toEqual({ lineId: "p1", method: "cash", reason: "Pagó en efectivo" });
+    expect(await screen.findByText("Corrección guardada")).toBeTruthy();
+    expect(screen.getByText("Corregido · Ana Rojo · antes Tarjeta")).toBeTruthy();
+    expect(screen.queryByRole("form", { name: "Corregir cobro" })).toBeNull();
+  });
+
+  it("asks for the amount of an exit and never shows the button to a store", async () => {
+    role = "SUPER_ADMIN";
+    fetchMock.mockImplementation(async (url: string) =>
+      url.startsWith("/api/cash/day?date=") ? json(CLOSED) : url.startsWith("/api/cash/day") ? json(DAY) : json([]),
+    );
+    render(<CashPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "Jue 29/10" }));
+    fireEvent.click(await screen.findByRole("button", { name: /Corregir salida de/ }));
+    const form = screen.getByRole("form", { name: "Corregir salida" });
+    expect((within(form).getByLabelText("Importe correcto") as HTMLInputElement).value).toBe("12,50");
+    fireEvent.click(within(form).getByRole("button", { name: "Cancelar" }));
+    expect(screen.queryByRole("form", { name: "Corregir salida" })).toBeNull();
+    cleanup();
+
+    role = "STORE_ADMIN";
+    render(<CashPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "Jue 29/10" }));
+    await screen.findByText(/Cerrado automáticamente/);
+    expect(screen.queryByRole("button", { name: /^Corregir/ })).toBeNull();
   });
 });
