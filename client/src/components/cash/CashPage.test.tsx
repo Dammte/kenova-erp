@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { CashPage } from "./CashPage";
-import { countDifferences, dayChip, shiftDate, type CashDay } from "./cash";
+import { countDifferences, dayChip, shiftDate, weekDayState, weekLabel, type CashDay, type CashWeek } from "./cash";
 
 let role: "SUPER_ADMIN" | "STORE_ADMIN" = "STORE_ADMIN";
 vi.mock("@/components/auth/AuthProvider", () => ({ useAuth: () => ({ user: { id: "u1", role, storeId: "vc" } }) }));
@@ -64,10 +64,28 @@ const DAY: CashDay = {
   ],
 };
 
+const zero = { cash: "0.00", card: "0.00", transfer: "0.00", other: "0.00" };
+const WEEK: CashWeek = {
+  store: DAY.store,
+  from: "2026-10-26",
+  to: "2026-10-30",
+  days: [
+    { date: "2026-10-26", status: "closed", byMethod: { ...zero, cash: "35.00", card: "129.00" }, total: "164.00", manual: "0.00", movements: 2, counted: true },
+    { date: "2026-10-27", status: "closed", byMethod: zero, total: "0.00", manual: "0.00", movements: 0, counted: false },
+    { date: "2026-10-28", status: "closed", byMethod: { ...zero, cash: "-20.00" }, total: "-20.00", manual: "-12.50", movements: 2, counted: false },
+    { date: "2026-10-29", status: "closed", byMethod: zero, total: "0.00", manual: "0.00", movements: 0, counted: false },
+    { date: "2026-10-30", status: "open", byMethod: { ...zero, transfer: "50.00" }, total: "50.00", manual: "0.00", movements: 1, counted: false },
+  ],
+  byMethod: { cash: "15.00", card: "129.00", transfer: "50.00", other: "0.00" },
+  total: "194.00",
+  manual: "-12.50",
+};
+
 beforeEach(() => {
   role = "STORE_ADMIN";
   fetchMock.mockReset();
   fetchMock.mockImplementation(async (url: string) => {
+    if (url.startsWith("/api/cash/week")) return json(WEEK);
     if (url.startsWith("/api/cash/day?date=")) return json({ ...DAY, date: url.slice(-10), status: "closed", movements: [] });
     if (url.startsWith("/api/cash/day")) return json(DAY);
     if (url === "/api/cash/movements") return json({ id: "m2", date: DAY.date }, 201);
@@ -156,5 +174,39 @@ describe("CashPage", () => {
     fetchMock.mockImplementation(async () => json({}, 500));
     render(<CashPage />);
     expect((await screen.findByRole("alert")).textContent).toMatch(/No se han podido cargar los movimientos/);
+  });
+
+  it("sums the week per day and opens a day from it", async () => {
+    expect(weekLabel("2026-10-26", "2026-11-01")).toBe("Semana del 26/10 al 01/11");
+    expect(WEEK.days.map(weekDayState)).toEqual([
+      "Cerrado · con recuento",
+      "Sin movimientos",
+      "Cerrado · sin recuento",
+      "Sin movimientos",
+      "En curso",
+    ]);
+
+    render(<CashPage />);
+    await act(async () => {});
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Semana" }));
+    });
+    expect(fetchMock.mock.calls.map((c) => c[0])).toContain("/api/cash/week?date=2026-10-30");
+    const week = screen.getByRole("region", { name: "Semana" });
+    within(week).getByRole("heading", { name: "Semana del 26/10 al 30/10" });
+    const total = within(week).getByRole("rowheader", { name: "Semana" }).parentElement!;
+    expect(total.textContent).toMatch(/194,00\s€/);
+    expect(within(week).getByRole("button", { name: "Semana siguiente" }).hasAttribute("disabled")).toBe(true);
+
+    await act(async () => {
+      fireEvent.click(within(week).getByRole("button", { name: "Semana anterior" }));
+    });
+    expect(fetchMock.mock.calls.map((c) => c[0])).toContain("/api/cash/week?date=2026-10-19");
+
+    await act(async () => {
+      fireEvent.click(within(week).getByRole("button", { name: "Mié 28/10" }));
+    });
+    expect(screen.queryByRole("region", { name: "Semana" })).toBeNull();
+    expect(fetchMock.mock.calls.map((c) => c[0])).toContain("/api/cash/day?date=2026-10-28");
   });
 });

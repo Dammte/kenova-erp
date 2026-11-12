@@ -19,6 +19,7 @@ import {
   type CashMethod,
   type Filter,
 } from "./cash";
+import { CashWeekView } from "./CashWeekView";
 import styles from "./Cash.module.css";
 
 interface StoreOption {
@@ -52,6 +53,7 @@ export function CashPage() {
   const [attempt, setAttempt] = useState(0);
   const [filter, setFilter] = useState<Filter>("all");
   const [notice, setNotice] = useState<string | null>(null);
+  const [view, setView] = useState<"day" | "week">("day");
 
   useEffect(() => {
     if (!isPartner) return;
@@ -123,6 +125,26 @@ export function CashPage() {
       </header>
 
       {today && (
+        <div className={styles.view} role="group" aria-label="Vista">
+          {(["day", "week"] as const).map((v) => (
+            <button key={v} type="button" className={styles.day} aria-pressed={view === v} onClick={() => setView(v)}>
+              {v === "day" ? "Día" : "Semana"}
+            </button>
+          ))}
+        </div>
+      )}
+      {today && view === "week" && (
+        <CashWeekView
+          storeId={storeId}
+          today={today}
+          onOpenDay={(d) => {
+            setDate(d === today ? null : d);
+            setView("day");
+          }}
+        />
+      )}
+
+      {today && view === "day" && (
         <nav className={styles.days} aria-label="Día de caja">
           {days.map((d) => (
             <button
@@ -162,7 +184,7 @@ export function CashPage() {
       )}
       {!data && !failed && <p className={styles.muted}>Cargando…</p>}
 
-      {data && (
+      {data && view === "day" && (
         <>
           <p className={open ? styles.chipOpen : styles.chipClosed}>
             {open

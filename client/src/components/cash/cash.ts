@@ -26,6 +26,25 @@ export interface CashDay {
   movements: CashLine[];
 }
 
+/** GET /api/cash/week (design 3.2 «Semana»). */
+export interface CashWeek {
+  store: CashDay["store"];
+  from: string;
+  to: string;
+  days: {
+    date: string;
+    status: "open" | "closed";
+    byMethod: Record<CashMethod, string>;
+    total: string;
+    manual: string;
+    movements: number;
+    counted: boolean;
+  }[];
+  byMethod: Record<CashMethod, string>;
+  total: string;
+  manual: string;
+}
+
 export const METHOD_LABEL: Record<CashMethod, string> = {
   cash: "Efectivo",
   card: "Tarjeta",
@@ -97,4 +116,14 @@ export function countDifferences(day: CashDay): string[] {
     );
   }
   return out;
+}
+
+/** «Semana del 26/10 al 01/11». */
+export const weekLabel = (from: string, to: string) => `Semana del ${dm(from)} al ${dm(to)}`;
+
+/** What a day of the week says about itself. */
+export function weekDayState(day: CashWeek["days"][number]): string {
+  if (day.status === "open") return "En curso";
+  if (day.movements === 0) return "Sin movimientos";
+  return day.counted ? "Cerrado · con recuento" : "Cerrado · sin recuento";
 }
