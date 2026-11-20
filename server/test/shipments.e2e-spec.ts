@@ -141,7 +141,7 @@ describe('Shipments between partner stores and the workshop', () => {
     expect(
       (await send(main, '/api/shipments', { orderIds: [order.id] })).body
         .message,
-    ).toBe('Los envíos desde Medina los crea un socio');
+    ).toBe('Los envíos desde el taller los crea el administrador');
 
     const back = await send(sa, '/api/shipments', {
       orderIds: [order.id],
@@ -202,7 +202,7 @@ describe('Shipments between partner stores and the workshop', () => {
     );
 
     expect((await get(main, '/api/shipments/candidates')).body.message).toBe(
-      'Los envíos desde Medina los crea un socio',
+      'Los envíos desde el taller los crea el administrador',
     );
     expect(
       (await get(sa, '/api/shipments/candidates?toStoreId=nope')).status,

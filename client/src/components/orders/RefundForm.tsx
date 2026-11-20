@@ -90,7 +90,7 @@ export function RefundForm({
   const credit = chosen.charge.method === "credit";
   const locked = !partner && chosen.charge.dayClosed === true;
   const missing = locked
-    ? "Lo devuelve un socio."
+    ? "Lo devuelve el administrador."
     : amount === null || amount <= 0
       ? "Escribe un importe mayor que 0."
       : amount > chosen.left
@@ -180,7 +180,7 @@ export function RefundForm({
 
       {locked ? (
         <p className={styles.dayClosed} role="note">
-          Este cobro es de un día de caja ya cerrado: lo devuelve un socio.
+          Este cobro es de un día de caja ya cerrado: lo devuelve el administrador.
         </p>
       ) : (
         <>

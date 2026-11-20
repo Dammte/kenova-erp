@@ -251,7 +251,7 @@ export class OrderPaymentsService {
     }
     if (actor.role !== UserRole.SUPER_ADMIN && charge.dayClosed) {
       throw new ForbiddenException(
-        'Los cobros de días cerrados los devuelve un socio',
+        'Los cobros de días cerrados los devuelve el administrador',
       );
     }
     if ((charge.method === CREDIT) !== (dto.method === CREDIT)) {

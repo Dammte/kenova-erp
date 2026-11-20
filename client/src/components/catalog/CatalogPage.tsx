@@ -26,7 +26,7 @@ export function CatalogPage() {
         <div className={styles.empty}>
           <p>
             <strong>Sin permiso.</strong> El catálogo de marcas y modelos lo
-            gestionan los socios.
+            gestiona el administrador.
           </p>
           <Link href="/panel" className={styles.link}>
             Volver al Panel

@@ -137,7 +137,7 @@ describe("BackupPage", () => {
   it("a store is told the copy belongs to the partners", async () => {
     user = { ...SUPER, role: "STORE_ADMIN", storeId: "s2" };
     await show();
-    screen.getByText(/la hacen los socios/);
+    screen.getByText(/la hace el administrador/);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });

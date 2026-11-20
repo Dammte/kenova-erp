@@ -26,8 +26,8 @@ export function BackupPage() {
       <div className={styles.page}>
         <div className={styles.card}>
           <p>
-            <strong>Sin permiso.</strong> La copia de seguridad la hacen los
-            socios.
+            <strong>Sin permiso.</strong> La copia de seguridad la hace el
+            administrador.
           </p>
           <Link href="/panel" className={styles.link}>
             Volver al Panel

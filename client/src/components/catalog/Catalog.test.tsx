@@ -275,7 +275,7 @@ describe("CatalogPage", () => {
   it("a store is told the section belongs to the partners", async () => {
     user = { ...SUPER, role: "STORE_ADMIN", storeId: "s2" };
     await show();
-    screen.getByText(/lo\s+gestionan los socios/);
+    screen.getByText(/lo\s+gestiona el administrador/);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 

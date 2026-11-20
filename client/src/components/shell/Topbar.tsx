@@ -10,7 +10,7 @@ import { OPEN_SEARCH_EVENT } from "./BottomBar";
 import CommandPalette from "./CommandPalette";
 import styles from "./Topbar.module.css";
 
-const ROLE_LABEL = { SUPER_ADMIN: "Socio", STORE_ADMIN: "Tienda" } as const;
+const ROLE_LABEL = { SUPER_ADMIN: "Administrador", STORE_ADMIN: "Tienda" } as const;
 
 /** "Ana Rojo" → "AR". */
 export const initials = (name: string): string =>

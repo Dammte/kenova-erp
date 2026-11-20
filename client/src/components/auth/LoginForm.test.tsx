@@ -78,7 +78,7 @@ describe("LoginForm", () => {
     };
     for (let i = 0; i < 4; i++) expect(await attempt("Marta")).toMatch(/^El usuario o la contraseña/);
     expect(await attempt(" marta ")).toBe(
-      "Demasiados intentos. Espera 15 minutos o pide a un socio que te restablezca la contraseña.",
+      "Demasiados intentos. Espera 15 minutos o pide al administrador que te restablezca la contraseña.",
     );
     // Another account starts again: nothing here tells which accounts exist.
     expect(await attempt("ana")).toMatch(/^El usuario o la contraseña/);

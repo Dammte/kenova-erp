@@ -183,7 +183,7 @@ describe("InventoryPage", () => {
   it("tells a store the inventory is the partners'", () => {
     role = "STORE_ADMIN";
     render(<InventoryPage />);
-    screen.getByText(/El inventario lo gestionan los socios/);
+    screen.getByText(/El inventario lo gestiona el administrador/);
     expect(screen.getByRole("link", { name: "Volver al Panel" }).getAttribute("href")).toBe("/panel");
     expect(fetchMock).not.toHaveBeenCalled();
   });

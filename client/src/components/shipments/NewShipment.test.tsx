@@ -134,10 +134,10 @@ describe("NewShipment", () => {
     cleanup();
 
     fetchMock.mockImplementation(async () =>
-      json({ message: "Los envíos desde Medina los crea un socio" }, 400),
+      json({ message: "Los envíos desde el taller los crea el administrador" }, 400),
     );
     await show(false);
-    screen.getByText("Los envíos desde Medina los crea un socio");
+    screen.getByText("Los envíos desde el taller los crea el administrador");
   });
 
   it("keeps the ticked devices when the shipment is refused", async () => {

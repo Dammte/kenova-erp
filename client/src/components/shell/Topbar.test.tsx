@@ -48,7 +48,7 @@ describe("Topbar", () => {
   it("a partner works across all stores", () => {
     render(<Topbar />);
     expect(screen.getByText("Todas las tiendas")).toBeTruthy();
-    expect(screen.getByText("Socio")).toBeTruthy();
+    expect(screen.getByText("Administrador")).toBeTruthy();
     expect(fetch).not.toHaveBeenCalled();
   });
 
