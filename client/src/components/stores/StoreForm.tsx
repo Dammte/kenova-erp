@@ -78,7 +78,12 @@ export function StoreForm({ store, accounts, onSaved, onCancel }: Props) {
 
   const body = storeBody(d, original, isMain);
   const dirty = !store || Object.keys(body).length > 0;
-  const prefixLocked = store !== undefined && orderCount(store) > 0;
+  const numbered = store ? orderCount(store) : 0;
+  const prefixHint = !store || numbered === 0
+    ? "Va delante del número de cada orden, por ejemplo VC-0001."
+    : d.prefix.trim().toUpperCase() !== store.prefix && d.prefix.trim() !== ""
+      ? `La próxima orden será ${d.prefix.trim().toUpperCase()}-${String(store.nextOrderNumber).padStart(4, "0")}; las ${numbered} anteriores conservan su código.`
+      : `Ya hay ${numbered} órdenes. Si lo cambias, conservan su código y las nuevas siguen la numeración con el prefijo nuevo.`;
 
   const send = async (payload: Record<string, unknown>) => {
     setProblem(null);
@@ -142,13 +147,8 @@ export function StoreForm({ store, accounts, onSaved, onCancel }: Props) {
             required
             value={d.prefix}
             maxLength={4}
-            readOnly={prefixLocked}
             error={errors.prefix}
-            hint={
-              prefixLocked
-                ? `Fijo: ya hay ${store ? orderCount(store) : 0} órdenes con ${store?.prefix}-`
-                : "Va delante del número de cada orden, por ejemplo VC-0001."
-            }
+            hint={prefixHint}
             onChange={(e) => set("prefix", e.target.value.toUpperCase())}
           />
         </fieldset>

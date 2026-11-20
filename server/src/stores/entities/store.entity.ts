@@ -47,7 +47,7 @@ export class Store {
   @Column({ length: 80 })
   city: string;
 
-  /** Order-number prefix (MP-0142). Fixed once created. */
+  /** Order-number prefix (MP-0142). A change applies to new orders; old codes stay. */
   @Index('IDX_stores_prefix', { unique: true })
   @Column({ length: 4 })
   prefix: string;
