@@ -1,21 +1,22 @@
 "use client";
 
+import type { KeyboardEvent } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { Button, MoneyInput, TextField } from "@/components/ui";
 import { formatEur } from "@/lib/format";
 import { METHODS } from "@/components/orders/ChargeForm";
-import { QUICK_SERVICES, newLine, orderTotal, type IntakeLine, type IntakeState } from "./intake";
+import { EMPTY_DRAFT, QUICK_SERVICES, draftReady, newLine, orderTotal, type IntakeState } from "./intake";
 import styles from "./Intake.module.css";
 
-type Money = Pick<IntakeState, "lines" | "deposit" | "method">;
+type Money = Pick<IntakeState, "lines" | "draft" | "deposit" | "method">;
 
-/** Puts the cursor in a line's amount once it is on screen. */
-const focusPrice = (line: IntakeLine) =>
-  requestAnimationFrame(() => document.querySelector<HTMLInputElement>(`[name="${line.key}-price"]`)?.focus());
+const focus = (name: string) =>
+  requestAnimationFrame(() => document.querySelector<HTMLInputElement>(`[name="${name}"]`)?.focus());
 
 /**
- * Block "Servicios y precio": what will be done, written as it is said, with
- * its amount. The usual jobs are one tap away. The total is the lines' sum.
+ * Block "Servicios y precio": one row to write a service and its amount,
+ * «Añadir» puts it on the list below, where a mistake is removed with one
+ * tap. Suggestions only write the text. The total is the list's sum.
  */
 export function ServicePicker({
   value,
@@ -23,25 +24,28 @@ export function ServicePicker({
   onChange,
 }: {
   value: Money;
-  /** Quick jobs the declared symptoms point to: shown first and marked. */
+  /** Jobs the declared symptoms point to: shown first and marked. */
   suggested?: string[];
   onChange: (patch: Partial<Money>) => void;
 }) {
-  const lines = value.lines;
-  const change = (key: string, patch: Partial<IntakeLine>) =>
-    onChange({ lines: lines.map((l) => (l.key === key ? { ...l, ...patch } : l)) });
+  const { lines, draft } = value;
+  const ready = draftReady(draft);
 
-  /** A quick job fills the empty line there is, or adds one. */
-  const quick = (name: string) => {
-    const same = lines.find((l) => l.description.trim() === name);
-    if (same) {
-      onChange({ lines: lines.filter((l) => l.key !== same.key) });
-      return;
+  const add = () => {
+    if (!ready) return;
+    onChange({ lines: [...lines, newLine(draft.description, draft.price!)], draft: EMPTY_DRAFT });
+    focus("service-entry");
+  };
+  // Enter adds the service instead of sending the whole form.
+  const onKey = (e: KeyboardEvent) => {
+    if (e.key === "Enter" && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault();
+      add();
     }
-    const empty = lines.find((l) => !l.description.trim() && l.price === null);
-    const line = empty ? { ...empty, description: name } : newLine(name);
-    onChange({ lines: empty ? lines.map((l) => (l.key === empty.key ? line : l)) : [...lines, line] });
-    focusPrice(line);
+  };
+  const suggest = (name: string) => {
+    onChange({ draft: { ...draft, description: name } });
+    focus("service-price");
   };
 
   const total = orderTotal(value);
@@ -49,73 +53,94 @@ export function ServicePicker({
 
   return (
     <>
-      <div className={styles.chips} role="group" aria-label="Servicios habituales">
-        {[...suggested, ...QUICK_SERVICES.filter((n) => !suggested.includes(n))].map((name) => (
-          <button
-            key={name}
-            type="button"
-            className={`${styles.chip} ${suggested.includes(name) ? styles.suggested : ""}`}
-            title={suggested.includes(name) ? "Sugerido por la avería" : undefined}
-            aria-pressed={lines.some((l) => l.description.trim() === name)}
-            onClick={() => quick(name)}
-          >
-            {name}
-          </button>
-        ))}
+      <div className={styles.entryRow} onKeyDown={onKey}>
+        <TextField
+          name="service-entry"
+          label="Servicio"
+          placeholder="Qué se va a hacer"
+          maxLength={150}
+          value={draft.description}
+          onChange={(e) => onChange({ draft: { ...draft, description: e.target.value } })}
+        />
+        <MoneyInput
+          name="service-price"
+          label="Importe"
+          value={draft.price}
+          onChange={(price) => onChange({ draft: { ...draft, price } })}
+        />
+        <Button
+          variant="secondary"
+          icon={<Plus size={16} aria-hidden />}
+          disabledReason={
+            ready ? undefined : draft.description.trim() ? "Escribe el importe" : "Escribe qué se va a hacer"
+          }
+          onClick={add}
+        >
+          Añadir
+        </Button>
       </div>
 
-      {lines.length === 0 ? (
+      <div className={styles.group}>
+        <span className={styles.muted} id="service-suggestions">
+          Sugerencias
+        </span>
+        <div className={styles.chips} role="group" aria-labelledby="service-suggestions">
+          {[...suggested, ...QUICK_SERVICES.filter((n) => !suggested.includes(n))].map((name) => (
+            <button
+              key={name}
+              type="button"
+              className={`${styles.chip} ${suggested.includes(name) ? styles.suggested : ""}`}
+              title={suggested.includes(name) ? "Sugerido por la avería" : undefined}
+              onClick={() => suggest(name)}
+            >
+              {name}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {lines.length > 0 ? (
+        <ul className={styles.lines} aria-label="Servicios añadidos">
+          {lines.map((l) => (
+            <li key={l.key}>
+              <span>{l.description}</span>
+              <span className={styles.lineEnd}>
+                {formatEur(l.price)}
+                <button
+                  type="button"
+                  className={styles.remove}
+                  aria-label={`Quitar ${l.description}`}
+                  onClick={() => onChange({ lines: lines.filter((x) => x.key !== l.key) })}
+                >
+                  <Trash2 size={16} aria-hidden />
+                </button>
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : (
         <p className={styles.muted}>
           Sin servicios todavía. Puedes crear la orden solo con la avería y presupuestar después.
         </p>
-      ) : (
-        lines.map((l, i) => (
-          <div key={l.key} className={styles.lineRow}>
-            <TextField
-              name={`${l.key}-description`}
-              label={`Servicio ${i + 1}`}
-              placeholder="Qué se va a hacer"
-              maxLength={150}
-              value={l.description}
-              onChange={(e) => change(l.key, { description: e.target.value })}
-            />
-            <MoneyInput
-              name={`${l.key}-price`}
-              label={`Importe ${i + 1}`}
-              value={l.price}
-              onChange={(price) => change(l.key, { price })}
-            />
-            <Button
-              variant="ghost"
-              size="sm"
-              aria-label={`Quitar ${l.description.trim() || `servicio ${i + 1}`}`}
-              icon={<Trash2 size={16} aria-hidden />}
-              onClick={() => onChange({ lines: lines.filter((x) => x.key !== l.key) })}
-            />
-          </div>
-        ))
       )}
-      <p>
-        <Button
-          variant="ghost"
-          size="sm"
-          icon={<Plus size={16} aria-hidden />}
-          onClick={() => {
-            const line = newLine();
-            onChange({ lines: [...lines, line] });
-            requestAnimationFrame(() =>
-              document.querySelector<HTMLInputElement>(`[name="${line.key}-description"]`)?.focus(),
-            );
-          }}
-        >
-          Añadir servicio
-        </Button>
+
+      <p className={styles.totals}>
+        <span>
+          Total <strong>{formatEur(total)}</strong>
+        </span>
+        <span>
+          Anticipo <strong>{formatEur(Math.min(value.deposit ?? 0, total))}</strong>
+        </span>
+        <span>
+          Pendiente <strong>{formatEur(pending)}</strong>
+        </span>
       </p>
 
       <MoneyInput
         name="deposit"
-        label="A cuenta · opcional"
-        error={value.deposit && value.deposit > total ? `A cuenta no puede superar el total (${formatEur(total)}).` : undefined}
+        label="Anticipo · opcional"
+        hint="Lo que el cliente paga ahora, al dejar el equipo."
+        error={value.deposit && value.deposit > total ? `El anticipo no puede superar el total (${formatEur(total)}).` : undefined}
         value={value.deposit}
         onChange={(v) => onChange({ deposit: v || null, ...(v ? {} : { method: null }) })}
       />
@@ -133,18 +158,6 @@ export function ServicePicker({
           </div>
         </fieldset>
       )}
-
-      <p className={styles.totals}>
-        <span>
-          Total <strong>{formatEur(total)}</strong>
-        </span>
-        <span>
-          A cuenta <strong>{formatEur(Math.min(value.deposit ?? 0, total))}</strong>
-        </span>
-        <span>
-          Pendiente <strong>{formatEur(pending)}</strong>
-        </span>
-      </p>
     </>
   );
 }

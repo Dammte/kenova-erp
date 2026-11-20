@@ -15,6 +15,7 @@ import {
   ACCESSORY_CHIPS,
   CONDITION_CHIPS,
   EMPTY_DEVICE,
+  EMPTY_DRAFT,
   FAULTS,
   PRIORITIES,
   fromQuote,
@@ -42,6 +43,7 @@ const START: IntakeState = {
   priority: "medium",
   observations: "",
   lines: [],
+  draft: EMPTY_DRAFT,
   deposit: null,
   waivesQuote: false,
   method: null,
@@ -382,7 +384,7 @@ export function IntakeForm() {
             <p className={styles.label}>Todo listo para crear la orden.</p>
           )}
           <p className={styles.muted}>
-            Total {formatEur(orderTotal(s))} · A cuenta {formatEur(s.deposit ?? 0)}. Entra como En progreso.
+            Total {formatEur(orderTotal(s))} · Anticipo {formatEur(s.deposit ?? 0)}. Entra como En progreso.
           </p>
           {problem && (
             <p className={styles.error} role="alert">
