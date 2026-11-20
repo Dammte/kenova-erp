@@ -127,7 +127,7 @@ describe("IntakeForm", () => {
     expect((screen.getByLabelText("Pantalla rota") as HTMLInputElement).checked).toBe(true);
   });
 
-  it("adds the model's service first, takes a deposit and sends the money", async () => {
+  it("writes the services by hand or with a tap, takes a deposit and sends the money", async () => {
     fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
       if (url.includes("/clients/search")) return json([LUCIA]);
       if (url.includes("/devices/client/c1")) return json([IPHONE]);
@@ -142,10 +142,15 @@ describe("IntakeForm", () => {
     fireEvent.click(screen.getByRole("button", { name: /Apple iPhone 13/ }));
     fireEvent.click(screen.getByLabelText("Pantalla rota"));
 
-    const service = screen.getByLabelText(/Añadir servicio o tarifa/);
-    fireEvent.change(service, { target: { value: "pantalla" } });
-    fireEvent.keyDown(service, { key: "Enter" });
-    expect(screen.getByText("Cambio de pantalla iPhone 13")).toBeTruthy();
+    // A usual job is one tap; its amount is still to type.
+    fireEvent.click(screen.getByRole("button", { name: "Cambio de pantalla" }));
+    expect(screen.getByLabelText("Servicio 1")).toHaveProperty("value", "Cambio de pantalla");
+    expect(screen.getByRole("button", { name: "Importe de «Cambio de pantalla»" })).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Importe 1"), { target: { value: "129" } });
+    // Anything else is written as it is said.
+    fireEvent.click(screen.getByRole("button", { name: "Añadir servicio" }));
+    fireEvent.change(screen.getByLabelText("Servicio 2"), { target: { value: "Protector de cristal" } });
+    fireEvent.change(screen.getByLabelText("Importe 2"), { target: { value: "20" } });
 
     fireEvent.change(screen.getByLabelText(/^A cuenta/), { target: { value: "200" } });
     expect(screen.getByText(/A cuenta no puede superar el total/)).toBeTruthy();
@@ -160,8 +165,10 @@ describe("IntakeForm", () => {
       fireEvent.click(create());
     });
     expect(posted()?.body.order).toMatchObject({
-      serviceIds: ["s2"],
-      totalPrice: 149,
+      lines: [
+        { description: "Cambio de pantalla", unitPrice: 129 },
+        { description: "Protector de cristal", unitPrice: 20 },
+      ],
       amountPaid: 59,
       paymentMethod: "card",
     });
@@ -285,8 +292,8 @@ describe("IntakeForm", () => {
     });
     render(<IntakeForm />);
     await act(async () => {});
-    expect(screen.getByRole("button", { name: "Quitar Cambio de pantalla iPhone 13" })).toBeTruthy();
-    expect(screen.getByLabelText("Total acordado")).toHaveProperty("value", "149,00");
+    expect(screen.getByLabelText("Servicio 1")).toHaveProperty("value", "Cambio de pantalla iPhone 13");
+    expect(screen.getByLabelText("Importe 1")).toHaveProperty("value", "149,00");
     window.history.replaceState(null, "", "/");
   });
 
@@ -316,7 +323,10 @@ describe("IntakeForm", () => {
           model: "iPhone 13",
           fault: "Pantalla rota",
           total: "160.00",
-          lines: [{ serviceId: "s2", description: "Cambio de pantalla iPhone 13", unitPrice: "149.00" }],
+          lines: [
+            { serviceId: "s2", description: "Cambio de pantalla iPhone 13", unitPrice: "149.00" },
+            { serviceId: null, description: "Protector", unitPrice: "11.00" },
+          ],
         });
       if (url.includes("/clients/search")) return json([LUCIA]);
       if (init?.method === "POST") return json({ id: "o9" }, 201);
@@ -326,7 +336,7 @@ describe("IntakeForm", () => {
     await act(async () => {});
     expect(fetchMock.mock.calls.map((c) => c[0])).toContain("/api/clients/search?q=612345678");
     expect(screen.getByRole("status").textContent).toContain("Desde el presupuesto MP-P0031");
-    expect(screen.getByLabelText("Total acordado")).toHaveProperty("value", "160,00");
+    expect(screen.getByLabelText("Importe 2")).toHaveProperty("value", "11,00");
 
     fireEvent.click(screen.getByLabelText("Pantalla rota"));
     await act(async () => {
@@ -335,7 +345,13 @@ describe("IntakeForm", () => {
     expect(posted()?.body).toMatchObject({
       clientId: "c1",
       device: { brand: "Apple", model: "iPhone 13" },
-      order: { serviceIds: ["s2"], totalPrice: 160, faultNotes: "Pantalla rota" },
+      order: {
+        lines: [
+          { description: "Cambio de pantalla iPhone 13", unitPrice: 149 },
+          { description: "Protector", unitPrice: 11 },
+        ],
+        faultNotes: "Pantalla rota",
+      },
       quoteId: "q1",
     });
     window.history.replaceState(null, "", "/");

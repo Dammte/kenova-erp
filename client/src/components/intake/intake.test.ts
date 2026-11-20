@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { EMPTY_DEVICE, fromQuote, intakePayload, missing, newClientFrom, orderTotal, toggleWord, type IntakeState } from "./intake";
-import { matchServices } from "./ServicePicker";
+import {
+  EMPTY_DEVICE,
+  fromQuote,
+  intakePayload,
+  missing,
+  newClientFrom,
+  newLine,
+  orderTotal,
+  toggleWord,
+  type IntakeState,
+} from "./intake";
 import { dashDots } from "./DevicePicker";
 import { withClient } from "./IntakeForm";
 
@@ -13,8 +22,7 @@ const BASE: IntakeState = {
   accessories: "",
   priority: "medium",
   observations: "",
-  services: [],
-  total: null,
+  lines: [],
   deposit: null,
   method: null,
   waivesQuote: false,
@@ -97,41 +105,48 @@ describe("intakePayload", () => {
 });
 
 describe("money", () => {
-  const PANTALLA = { id: "s2", name: "Cambio de pantalla", price: "149.00" };
-  const FUNDA = { id: "s4", name: "Funda", price: "9.90" };
+  const PANTALLA = newLine("Cambio de pantalla", 149);
+  const FUNDA = newLine("Funda", 9.9);
   const READY = { ...BASE, client: LUCIA, device: IPHONE, faults: ["broken_screen"] };
 
-  it("sums the services unless a total was agreed", () => {
-    expect(orderTotal({ services: [PANTALLA, FUNDA], total: null })).toBe(158.9);
-    expect(orderTotal({ services: [PANTALLA, FUNDA], total: 150 })).toBe(150);
+  it("adds up the lines", () => {
+    expect(orderTotal({ lines: [PANTALLA, FUNDA] })).toBe(158.9);
+    expect(orderTotal({ lines: [PANTALLA, newLine("Revisión")] })).toBe(149);
   });
   it("refuses a deposit above the total and one without a payment method", () => {
-    expect(missing({ ...READY, services: [PANTALLA], deposit: 200, method: "cash" }).map((m) => m.field)).toEqual(["deposit"]);
-    expect(missing({ ...READY, services: [PANTALLA], deposit: 50, method: null }).map((m) => m.field)).toEqual(["method"]);
+    expect(missing({ ...READY, lines: [PANTALLA], deposit: 200, method: "cash" }).map((m) => m.field)).toEqual(["deposit"]);
+    expect(missing({ ...READY, lines: [PANTALLA], deposit: 50, method: null }).map((m) => m.field)).toEqual(["method"]);
   });
-  it("sends services, total and deposit only when there are any", () => {
+  it("asks for the concept and the amount of each line, and skips empty ones", () => {
+    const noPrice = newLine("Cambio de batería");
+    const noName = newLine("", 20);
+    expect(missing({ ...READY, lines: [newLine(), noPrice, noName] }).map((m) => m.text)).toEqual([
+      "Importe de «Cambio de batería»",
+      "Servicio 2: qué se hace",
+    ]);
+    expect(missing({ ...READY, lines: [newLine("  "), PANTALLA] })).toEqual([]);
+  });
+  it("sends the lines and the deposit only when there are any", () => {
+    expect(intakePayload(READY).order).not.toHaveProperty("lines");
     expect(intakePayload(READY).order).not.toHaveProperty("totalPrice");
     expect(intakePayload(READY).order).not.toHaveProperty("waivesQuote");
     expect(intakePayload({ ...READY, waivesQuote: true }).order).toMatchObject({ waivesQuote: true });
-    expect(intakePayload({ ...READY, services: [PANTALLA], total: 140, deposit: 40, method: "cash" }).order).toMatchObject({
-      serviceIds: ["s2"],
-      totalPrice: 140,
+    const p = intakePayload({
+      ...READY,
+      lines: [newLine(" Cambio de pantalla "), PANTALLA, newLine()],
+      deposit: 40,
+      method: "cash",
+    }).order;
+    expect(p).toMatchObject({
+      lines: [
+        { description: "Cambio de pantalla", unitPrice: 0 },
+        { description: "Cambio de pantalla", unitPrice: 149 },
+      ],
       amountPaid: 40,
       paymentMethod: "cash",
     });
-  });
-});
-
-describe("matchServices", () => {
-  const ALL = [
-    { id: "a", name: "Cambio de pantalla Galaxy A54", price: 119 },
-    { id: "b", name: "Cambio de pantalla iPhone 13", price: 149 },
-    { id: "c", name: "Batería iPhone 13", price: 69 },
-  ];
-  it("puts the device model's services first and skips chosen ones", () => {
-    expect(matchServices(ALL, "pantalla", "iPhone 13", []).map((x) => x.id)).toEqual(["b", "a"]);
-    expect(matchServices(ALL, "", "iphone 13", ["b"]).map((x) => x.id)).toEqual(["c"]);
-    expect(matchServices(ALL, "bateria", "", []).map((x) => x.id)).toEqual(["c"]);
+    expect(p).not.toHaveProperty("totalPrice");
+    expect(p).not.toHaveProperty("serviceIds");
   });
 });
 
@@ -167,7 +182,7 @@ describe("fromQuote", () => {
     brand: "Apple",
     model: "MacBook Air M1",
     fault: "Daño por líquido",
-    total: "435.00",
+    total: "795.00",
     lines: [
       { serviceId: "s1", description: "Placa base", unitPrice: "380.00" },
       { serviceId: null, description: "Limpieza", unitPrice: "35.00" },
@@ -183,22 +198,28 @@ describe("fromQuote", () => {
     accessories: "",
     priority: "medium" as const,
     observations: "",
-    services: [],
-    total: null,
+    lines: [],
     deposit: null,
     method: null,
     waivesQuote: false,
   };
 
-  it("fills client, device, rates and the quoted total, and sends the quote id", () => {
+  it("fills client, device and the quote's lines as written, and sends the quote id", () => {
     const s = fromQuote(EMPTY, QUOTE, null);
     expect(s.client).toEqual({ firstName: "Aitor", lastName: "Etxeberria Uriarte", phoneNumber: "688 450 117", email: "" });
     expect(s.device).toMatchObject({ brand: "Apple", model: "MacBook Air M1", unlock: "none" });
-    expect(s.services).toEqual([{ id: "s1", name: "Placa base", price: "380.00" }]);
-    expect(s.total).toBe(435);
+    expect(s.lines.map((l) => [l.description, l.price])).toEqual([
+      ["Placa base", 380],
+      ["Limpieza", 35],
+      ["Placa base", 380],
+    ]);
+    expect(orderTotal(s)).toBe(795);
     expect(s.faultNotes).toBe("Daño por líquido");
     const done = { ...s, faults: ["liquid_damage"] };
-    expect(intakePayload(done)).toMatchObject({ quoteId: "q1", order: { serviceIds: ["s1"], totalPrice: 435 } });
+    expect(intakePayload(done)).toMatchObject({
+      quoteId: "q1",
+      order: { lines: [{ description: "Placa base", unitPrice: 380 }, { description: "Limpieza", unitPrice: 35 }, {}] },
+    });
   });
 
   it("reuses the client found with the same phone", () => {

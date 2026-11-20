@@ -166,32 +166,57 @@ export class ServiceOrderService {
   }
 
   /**
-   * Rebuilds the order's lines from its services and total: one line per
-   * service (keeping the price it already had on this order) plus an
-   * "Ajuste" line for any difference, so the lines always add up to the total.
+   * Rebuilds the order's lines: the lines written by hand (kept as they were,
+   * or replaced by `typed`), one line per service (keeping the price it
+   * already had on this order) and an "Ajuste" line for any difference, so
+   * the lines always add up to the total.
    */
-  private async syncLines(m: EntityManager, order: ServiceOrder) {
+  private async syncLines(
+    m: EntityManager,
+    order: ServiceOrder,
+    typed?: { description: string; unitPrice: number }[],
+  ) {
     const repo = m.getRepository(OrderLine);
-    const previous = await repo.find({ where: { orderId: order.id } });
+    const previous = await repo.find({
+      where: { orderId: order.id },
+      order: { position: 'ASC' },
+    });
     const priceOf = new Map(
       previous
         .filter((l) => l.kind === OrderLineKind.SERVICE && l.serviceId)
         .map((l) => [l.serviceId, l.unitPrice]),
     );
+    const byHand =
+      typed?.map((l) => ({
+        description: l.description,
+        unitPrice: l.unitPrice.toFixed(2),
+        quantity: 1,
+      })) ??
+      previous.filter((l) => l.kind === OrderLineKind.SERVICE && !l.serviceId);
     await repo.delete({ orderId: order.id });
 
     const services = [...(order.services ?? [])].sort((a, b) =>
       a.name.localeCompare(b.name, 'es'),
     );
-    const lines = services.map((s, i) =>
-      repo.create({
-        orderId: order.id,
-        position: i + 1,
-        kind: OrderLineKind.SERVICE,
+    const lines = [
+      ...byHand.map((l) => ({
+        serviceId: null,
+        description: l.description.slice(0, 150),
+        unitPrice: l.unitPrice,
+        quantity: l.quantity,
+      })),
+      ...services.map((s) => ({
         serviceId: s.id,
         description: s.name.slice(0, 150),
         unitPrice: priceOf.get(s.id) ?? Number(s.price).toFixed(2),
         quantity: 1,
+      })),
+    ].map((l, i) =>
+      repo.create({
+        ...l,
+        orderId: order.id,
+        position: i + 1,
+        kind: OrderLineKind.SERVICE,
       }),
     );
     const cents = (v: unknown) => Math.round(Number(v ?? 0) * 100);
@@ -414,11 +439,17 @@ export class ServiceOrderService {
     const { storeId } = at;
     const {
       serviceIds,
+      lines: typedLines,
       clientId,
       deviceId,
       inventoryIds: _unused,
       ...orderData
     } = createServiceOrderDto;
+    if (typedLines?.length && serviceIds?.length) {
+      throw new BadRequestException(
+        'Indica los servicios de la tarifa o las líneas escritas, no ambos',
+      );
+    }
 
     const client = await m.getRepository(Client).findOne({
       where: { id: clientId },
@@ -470,9 +501,20 @@ export class ServiceOrderService {
       await this.checkWarrantyOf(m, orderData.warrantyOfId, at.actor);
     }
 
-    // Calcular total solo con servicios
-    const servicesTotal = services.reduce((sum, s) => sum + Number(s.price), 0);
-    const calculatedTotal = servicesTotal;
+    const cents = (v: number | string) => Math.round(Number(v) * 100);
+    const calculatedTotal =
+      (typedLines ?? []).reduce((sum, l) => sum + cents(l.unitPrice), 0) / 100 +
+      services.reduce((sum, s) => sum + Number(s.price), 0);
+    // Typed lines are the price: a different total would hide an "Ajuste".
+    if (
+      typedLines?.length &&
+      orderData.totalPrice !== undefined &&
+      cents(orderData.totalPrice) !== cents(calculatedTotal)
+    ) {
+      throw new BadRequestException(
+        'El total no coincide con la suma de las líneas',
+      );
+    }
     const totalPrice = orderData.totalPrice ?? calculatedTotal;
     const amountPaid = orderData.amountPaid ?? 0;
 
@@ -498,7 +540,7 @@ export class ServiceOrderService {
     ServiceOrderService.applyLifecycle(serviceOrder, null);
 
     const saved = await m.getRepository(ServiceOrder).save(serviceOrder);
-    await this.syncLines(m, saved);
+    await this.syncLines(m, saved, typedLines);
     await this.payments.recordEdit(
       m,
       saved,
@@ -577,10 +619,15 @@ export class ServiceOrderService {
     return Object.assign(serviceOrder, { quote: quote ?? null });
   }
 
+  /**
+   * `lines` (not part of the request body) replaces the lines written by hand,
+   * e.g. with the lines of the quote the client accepted.
+   */
   async update(
     id: string,
     updateServiceOrderDto: UpdateServiceOrderDto,
     actor: AuthUser,
+    lines?: { description: string; unitPrice: number }[],
   ): Promise<ServiceOrder> {
     const actorUserId = actor.id;
     const { serviceIds, clientId, deviceId, owedReason, parts, ...updateData } =
@@ -722,8 +769,12 @@ export class ServiceOrderService {
       // the order is not finished either. After the save, which would detach
       // a history row it has not loaded.
       if (parts?.length) await this.takeParts(m, id, parts, actor);
-      if (updateData.totalPrice !== undefined || serviceIds !== undefined) {
-        await this.syncLines(m, serviceOrder);
+      if (
+        updateData.totalPrice !== undefined ||
+        serviceIds !== undefined ||
+        lines
+      ) {
+        await this.syncLines(m, serviceOrder, lines);
       }
       if (updateData.amountPaid !== undefined) {
         await this.payments.recordEdit(
