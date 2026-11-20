@@ -1,4 +1,4 @@
-/** Design R2 3.14: shipments of devices between a partner store and Medina. */
+/** Design R2 3.14: shipments of devices between a partner store and the workshop. */
 
 export type ShipmentStatus = "sent" | "received" | "received_incomplete";
 

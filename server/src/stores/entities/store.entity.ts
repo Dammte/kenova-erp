@@ -20,8 +20,8 @@ export enum CommissionType {
 export const MIN_WARRANTY_DAYS = 90;
 
 /**
- * A shop that takes devices in. The main store is Kenova's workshop (Medina de
- * Pomar), where repairs happen; the others are partner reception points.
+ * A shop that takes devices in. The main store is Kenova's workshop, where
+ * repairs happen; the others are partner reception points.
  */
 @Entity('stores')
 // At most one workshop.

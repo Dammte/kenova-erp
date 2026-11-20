@@ -146,7 +146,7 @@ describe('Receiving shipments with the scanner', () => {
     });
     expect(early.status).toBe(400);
     expect(early.body.message).toBe(
-      'El equipo aún no ha vuelto a la tienda (En Medina)',
+      'El equipo aún no ha vuelto a la tienda (En el taller)',
     );
 
     const back = await ship([order.id], sa, { toStoreId: vcStoreId });

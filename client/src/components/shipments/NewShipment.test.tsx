@@ -67,10 +67,10 @@ async function show(partner: boolean) {
 }
 
 describe("NewShipment", () => {
-  it("a store ticks its devices and ships them to Medina", async () => {
+  it("a store ticks its devices and ships them to the workshop", async () => {
     await show(false);
     expect(calls()).toEqual(["/api/shipments/candidates"]);
-    screen.getByRole("heading", { name: "Nuevo envío a Medina" });
+    screen.getByRole("heading", { name: "Nuevo envío al taller" });
     expect((create() as HTMLButtonElement).disabled).toBe(true);
     screen.getByText("Añade al menos un equipo");
 
@@ -99,7 +99,7 @@ describe("NewShipment", () => {
     screen.getByText("0 de 2 equipos marcados");
   });
 
-  it("the partners choose an active partner store and see its devices at Medina", async () => {
+  it("the partners choose an active partner store and see its devices at the workshop", async () => {
     await show(true);
     screen.getByRole("heading", { name: "Envío a tienda" });
     const select = screen.getByLabelText("Tienda a la que vuelve");
@@ -129,7 +129,7 @@ describe("NewShipment", () => {
     );
     await show(false);
     screen.getByText(
-      "No hay equipos en la tienda pendientes de enviar a Medina.",
+      "No hay equipos en la tienda pendientes de enviar al taller.",
     );
     cleanup();
 
@@ -144,11 +144,11 @@ describe("NewShipment", () => {
     await show(false);
     fireEvent.click(screen.getByRole("checkbox", { name: /VC-0036/ }));
     fetchMock.mockResolvedValueOnce(
-      json({ message: "No se pueden enviar: VC-0036 (Enviado a Medina)" }, 400),
+      json({ message: "No se pueden enviar: VC-0036 (Enviado al taller)" }, 400),
     );
     fireEvent.click(create());
     await act(async () => {});
-    screen.getByText("No se pueden enviar: VC-0036 (Enviado a Medina)");
+    screen.getByText("No se pueden enviar: VC-0036 (Enviado al taller)");
     expect(
       (screen.getByRole("checkbox", { name: /VC-0036/ }) as HTMLInputElement)
         .checked,

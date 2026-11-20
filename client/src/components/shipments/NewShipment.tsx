@@ -7,7 +7,7 @@ import type { Shipment, ShipmentCandidate } from "./shipments";
 import styles from "./Shipments.module.css";
 
 interface Props {
-  /** Partners choose the store the devices go back to; a store always ships to Medina. */
+  /** Partners choose the store the devices go back to; a store always ships to the workshop. */
   partner: boolean;
   onCreated: (id: string) => void;
   onCancel: () => void;
@@ -125,13 +125,13 @@ export function NewShipment({ partner, onCreated, onCancel }: Props) {
 
   const destination = partner
     ? (stores.find((s) => s.id === toStoreId)?.name ?? "la tienda")
-    : "Medina";
+    : "el taller";
 
   return (
     <section className={styles.card} aria-label="Nuevo envío">
       <header className={styles.cardTitle}>
         <h2 className={styles.cardHeading}>
-          {partner ? "Envío a tienda" : "Nuevo envío a Medina"}
+          {partner ? "Envío a tienda" : "Nuevo envío al taller"}
         </h2>
         <button
           type="button"
@@ -172,8 +172,8 @@ export function NewShipment({ partner, onCreated, onCancel }: Props) {
           <div className={styles.empty}>
             <p>
               {partner
-                ? `No hay equipos de ${destination} en Medina para devolver.`
-                : "No hay equipos en la tienda pendientes de enviar a Medina."}
+                ? `No hay equipos de ${destination} en el taller para devolver.`
+                : "No hay equipos en la tienda pendientes de enviar al taller."}
             </p>
           </div>
         ) : (

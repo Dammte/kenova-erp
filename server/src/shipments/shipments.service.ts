@@ -167,7 +167,7 @@ export class ShipmentsService {
     }
     if (actorStore) {
       if (toStoreIdAsked && toStoreIdAsked !== main.id) {
-        throw new BadRequestException('Una tienda solo envía a Medina');
+        throw new BadRequestException('Una tienda solo envía al taller');
       }
       return {
         fromStoreId: actorStore,
@@ -511,7 +511,7 @@ export class ShipmentsService {
   private static where(o: ServiceOrder): string {
     if (o.status === ServiceStatus.ENTREGADO) return 'ya entregada';
     if (o.status === ServiceStatus.CANCELADO) return 'cancelada';
-    if (!o.location) return 'es de Medina';
+    if (!o.location) return 'está en el taller';
     return LOCATION_LABEL[o.location];
   }
 }
