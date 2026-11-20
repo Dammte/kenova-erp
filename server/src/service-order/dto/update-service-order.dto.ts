@@ -25,7 +25,11 @@ const trimToNull = ({ value }: { value: unknown }) =>
   typeof value === 'string' ? value.trim() || null : value;
 
 export class UpdateServiceOrderDto extends PartialType(
-  OmitType(CreateServiceOrderDto, ['deviceId', 'inventoryIds'] as const),
+  OmitType(CreateServiceOrderDto, [
+    'deviceId',
+    'inventoryIds',
+    'lines',
+  ] as const),
 ) {
   /** null detaches the device from the order. */
   @ValidateIf((_, v) => v !== null)

@@ -286,45 +286,17 @@ li[aria-selected="true"] > .result {
   }
 }
 
-/* Services of the order and the money summary. */
-.lines {
-  display: flex;
-  flex-direction: column;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.lines li {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: var(--k-space-3);
-  padding: var(--k-space-2) 0;
-  border-bottom: var(--k-border-w) solid var(--k-border);
-}
-.lineEnd {
-  display: inline-flex;
-  align-items: center;
+/* Services of the order (concept, amount, remove) and the money summary. */
+.lineRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 130px auto;
   gap: var(--k-space-2);
-  flex-shrink: 0;
-  font-variant-numeric: tabular-nums;
+  align-items: end;
 }
-.remove {
-  display: inline-flex;
-  padding: var(--k-space-1);
-  border: 0;
-  border-radius: var(--k-radius-md);
-  background: none;
-  color: var(--k-text-muted);
-  cursor: pointer;
-}
-.remove:hover {
-  background: var(--k-subtle);
-  color: var(--k-text);
-}
-.remove:focus-visible {
-  outline: none;
-  box-shadow: var(--k-focus-ring);
+@media (max-width: 560px) {
+  .lineRow {
+    grid-template-columns: minmax(0, 1fr) 110px auto;
+  }
 }
 .totals {
   display: flex;

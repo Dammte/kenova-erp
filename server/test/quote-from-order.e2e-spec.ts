@@ -132,14 +132,22 @@ describe('Quote made from an order', () => {
     const o = await order(id);
     expect(o.status).toBe('en_progreso');
     expect(Number(o.totalPrice)).toBe(415.5);
-    expect(o.services?.map((s) => s.id)).toEqual([board]);
+    // The order takes the quote's lines as written, the free one included.
+    expect(o.services).toEqual([]);
     const lines = await t.db.query<
-      { description: string; unitPrice: string }[]
+      { description: string; unitPrice: string; serviceId: string | null }[]
     >(
-      `SELECT description, "unitPrice" FROM order_lines WHERE "orderId" = $1 ORDER BY position`,
+      `SELECT description, "unitPrice", "serviceId" FROM order_lines WHERE "orderId" = $1 ORDER BY position`,
       [id],
     );
-    expect(lines.reduce((s, l) => s + Number(l.unitPrice), 0)).toBe(415.5);
+    expect(lines).toEqual([
+      { description: 'Placa base', unitPrice: '380.00', serviceId: null },
+      {
+        description: 'Limpieza por líquido',
+        unitPrice: '35.50',
+        serviceId: null,
+      },
+    ]);
     // Answered once: a second click does nothing.
     expect(
       (await send('post', sa, `/api/quotes/${quote.id}/accept`)).status,

@@ -61,6 +61,62 @@ describe('One-screen intake (POST /service-orders/intake)', () => {
     expect(reveal.body).toMatchObject({ type: 'CODE', value: '4321' });
   });
 
+  it('takes lines written by hand and totals them', async () => {
+    const res = await intake({
+      client: { ...newClient, phoneNumber: '600111299' },
+      device: newDevice,
+      order: {
+        lines: [
+          { description: '  Cambio de pantalla ', unitPrice: 119.9 },
+          { description: 'Revisión', unitPrice: 0 },
+        ],
+        amountPaid: 20,
+        paymentMethod: 'cash',
+      },
+    });
+    expect(res.status).toBe(201);
+    const id = (res.body as unknown as { id: string }).id;
+    const order = (await t.db.query(
+      `SELECT "totalPrice", balance FROM service_orders WHERE id = $1`,
+      [id],
+    )) as { totalPrice: string; balance: string }[];
+    expect(order[0]).toEqual({ totalPrice: '119.90', balance: '99.90' });
+    const lines = (await t.db.query(
+      `SELECT kind, description, "unitPrice", "serviceId" FROM order_lines
+        WHERE "orderId" = $1 ORDER BY position`,
+      [id],
+    )) as object[];
+    expect(lines).toEqual([
+      {
+        kind: 'service',
+        description: 'Cambio de pantalla',
+        unitPrice: '119.90',
+        serviceId: null,
+      },
+      {
+        kind: 'service',
+        description: 'Revisión',
+        unitPrice: '0.00',
+        serviceId: null,
+      },
+    ]);
+  });
+
+  it('refuses lines without a concept, a total that differs, or lines and rates together', async () => {
+    const base = {
+      client: { ...newClient, phoneNumber: '600111298' },
+      device: newDevice,
+    };
+    const lines = [{ description: 'Batería', unitPrice: 50 }];
+    for (const order of [
+      { lines: [{ description: '  ', unitPrice: 50 }] },
+      { lines, totalPrice: 60 },
+      { lines, serviceIds: ['00000000-0000-4000-8000-000000000000'] },
+    ]) {
+      expect((await intake({ ...base, order })).status).toBe(400);
+    }
+  });
+
   it('stores an unlock pattern encrypted, like the PIN', async () => {
     const res = await intake({
       client: { ...newClient, phoneNumber: '600555666' },

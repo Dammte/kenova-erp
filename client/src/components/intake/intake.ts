@@ -54,15 +54,37 @@ export const PATTERN_RE = /^[1-9](-[1-9]){3,8}$/;
 
 export type Priority = "low" | "medium" | "high" | "urgent";
 
-/** A service of the price list (GET /api/services?available=true). */
+/** A rate of the price list (GET /api/services/:id), for «Dar de alta». */
 export interface PricedService {
   id: string;
   name: string;
   /** Decimal as the server sends it, e.g. "149.00". */
   price: string | number;
-  category?: string | null;
-  estimatedTime?: string | null;
 }
+
+/** A line written at intake: what will be done and what it costs. */
+export interface IntakeLine {
+  key: string;
+  description: string;
+  /** Euros, or null while not typed. */
+  price: number | null;
+}
+
+let lineSeq = 0;
+export const newLine = (description = "", price: number | null = null): IntakeLine => ({
+  key: `line-${++lineSeq}`,
+  description,
+  price,
+});
+
+/** The usual jobs, one tap away; the text can still be edited. */
+export const QUICK_SERVICES = [
+  "Revisión",
+  "Cambio de pantalla",
+  "Cambio de batería",
+  "Cambio de conector de carga",
+  "Software / restauración",
+];
 
 export interface IntakeState {
   client: FoundClient | NewClient | null;
@@ -74,9 +96,8 @@ export interface IntakeState {
   accessories: string;
   priority: Priority;
   observations: string;
-  services: PricedService[];
-  /** The agreed total when it is not the sum of the services. */
-  total: number | null;
+  /** What will be done and its price; the total is their sum. */
+  lines: IntakeLine[];
   /** Paid on account at intake. */
   deposit: number | null;
   method: Method | null;
@@ -103,23 +124,16 @@ export interface QuoteForIntake {
 
 /**
  * The intake as the quote leaves it: the client (an existing one with that
- * exact phone, or a new one), the device, the rates as services and the
- * quoted total, which also covers the lines written by hand.
+ * exact phone, or a new one), the device and the quote's lines as written.
  */
 export function fromQuote(prev: IntakeState, q: QuoteForIntake, samePhone: FoundClient | null): IntakeState {
   const [firstName = "", ...rest] = q.clientName.trim().split(/\s+/);
-  const services: PricedService[] = [];
-  for (const l of q.lines) {
-    if (l.serviceId && !services.some((x) => x.id === l.serviceId))
-      services.push({ id: l.serviceId, name: l.description, price: l.unitPrice });
-  }
   return {
     ...prev,
     client: samePhone ?? { ...EMPTY_CLIENT, firstName, lastName: rest.join(" "), phoneNumber: q.clientPhone },
     device: { ...EMPTY_DEVICE, brand: q.brand ?? "", model: q.model },
     faultNotes: q.fault ?? "",
-    services,
-    total: Number(q.total),
+    lines: q.lines.map((l) => newLine(l.description, Number(l.unitPrice))),
     quote: { id: q.id, code: q.code },
   };
 }
@@ -179,12 +193,13 @@ export function toggleWord(text: string, word: string): string {
 
 const cents = (n: number | string) => Math.round(Number(n) * 100);
 
-/** Sum of the chosen services, in euros. */
-export const servicesSum = (services: PricedService[]) =>
-  services.reduce((sum, x) => sum + cents(x.price), 0) / 100;
+/** The lines that go on the order: those with a concept or an amount. */
+export const filledLines = (lines: IntakeLine[]) =>
+  lines.filter((l) => l.description.trim() || l.price !== null);
 
-/** The order total: the agreed one, or else the services' sum. */
-export const orderTotal = (s: Pick<IntakeState, "services" | "total">) => s.total ?? servicesSum(s.services);
+/** The order total: the sum of the lines, in euros. */
+export const orderTotal = (s: Pick<IntakeState, "lines">) =>
+  s.lines.reduce((sum, l) => sum + cents(l.price ?? 0), 0) / 100;
 
 /** What still stops the order from being created, in screen order. */
 export function missing(s: IntakeState): { field: string; text: string }[] {
@@ -205,6 +220,11 @@ export function missing(s: IntakeState): { field: string; text: string }[] {
       out.push({ field: "device-pattern", text: "Desbloqueo: patrón de 4 puntos o más" });
   }
   if (s.faults.length === 0) out.push({ field: "faults", text: "Avería declarada" });
+  filledLines(s.lines).forEach((l, i) => {
+    const name = l.description.trim();
+    if (!name) out.push({ field: `${l.key}-description`, text: `Servicio ${i + 1}: qué se hace` });
+    if (l.price === null) out.push({ field: `${l.key}-price`, text: `Importe de «${name || `servicio ${i + 1}`}»` });
+  });
   if (s.deposit && cents(s.deposit) > cents(orderTotal(s)))
     out.push({ field: "deposit", text: "A cuenta mayor que el total" });
   if (s.deposit && !s.method) out.push({ field: "method", text: "Forma de pago de lo que deja a cuenta" });
@@ -248,8 +268,9 @@ export function intakePayload(s: IntakeState) {
       physicalCondition: orNull(s.physicalCondition),
       accessories: orNull(s.accessories),
       ...(s.observations.trim() ? { observations: s.observations.trim() } : {}),
-      ...(s.services.length ? { serviceIds: s.services.map((x) => x.id) } : {}),
-      ...(s.services.length || s.total !== null ? { totalPrice: orderTotal(s) } : {}),
+      ...(filledLines(s.lines).length
+        ? { lines: filledLines(s.lines).map((l) => ({ description: l.description.trim(), unitPrice: l.price ?? 0 })) }
+        : {}),
       ...(s.deposit ? { amountPaid: s.deposit, paymentMethod: s.method } : {}),
       ...(s.waivesQuote ? { waivesQuote: true } : {}),
       ...(s.warrantyOf ? { warrantyOfId: s.warrantyOf.id } : {}),

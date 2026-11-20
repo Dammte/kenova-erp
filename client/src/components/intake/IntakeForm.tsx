@@ -21,6 +21,7 @@ import {
   intakePayload,
   isKnown,
   missing,
+  newLine,
   orderTotal,
   toggleWord,
   type FoundClient,
@@ -39,8 +40,7 @@ const START: IntakeState = {
   accessories: "",
   priority: "medium",
   observations: "",
-  services: [],
-  total: null,
+  lines: [],
   deposit: null,
   waivesQuote: false,
   method: null,
@@ -101,7 +101,9 @@ export function IntakeForm() {
         if (!res.ok) return;
         const rate = (await res.json()) as PricedService;
         setS((prev) =>
-          prev.services.some((x) => x.id === rate.id) ? prev : { ...prev, services: [...prev.services, rate] },
+          prev.lines.some((l) => l.description === rate.name)
+            ? prev
+            : { ...prev, lines: [...prev.lines, newLine(rate.name, Number(rate.price))] },
         );
       })
       .catch(() => {
@@ -261,7 +263,7 @@ export function IntakeForm() {
           </Block>
 
           <Block n={4} title="Servicios y precio">
-            <ServicePicker value={s} model={s.device?.model ?? ""} onChange={set} />
+            <ServicePicker value={s} onChange={set} />
             <label className={styles.check}>
               <input
                 type="checkbox"

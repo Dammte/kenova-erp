@@ -288,26 +288,25 @@ export class QuotesService {
         'El presupuesto ha caducado: renuévalo antes de aceptarlo',
       );
     }
-    const lines = await this.dataSource
-      .getRepository(QuoteLine)
-      .find({ where: { quoteId: id } });
-    const serviceIds = [
-      ...new Set(lines.flatMap((l) => (l.serviceId ? [l.serviceId] : []))),
-    ];
-    // Withdrawn rates cannot go on an order; their price stays in the total.
-    const available = serviceIds.length
-      ? (
-          await this.dataSource.getRepository(Service).find({
-            where: { id: In(serviceIds), available: true },
-            select: { id: true },
-          })
-        ).map((s) => s.id)
-      : [];
-    await this.answer(quote, 'accepted', actor, {
-      status: ServiceStatus.EN_PROGRESO,
-      totalPrice: Number(quote.total),
-      serviceIds: available,
+    const lines = await this.dataSource.getRepository(QuoteLine).find({
+      where: { quoteId: id },
+      order: { position: 'ASC' },
     });
+    // The order takes the quote's lines as they were written; no rate links.
+    await this.answer(
+      quote,
+      'accepted',
+      actor,
+      {
+        status: ServiceStatus.EN_PROGRESO,
+        totalPrice: Number(quote.total),
+        serviceIds: [],
+      },
+      lines.map((l) => ({
+        description: l.description,
+        unitPrice: Number(l.unitPrice),
+      })),
+    );
     return this.findOne(id, actor);
   }
 
@@ -346,6 +345,7 @@ export class QuotesService {
     status: 'accepted' | 'rejected',
     actor: AuthUser,
     orderChange: Parameters<ServiceOrderService['update']>[1] | null,
+    orderLines?: Parameters<ServiceOrderService['update']>[3],
   ): Promise<void> {
     if (orderChange && quote.orderId) {
       const order = await this.dataSource
@@ -373,7 +373,7 @@ export class QuotesService {
     }
     if (!orderChange || !quote.orderId) return;
     try {
-      await this.orders.update(quote.orderId, orderChange, actor);
+      await this.orders.update(quote.orderId, orderChange, actor, orderLines);
     } catch (err) {
       await this.dataSource
         .getRepository(Quote)

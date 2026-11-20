@@ -13,6 +13,8 @@ import {
   Max,
   MaxLength,
   Min,
+  MinLength,
+  ValidateNested,
 } from 'class-validator';
 import {
   ORDER_FAULTS,
@@ -29,6 +31,23 @@ const blankToUndefined = ({ value }) =>
   value === '' || value === null ? undefined : value;
 const trimToNull = ({ value }) =>
   typeof value === 'string' ? value.trim() || null : value;
+
+/** A line typed at intake: what will be done and what it costs. */
+export class OrderLineInputDto {
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
+  @IsString()
+  @MinLength(1, { message: 'Cada línea necesita un concepto' })
+  @MaxLength(150)
+  description: string;
+
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2, allowNaN: false, allowInfinity: false })
+  @Min(0)
+  @Max(MAX_AMOUNT)
+  unitPrice: number;
+}
 
 /**
  * `paymentStatus` and `balance` are not accepted: the server derives them from
@@ -86,6 +105,17 @@ export class CreateServiceOrderDto {
   @IsUUID('all', { each: true })
   @IsOptional()
   serviceIds?: string[];
+
+  /**
+   * Lines written by hand (concept and amount). The order total is their sum;
+   * they are not linked to the price list. Not combinable with serviceIds.
+   */
+  @IsArray()
+  @ArrayMaxSize(20)
+  @ValidateNested({ each: true })
+  @Type(() => OrderLineInputDto)
+  @IsOptional()
+  lines?: OrderLineInputDto[];
 
   @IsArray()
   @ArrayUnique()

@@ -117,6 +117,28 @@ describe('Priced order lines', () => {
     expect(sum(res.body.lines)).toBeCloseTo(100);
   });
 
+  it('keeps the lines written by hand when the total changes', async () => {
+    const o = (
+      await send('post', '/api/service-orders', {
+        clientId,
+        lines: [{ description: 'Cambio de batería', unitPrice: 50 }],
+      })
+    ).body;
+    expect(linesOf(o)).toEqual([['service', 'Cambio de batería', '50.00']]);
+    const res = await send('patch', `/api/service-orders/${o.id}`, {
+      totalPrice: 45,
+    });
+    expect(linesOf(res.body)).toEqual([
+      ['service', 'Cambio de batería', '50.00'],
+      ['adjustment', 'Ajuste', '-5.00'],
+    ]);
+    // Lines are only written at intake; an edit that sends them changes nothing.
+    const edit = await send('patch', `/api/service-orders/${o.id}`, {
+      lines: [{ description: 'Otra', unitPrice: 1 }],
+    });
+    expect(linesOf(edit.body)).toEqual(linesOf(res.body));
+  });
+
   it('only an adjustment may be negative', async () => {
     const o = (
       await send('post', '/api/service-orders', {
