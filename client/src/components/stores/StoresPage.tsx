@@ -18,7 +18,7 @@ export function StoresPage() {
       <div className={styles.page}>
         <div className={styles.empty}>
           <p>
-            <strong>Sin permiso.</strong> La configuración de tiendas la gestionan los socios.
+            <strong>Sin permiso.</strong> La configuración de tiendas la gestiona el administrador.
           </p>
           <Link href="/panel" className={styles.link}>
             Volver al Panel

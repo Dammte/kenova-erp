@@ -22,7 +22,7 @@ export function ServicesPage() {
       <div className={styles.page}>
         <div className={styles.empty}>
           <p>
-            <strong>Sin permiso.</strong> El catálogo de servicios lo gestionan los socios.
+            <strong>Sin permiso.</strong> El catálogo de servicios lo gestiona el administrador.
           </p>
           <Link href="/tarifas" className={styles.link}>
             Ir a Tarifas

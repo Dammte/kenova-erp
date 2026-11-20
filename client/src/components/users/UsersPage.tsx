@@ -29,7 +29,7 @@ export function UsersPage() {
       <div className={styles.page}>
         <div className={styles.empty}>
           <p>
-            <strong>Sin permiso.</strong> Las cuentas las gestionan los socios.
+            <strong>Sin permiso.</strong> Las cuentas las gestiona el administrador.
           </p>
           <Link href="/panel" className={styles.link}>
             Volver al Panel
@@ -347,7 +347,7 @@ function NewUser({
 
   const roles: [Role, string, string][] = [
     ["STORE_ADMIN", "Tienda", "Una cuenta por tienda aliada; solo ve su tienda."],
-    ["SUPER_ADMIN", "Socio", "Ve todas las tiendas, el inventario y los usuarios."],
+    ["SUPER_ADMIN", "Administrador", "Ve todas las tiendas, el inventario y los usuarios."],
   ];
 
   return (

@@ -26,7 +26,7 @@ export function InventoryPage() {
       <div className={styles.page}>
         <div className={styles.empty}>
           <p>
-            <strong>Sin permiso.</strong> El inventario lo gestionan los socios.
+            <strong>Sin permiso.</strong> El inventario lo gestiona el administrador.
           </p>
           <Link href="/panel" className={styles.link}>
             Volver al Panel

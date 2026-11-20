@@ -128,7 +128,7 @@ describe("TrashPage", () => {
   it("a store is told the section belongs to the partners", async () => {
     user = { ...SUPER, role: "STORE_ADMIN", storeId: "s2" };
     await show();
-    screen.getByText(/la gestionan los socios/);
+    screen.getByText(/la gestiona el administrador/);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });

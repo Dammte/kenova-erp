@@ -27,7 +27,7 @@ export function TrashPage() {
       <div className={styles.page}>
         <div className={styles.empty}>
           <p>
-            <strong>Sin permiso.</strong> La papelera la gestionan los socios.
+            <strong>Sin permiso.</strong> La papelera la gestiona el administrador.
           </p>
           <Link href="/panel" className={styles.link}>
             Volver al Panel

@@ -24,7 +24,7 @@ export interface StoreOption {
 }
 
 export const ROLE_LABEL: Record<Role, string> = {
-  SUPER_ADMIN: "Socio",
+  SUPER_ADMIN: "Administrador",
   STORE_ADMIN: "Tienda",
 };
 

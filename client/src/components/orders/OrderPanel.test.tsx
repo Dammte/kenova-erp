@@ -910,7 +910,7 @@ describe("OrderPanel · devolver cobro", () => {
     withPayments([charge("p1", "59.00", { dayClosed: true })]);
     await open();
     fireEvent.click(screen.getByRole("button", { name: "Devolver cobro…" }));
-    screen.getByText("Este cobro es de un día de caja ya cerrado: lo devuelve un socio.");
+    screen.getByText("Este cobro es de un día de caja ya cerrado: lo devuelve el administrador.");
     expect(screen.getByRole("button", { name: "Devolver" }).hasAttribute("disabled")).toBe(true);
     expect(screen.queryByLabelText("Motivo")).toBeNull();
   });

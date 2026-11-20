@@ -16,12 +16,12 @@ export function safeNext(next: string | null): string {
 
 // Neutral on purpose: it never tells whether the account exists.
 const WRONG =
-  "El usuario o la contraseña no son correctos. Revisa las mayúsculas o pide a un socio que te restablezca la contraseña.";
+  "El usuario o la contraseña no son correctos. Revisa las mayúsculas o pide al administrador que te restablezca la contraseña.";
 
 /** Same as the server (MAX_FAILED_LOGINS, LOCKOUT_MS). */
 const MAX_FAILED_LOGINS = 5;
 const LOCKED =
-  "Demasiados intentos. Espera 15 minutos o pide a un socio que te restablezca la contraseña.";
+  "Demasiados intentos. Espera 15 minutos o pide al administrador que te restablezca la contraseña.";
 
 interface Props {
   /** Where to go after signing in, from the `next` query parameter. */
@@ -146,7 +146,7 @@ export function LoginForm({ next, navigate = (url) => window.location.assign(url
           </Link>
         ) : (
           <p className={styles.note}>
-            ¿Has olvidado la contraseña? Pide a un socio que te la restablezca.
+            ¿Has olvidado la contraseña? Pide al administrador que te la restablezca.
           </p>
         )}
       </form>

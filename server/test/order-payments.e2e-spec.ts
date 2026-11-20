@@ -288,7 +288,7 @@ describe('Order payments: charges and refunds', () => {
       const store = await refund(id, old);
       expect(store.status).toBe(403);
       expect(store.body.message).toBe(
-        'Los cobros de días cerrados los devuelve un socio',
+        'Los cobros de días cerrados los devuelve el administrador',
       );
       expect((await refund(id, old, {}, sa)).status).toBe(201);
     });

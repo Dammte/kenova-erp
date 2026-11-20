@@ -162,7 +162,7 @@ export class ShipmentsService {
     const actorStore = scopedStoreId(actor);
     if (actorStore === main.id) {
       throw new BadRequestException(
-        'Los envíos desde Medina los crea un socio',
+        'Los envíos desde el taller los crea el administrador',
       );
     }
     if (actorStore) {

@@ -23,7 +23,7 @@ export default function AppError({ error, reset }: { error: Error; reset: () => 
     <ErrorScreen
       eyebrow="Algo ha fallado"
       title="Kenova no ha podido terminar"
-      lead={`No es culpa tuya. Lo último que guardaste sigue a salvo. Vuelve a intentarlo; si se repite, avisa a un socio y dile la hora: ${at}.`}
+      lead={`No es culpa tuya. Lo último que guardaste sigue a salvo. Vuelve a intentarlo; si se repite, avisa al administrador y dile la hora: ${at}.`}
       actions={
         <>
           <Button variant="primary" onClick={reset}>
