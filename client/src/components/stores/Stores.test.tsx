@@ -132,13 +132,12 @@ describe("StoresPage", () => {
     expect(within(card).queryByText("Comisión de la tienda")).toBeNull();
   });
 
-  it("keeps the prefix of a store with orders and saves only what changed", async () => {
+  it("saves only what changed in a store with orders", async () => {
     params = new URLSearchParams("tienda=s2");
     render(<StoresPage />);
     await act(async () => {});
     const card = screen.getByRole("complementary", { name: "Tienda Villarcayo" });
-    within(card).getByText("Fijo: ya hay 42 órdenes con VC-");
-    expect((within(card).getByLabelText(/^Prefijo/) as HTMLInputElement).readOnly).toBe(true);
+    within(card).getByText(/^Ya hay 42 órdenes\. Si lo cambias, conservan su código/);
     within(card).getByText("Marta Ibáñez");
     within(card).getByText("01/09/2026");
     expect(within(card).queryByRole("button", { name: "Guardar cambios" })).toBeNull();
@@ -149,6 +148,19 @@ describe("StoresPage", () => {
       fireEvent.click(within(card).getByRole("button", { name: "Guardar cambios" }));
     });
     expect(sent("PATCH")).toEqual(["/api/stores/s2", { commissionType: "percent", commissionValue: 12.5 }]);
+  });
+
+  it("changes the prefix of a store with orders: old codes stay, numbering carries on", async () => {
+    params = new URLSearchParams("tienda=s2");
+    render(<StoresPage />);
+    await act(async () => {});
+    const card = screen.getByRole("complementary", { name: "Tienda Villarcayo" });
+    fireEvent.change(within(card).getByLabelText(/^Prefijo/), { target: { value: "vl" } });
+    within(card).getByText("La próxima orden será VL-0043; las 42 anteriores conservan su código.");
+    await act(async () => {
+      fireEvent.click(within(card).getByRole("button", { name: "Guardar cambios" }));
+    });
+    expect(sent("PATCH")).toEqual(["/api/stores/s2", { prefix: "VL" }]);
   });
 
   it("asks before deactivating a store", async () => {

@@ -84,7 +84,7 @@ describe('Store settings: printouts, till and warranty', () => {
     );
   });
 
-  it('the prefix only changes while the store has no orders', async () => {
+  it('a prefix in use by a store or by past orders is not given again', async () => {
     const store = (
       await send('post', sa, '/api/stores', {
         name: 'Espinosa',
@@ -104,13 +104,11 @@ describe('Store settings: printouts, till and warranty', () => {
       await send('post', main, '/api/clients', { firstName: 'Ana' })
     ).body.id;
     await send('post', main, '/api/service-orders', { clientId });
-    const res = await patchStore(mainId, { prefix: 'MD' });
-    expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(
-      new RegExp(
-        `^El prefijo no se puede cambiar: ya hay \\d+ órdenes con ${prefix}-$`,
-      ),
-    );
+    expect((await patchStore(mainId, { prefix: 'MD' })).status).toBe(200);
+    const reuse = await patchStore(store.id, { prefix });
+    expect(reuse.status).toBe(409);
+    // The main store may go back to its own old prefix.
+    expect((await patchStore(mainId, { prefix })).status).toBe(200);
   });
 
   it("warranty claims follow the delivering store's warranty days", async () => {

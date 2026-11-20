@@ -409,10 +409,31 @@ export class StoresService {
     };
   }
 
-  private async checkPrefixFree(prefix: string): Promise<void> {
+  /**
+   * A prefix is free when no store has it and no other store's order or
+   * quote was ever numbered with it (a store may have changed prefix), so
+   * codes never repeat. A store may go back to a prefix it used before: its
+   * numbering carries on.
+   */
+  private async checkPrefixFree(
+    prefix: string,
+    storeId: string | null = null,
+  ): Promise<void> {
     if (await this.stores.exist({ where: { prefix } })) {
       throw new ConflictException(
         `El prefijo ${prefix} ya lo usa otra tienda. Elige otro.`,
+      );
+    }
+    const [{ used }] = await this.stores.query<{ used: boolean }[]>(
+      `SELECT EXISTS (SELECT 1 FROM service_orders
+                       WHERE code LIKE $1 AND "storeId" IS DISTINCT FROM $2)
+           OR EXISTS (SELECT 1 FROM quotes
+                       WHERE code LIKE $1 AND "storeId" IS DISTINCT FROM $2) AS used`,
+      [`${prefix}-%`, storeId],
+    );
+    if (used) {
+      throw new ConflictException(
+        `El prefijo ${prefix} ya se usó en órdenes anteriores. Elige otro.`,
       );
     }
   }
@@ -465,15 +486,10 @@ export class StoresService {
         'La tienda principal no se puede desactivar',
       );
     }
-    if (dto.prefix !== undefined && dto.prefix !== store.prefix) {
-      const orders = store.nextOrderNumber - 1;
-      if (orders > 0) {
-        throw new BadRequestException(
-          `El prefijo no se puede cambiar: ya hay ${orders} órdenes con ${store.prefix}-`,
-        );
-      }
-      await this.checkPrefixFree(dto.prefix);
-    }
+    const previousPrefix = store.prefix;
+    const prefixChanged =
+      dto.prefix !== undefined && dto.prefix !== store.prefix;
+    if (prefixChanged) await this.checkPrefixFree(dto.prefix!, id);
     StoresService.checkCashHours(
       dto.cashOpensAt ?? store.cashOpensAt,
       dto.cashClosesAt ?? store.cashClosesAt,
@@ -513,7 +529,9 @@ export class StoresService {
       actorUserId: actorId,
       entityType: 'store',
       entityId: id,
-      metadata: { fields: Object.keys(dto) },
+      metadata: prefixChanged
+        ? { fields: Object.keys(dto), previousPrefix }
+        : { fields: Object.keys(dto) },
     });
     return saved;
   }

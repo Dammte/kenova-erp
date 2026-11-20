@@ -81,16 +81,56 @@ describe('Stores and the store of each user', () => {
     expect(bad.status).toBe(400);
   });
 
-  it('the prefix of a store with orders cannot change and the main store cannot be deactivated', async () => {
-    // As if it had already numbered four orders.
-    await t.db.query(`UPDATE stores SET "nextOrderNumber" = 5 WHERE id = $1`, [
-      mainId,
-    ]);
-    const res = await patch(`/api/stores/${mainId}`, sa, { prefix: 'XX' });
-    expect(res.status).toBe(400);
-    expect(res.body.message).toBe(
-      'El prefijo no se puede cambiar: ya hay 4 órdenes con MP-',
+  it('a new prefix goes on the next orders; the old one stays reserved', async () => {
+    const intake = () =>
+      post('/api/service-orders/intake', sa, {
+        client: { firstName: 'Lucía', phoneNumber: '611222333' },
+        device: { type: 'movil', brand: 'Apple', model: 'iPhone 13' },
+        order: { status: 'en_progreso', reportedFaults: ['battery'] },
+      });
+    const before = await intake();
+    expect(before.status).toBe(201);
+    const first = before.body as { id: string; code: string };
+    expect(first.code).toBe('MP-0001');
+
+    const res = await patch(`/api/stores/${mainId}`, sa, {
+      name: 'Kenova',
+      prefix: 'KN',
+    });
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      name: 'Kenova',
+      prefix: 'KN',
+      nextOrderNumber: 2,
+    });
+    const after = await intake();
+    expect((after.body as { code: string }).code).toBe('KN-0002');
+    // Printed codes do not change.
+    const [old] = await t.db.query<{ code: string }[]>(
+      `SELECT code FROM service_orders WHERE id = $1`,
+      [first.id],
     );
+    expect(old.code).toBe('MP-0001');
+    // Nobody can take MP again, so MP-0001 never repeats.
+    const reuse = await post('/api/stores', sa, {
+      name: 'Medina de Pomar',
+      city: 'Medina de Pomar',
+      prefix: 'MP',
+    });
+    expect(reuse.status).toBe(409);
+    expect((reuse.body as { message: string }).message).toBe(
+      'El prefijo MP ya se usó en órdenes anteriores. Elige otro.',
+    );
+    const [audit] = await t.db.query<
+      { metadata: { previousPrefix: string } }[]
+    >(
+      `SELECT metadata FROM audit_events WHERE "entityId" = $1 AND action = 'STORE_UPDATED' ORDER BY "createdAt" DESC LIMIT 1`,
+      [mainId],
+    );
+    expect(audit.metadata.previousPrefix).toBe('MP');
+  });
+
+  it('the main store cannot be deactivated', async () => {
     const off = await patch(`/api/stores/${mainId}`, sa, { isActive: false });
     expect(off.status).toBe(400);
   });
