@@ -17,7 +17,16 @@ const focusPrice = (line: IntakeLine) =>
  * Block "Servicios y precio": what will be done, written as it is said, with
  * its amount. The usual jobs are one tap away. The total is the lines' sum.
  */
-export function ServicePicker({ value, onChange }: { value: Money; onChange: (patch: Partial<Money>) => void }) {
+export function ServicePicker({
+  value,
+  suggested = [],
+  onChange,
+}: {
+  value: Money;
+  /** Quick jobs the declared symptoms point to: shown first and marked. */
+  suggested?: string[];
+  onChange: (patch: Partial<Money>) => void;
+}) {
   const lines = value.lines;
   const change = (key: string, patch: Partial<IntakeLine>) =>
     onChange({ lines: lines.map((l) => (l.key === key ? { ...l, ...patch } : l)) });
@@ -41,11 +50,12 @@ export function ServicePicker({ value, onChange }: { value: Money; onChange: (pa
   return (
     <>
       <div className={styles.chips} role="group" aria-label="Servicios habituales">
-        {QUICK_SERVICES.map((name) => (
+        {[...suggested, ...QUICK_SERVICES.filter((n) => !suggested.includes(n))].map((name) => (
           <button
             key={name}
             type="button"
-            className={styles.chip}
+            className={`${styles.chip} ${suggested.includes(name) ? styles.suggested : ""}`}
+            title={suggested.includes(name) ? "Sugerido por la avería" : undefined}
             aria-pressed={lines.some((l) => l.description.trim() === name)}
             onClick={() => quick(name)}
           >

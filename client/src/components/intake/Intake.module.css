@@ -286,6 +286,12 @@ li[aria-selected="true"] > .result {
   }
 }
 
+/* A quick job the declared symptoms point to. */
+.chip.suggested:not([aria-pressed="true"]) {
+  border-style: dashed;
+  border-color: var(--k-accent);
+}
+
 /* Services of the order (concept, amount, remove) and the money summary. */
 .lineRow {
   display: grid;

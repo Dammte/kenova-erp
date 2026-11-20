@@ -43,6 +43,25 @@ describe('What the customer reports and leaves at intake', () => {
     });
   });
 
+  it('takes the new symptoms, and the database accepts them too', async () => {
+    const res = await send('post', '/api/service-orders', {
+      clientId,
+      reportedFaults: ['charging', 'signal', 'audio', 'camera'],
+    });
+    expect(res.status).toBe(201);
+    expect(res.body.reportedFaults).toEqual([
+      'charging',
+      'signal',
+      'audio',
+      'camera',
+    ]);
+    // The CHECK constraint, not only the DTO, knows them.
+    await t.db.query(
+      `UPDATE service_orders SET "reportedFaults" = ARRAY['camera', 'working'] WHERE id = $1`,
+      [res.body.id],
+    );
+  });
+
   it('defaults to no faults and no waiver', async () => {
     const res = await send('post', '/api/service-orders', { clientId });
     expect(res.status).toBe(201);

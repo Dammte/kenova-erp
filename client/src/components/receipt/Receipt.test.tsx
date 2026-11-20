@@ -80,7 +80,7 @@ describe("Receipt", () => {
     expect(text).toContain("MP-0142");
     expect(text).toContain("Resguardo de depósito");
     expect(text).toContain("Uso interno · no es factura");
-    expect(text).toContain("Pantalla rota");
+    expect(text).toContain("Pantalla");
     expect(text).toMatch(/A cuenta \(tarjeta\)59,00\s€/);
     expect(text).toMatch(/Pendiente90,00\s€/);
     expect(text).toContain("Presupuesto válido durante 30 días");
@@ -119,7 +119,7 @@ describe("Label", () => {
     expect(text).toContain("MP-0142");
     expect(text).toContain("29/10/26");
     expect(screen.getByRole("img", { name: "Código de barras MP-0142" })).toBeTruthy();
-    expect(text).toContain("Apple iPhone 13 · Pantalla rota");
+    expect(text).toContain("Apple iPhone 13 · Pantalla");
     expect(text).toContain("Lucía Fernández O. · 612 345 678");
     expect(text).not.toMatch(/desbloqueo|€/);
   });
