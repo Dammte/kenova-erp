@@ -100,7 +100,7 @@ describe('Shipments between partner stores and the workshop', () => {
     const again = await send(vc, '/api/shipments', { orderIds: [a.id] });
     expect(again.status).toBe(400);
     expect(again.body.message).toBe(
-      `No se pueden enviar: ${a.code} (Enviado a Medina)`,
+      `No se pueden enviar: ${a.code} (Enviado al taller)`,
     );
   });
 

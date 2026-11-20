@@ -149,7 +149,7 @@ function ShipmentList() {
             <p>
               {query.status
                 ? `No hay envíos en «${SHIPMENT_STATUS_LABEL[query.status]}».`
-                : "Aún no hay envíos. Cuando una tienda aliada mande equipos a Medina aparecerán aquí."}
+                : "Aún no hay envíos. Cuando una tienda aliada mande equipos al taller aparecerán aquí."}
             </p>
           </div>
         ) : (

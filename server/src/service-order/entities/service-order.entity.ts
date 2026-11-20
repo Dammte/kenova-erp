@@ -97,8 +97,8 @@ export enum OrderLocation {
 /** How the screens name each location. */
 export const LOCATION_LABEL: Record<OrderLocation, string> = {
   [OrderLocation.AT_STORE]: 'En tienda (recepción)',
-  [OrderLocation.TO_WORKSHOP]: 'Enviado a Medina',
-  [OrderLocation.AT_WORKSHOP]: 'En Medina',
+  [OrderLocation.TO_WORKSHOP]: 'Enviado al taller',
+  [OrderLocation.AT_WORKSHOP]: 'En el taller',
   [OrderLocation.TO_STORE]: 'Enviado a tienda',
   [OrderLocation.READY_AT_STORE]: 'En tienda (listo para entregar)',
 };
