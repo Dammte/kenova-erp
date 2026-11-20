@@ -81,7 +81,7 @@ describe("Receipt", () => {
     expect(text).toContain("Resguardo de depósito");
     expect(text).toContain("Uso interno · no es factura");
     expect(text).toContain("Pantalla");
-    expect(text).toMatch(/A cuenta \(tarjeta\)59,00\s€/);
+    expect(text).toMatch(/Anticipo \(tarjeta\)59,00\s€/);
     expect(text).toMatch(/Pendiente90,00\s€/);
     expect(text).toContain("Presupuesto válido durante 30 días");
     expect(text).toContain("Garantía de la reparación: 90 días");

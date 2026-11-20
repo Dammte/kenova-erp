@@ -109,7 +109,7 @@ export function Receipt({
           <dd className={styles.strong}>{formatEur(money.total)}</dd>
           {money.paid > 0 && (
             <>
-              <dt>A cuenta{money.methods.length > 0 && ` (${money.methods.join(", ").toLowerCase()})`}</dt>
+              <dt>Anticipo{money.methods.length > 0 && ` (${money.methods.join(", ").toLowerCase()})`}</dt>
               <dd>{formatEur(money.paid)}</dd>
             </>
           )}

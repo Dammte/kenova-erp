@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   EMPTY_DEVICE,
+  EMPTY_DRAFT,
+  draftReady,
   fromQuote,
   intakePayload,
   missing,
@@ -24,6 +26,7 @@ const BASE: IntakeState = {
   priority: "medium",
   observations: "",
   lines: [],
+  draft: EMPTY_DRAFT,
   deposit: null,
   method: null,
   waivesQuote: false,
@@ -129,20 +132,24 @@ describe("money", () => {
 
   it("adds up the lines", () => {
     expect(orderTotal({ lines: [PANTALLA, FUNDA] })).toBe(158.9);
-    expect(orderTotal({ lines: [PANTALLA, newLine("Revisión")] })).toBe(149);
+    expect(orderTotal({ lines: [PANTALLA, newLine("Revisión", 0)] })).toBe(149);
   });
   it("refuses a deposit above the total and one without a payment method", () => {
     expect(missing({ ...READY, lines: [PANTALLA], deposit: 200, method: "cash" }).map((m) => m.field)).toEqual(["deposit"]);
     expect(missing({ ...READY, lines: [PANTALLA], deposit: 50, method: null }).map((m) => m.field)).toEqual(["method"]);
   });
-  it("asks for the concept and the amount of each line, and skips empty ones", () => {
-    const noPrice = newLine("Cambio de batería");
-    const noName = newLine("", 20);
-    expect(missing({ ...READY, lines: [newLine(), noPrice, noName] }).map((m) => m.text)).toEqual([
-      "Importe de «Cambio de batería»",
-      "Servicio 2: qué se hace",
+  it("adds a service once it says what is done and what it costs", () => {
+    expect(draftReady({ description: "Revisión", price: 0 })).toBe(true);
+    expect(draftReady({ description: "Revisión", price: null })).toBe(false);
+    expect(draftReady({ description: "  ", price: 20 })).toBe(false);
+    expect(newLine("  Cambio de batería ", 50)).toMatchObject({ description: "Cambio de batería", price: 50 });
+  });
+  it("does not let a service written but not added go unnoticed", () => {
+    expect(missing({ ...READY, draft: { description: "Cambio de batería", price: null } }).map((m) => m.text)).toEqual([
+      "Pulsa «Añadir» para incluir «Cambio de batería»",
     ]);
-    expect(missing({ ...READY, lines: [newLine("  "), PANTALLA] })).toEqual([]);
+    expect(missing({ ...READY, draft: { description: "", price: 30 } }).map((m) => m.field)).toEqual(["service-entry"]);
+    expect(missing({ ...READY, draft: { description: "  ", price: null } })).toEqual([]);
   });
   it("sends the lines and the deposit only when there are any", () => {
     expect(intakePayload(READY).order).not.toHaveProperty("lines");
@@ -151,13 +158,13 @@ describe("money", () => {
     expect(intakePayload({ ...READY, waivesQuote: true }).order).toMatchObject({ waivesQuote: true });
     const p = intakePayload({
       ...READY,
-      lines: [newLine(" Cambio de pantalla "), PANTALLA, newLine()],
+      lines: [newLine("Revisión", 0), PANTALLA],
       deposit: 40,
       method: "cash",
     }).order;
     expect(p).toMatchObject({
       lines: [
-        { description: "Cambio de pantalla", unitPrice: 0 },
+        { description: "Revisión", unitPrice: 0 },
         { description: "Cambio de pantalla", unitPrice: 149 },
       ],
       amountPaid: 40,
@@ -217,6 +224,7 @@ describe("fromQuote", () => {
     priority: "medium" as const,
     observations: "",
     lines: [],
+    draft: EMPTY_DRAFT,
     deposit: null,
     method: null,
     waivesQuote: false,

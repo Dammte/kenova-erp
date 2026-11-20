@@ -61,22 +61,33 @@ export interface PricedService {
   price: string | number;
 }
 
-/** A line written at intake: what will be done and what it costs. */
+/** A service added to the order: what will be done and what it costs. */
 export interface IntakeLine {
   key: string;
   description: string;
-  /** Euros, or null while not typed. */
+  /** Euros. */
+  price: number;
+}
+
+/** The service being written, before «Añadir» puts it on the list. */
+export interface ServiceDraft {
+  description: string;
   price: number | null;
 }
 
+export const EMPTY_DRAFT: ServiceDraft = { description: "", price: null };
+
 let lineSeq = 0;
-export const newLine = (description = "", price: number | null = null): IntakeLine => ({
+export const newLine = (description: string, price: number): IntakeLine => ({
   key: `line-${++lineSeq}`,
-  description,
+  description: description.trim(),
   price,
 });
 
-/** The usual jobs, one tap away; the text can still be edited. */
+/** The draft can go on the list: it says what is done and what it costs. */
+export const draftReady = (d: ServiceDraft) => d.description.trim() !== "" && d.price !== null;
+
+/** Suggested jobs: a tap writes them in «Servicio», still editable. */
 export const QUICK_SERVICES = [
   "Revisión",
   "Cambio de pantalla",
@@ -97,6 +108,8 @@ export interface IntakeState {
   observations: string;
   /** What will be done and its price; the total is their sum. */
   lines: IntakeLine[];
+  /** The service being written in the entry row. */
+  draft: ServiceDraft;
   /** Paid on account at intake. */
   deposit: number | null;
   method: Method | null;
@@ -218,13 +231,9 @@ export function toggleWord(text: string, word: string): string {
 
 const cents = (n: number | string) => Math.round(Number(n) * 100);
 
-/** The lines that go on the order: those with a concept or an amount. */
-export const filledLines = (lines: IntakeLine[]) =>
-  lines.filter((l) => l.description.trim() || l.price !== null);
-
 /** The order total: the sum of the lines, in euros. */
 export const orderTotal = (s: Pick<IntakeState, "lines">) =>
-  s.lines.reduce((sum, l) => sum + cents(l.price ?? 0), 0) / 100;
+  s.lines.reduce((sum, l) => sum + cents(l.price), 0) / 100;
 
 /** What still stops the order from being created, in screen order. */
 export function missing(s: IntakeState): { field: string; text: string }[] {
@@ -246,14 +255,16 @@ export function missing(s: IntakeState): { field: string; text: string }[] {
   }
   // A symptom or the client's own words: either is enough.
   if (s.faults.length === 0 && !s.faultNotes.trim()) out.push({ field: "faults", text: "Avería declarada" });
-  filledLines(s.lines).forEach((l, i) => {
-    const name = l.description.trim();
-    if (!name) out.push({ field: `${l.key}-description`, text: `Servicio ${i + 1}: qué se hace` });
-    if (l.price === null) out.push({ field: `${l.key}-price`, text: `Importe de «${name || `servicio ${i + 1}`}»` });
-  });
+  // Something written in the entry row that was not added would be lost.
+  const draft = s.draft.description.trim();
+  if (draft || s.draft.price !== null)
+    out.push({
+      field: "service-entry",
+      text: draft ? `Pulsa «Añadir» para incluir «${draft}»` : "Escribe el servicio y pulsa «Añadir»",
+    });
   if (s.deposit && cents(s.deposit) > cents(orderTotal(s)))
-    out.push({ field: "deposit", text: "A cuenta mayor que el total" });
-  if (s.deposit && !s.method) out.push({ field: "method", text: "Forma de pago de lo que deja a cuenta" });
+    out.push({ field: "deposit", text: "Anticipo mayor que el total" });
+  if (s.deposit && !s.method) out.push({ field: "method", text: "Forma de pago del anticipo" });
   return out;
 }
 
@@ -294,9 +305,7 @@ export function intakePayload(s: IntakeState) {
       physicalCondition: orNull(s.physicalCondition),
       accessories: orNull(s.accessories),
       ...(s.observations.trim() ? { observations: s.observations.trim() } : {}),
-      ...(filledLines(s.lines).length
-        ? { lines: filledLines(s.lines).map((l) => ({ description: l.description.trim(), unitPrice: l.price ?? 0 })) }
-        : {}),
+      ...(s.lines.length ? { lines: s.lines.map((l) => ({ description: l.description, unitPrice: l.price })) } : {}),
       ...(s.deposit ? { amountPaid: s.deposit, paymentMethod: s.method } : {}),
       ...(s.waivesQuote ? { waivesQuote: true } : {}),
       ...(s.warrantyOf ? { warrantyOfId: s.warrantyOf.id } : {}),

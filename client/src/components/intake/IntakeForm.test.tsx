@@ -142,27 +142,40 @@ describe("IntakeForm", () => {
     fireEvent.click(screen.getByRole("button", { name: /Apple iPhone 13/ }));
     fireEvent.click(screen.getByLabelText("Pantalla"));
 
-    // The symptom puts its usual job first, marked, without adding it.
-    const chips = screen.getByRole("group", { name: "Servicios habituales" }).querySelectorAll("button");
+    // The row to write a service is always there.
+    const entry = screen.getByLabelText("Servicio") as HTMLInputElement;
+    expect(entry.value).toBe("");
+    // The symptom puts its suggestion first, marked, below the row.
+    const chips = screen.getByRole("group", { name: "Sugerencias" }).querySelectorAll("button");
     expect(chips[0].textContent).toBe("Cambio de pantalla");
     expect(chips[0].title).toBe("Sugerido por la avería");
-    expect(screen.queryByLabelText("Servicio 1")).toBeNull();
-    // A usual job is one tap; its amount is still to type.
+    // A suggestion only writes the text; «Añadir» puts it on the list.
     fireEvent.click(screen.getByRole("button", { name: "Cambio de pantalla" }));
-    expect(screen.getByLabelText("Servicio 1")).toHaveProperty("value", "Cambio de pantalla");
-    expect(screen.getByRole("button", { name: "Importe de «Cambio de pantalla»" })).toBeTruthy();
-    fireEvent.change(screen.getByLabelText("Importe 1"), { target: { value: "129" } });
-    // Anything else is written as it is said.
-    fireEvent.click(screen.getByRole("button", { name: "Añadir servicio" }));
-    fireEvent.change(screen.getByLabelText("Servicio 2"), { target: { value: "Protector de cristal" } });
-    fireEvent.change(screen.getByLabelText("Importe 2"), { target: { value: "20" } });
+    expect(entry.value).toBe("Cambio de pantalla");
+    expect(screen.getByRole("button", { name: "Pulsa «Añadir» para incluir «Cambio de pantalla»" })).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Importe"), { target: { value: "129" } });
+    fireEvent.click(screen.getByRole("button", { name: "Añadir" }));
+    expect(entry.value).toBe("");
+    // Anything else is written as it is said; Enter adds it too.
+    fireEvent.change(entry, { target: { value: "Protector de cristal" } });
+    fireEvent.change(screen.getByLabelText("Importe"), { target: { value: "20" } });
+    fireEvent.keyDown(entry, { key: "Enter" });
+    // A mistake is removed from the list with one tap.
+    fireEvent.change(entry, { target: { value: "Funda" } });
+    fireEvent.change(screen.getByLabelText("Importe"), { target: { value: "10" } });
+    fireEvent.click(screen.getByRole("button", { name: "Añadir" }));
+    fireEvent.click(screen.getByRole("button", { name: "Quitar Funda" }));
+    const added = screen.getByRole("list", { name: "Servicios añadidos" });
+    expect(added.textContent).toContain("Cambio de pantalla");
+    expect(added.textContent).toContain("Protector de cristal");
+    expect(added.textContent).not.toContain("Funda");
 
-    fireEvent.change(screen.getByLabelText(/^A cuenta/), { target: { value: "200" } });
-    expect(screen.getByText(/A cuenta no puede superar el total/)).toBeTruthy();
-    expect(screen.getByRole("button", { name: "A cuenta mayor que el total" })).toBeTruthy();
+    fireEvent.change(screen.getByLabelText(/^Anticipo/), { target: { value: "200" } });
+    expect(screen.getByText(/El anticipo no puede superar el total/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Anticipo mayor que el total" })).toBeTruthy();
 
-    fireEvent.change(screen.getByLabelText(/^A cuenta/), { target: { value: "59" } });
-    expect(screen.getByRole("button", { name: "Forma de pago de lo que deja a cuenta" })).toBeTruthy();
+    fireEvent.change(screen.getByLabelText(/^Anticipo/), { target: { value: "59" } });
+    expect(screen.getByRole("button", { name: "Forma de pago del anticipo" })).toBeTruthy();
     fireEvent.click(screen.getByLabelText("Tarjeta"));
     expect(screen.getByText(/^Pendiente/).textContent).toMatch(/90,00\s€/);
 
@@ -297,8 +310,9 @@ describe("IntakeForm", () => {
     });
     render(<IntakeForm />);
     await act(async () => {});
-    expect(screen.getByLabelText("Servicio 1")).toHaveProperty("value", "Cambio de pantalla iPhone 13");
-    expect(screen.getByLabelText("Importe 1")).toHaveProperty("value", "149,00");
+    expect(screen.getByRole("list", { name: "Servicios añadidos" }).textContent).toMatch(
+      /Cambio de pantalla iPhone 13149,00\s€/,
+    );
     window.history.replaceState(null, "", "/");
   });
 
@@ -341,7 +355,7 @@ describe("IntakeForm", () => {
     await act(async () => {});
     expect(fetchMock.mock.calls.map((c) => c[0])).toContain("/api/clients/search?q=612345678");
     expect(screen.getByRole("status").textContent).toContain("Desde el presupuesto MP-P0031");
-    expect(screen.getByLabelText("Importe 2")).toHaveProperty("value", "11,00");
+    expect(screen.getByRole("list", { name: "Servicios añadidos" }).textContent).toMatch(/Protector11,00\s€/);
 
     fireEvent.click(screen.getByLabelText("Pantalla"));
     await act(async () => {
