@@ -63,17 +63,24 @@ export const EMPTY_TAB: Record<OrderTab, string> = {
   all: "Todavía no hay órdenes",
 };
 
-/** The intake chips, as the client reports them. */
+/**
+ * What the client reports, as the screens name it. The last three are only
+ * on older orders; the intake offers the symptoms (FAULTS in intake.ts).
+ */
 export const FAULT_LABEL: Record<string, string> = {
-  broken_screen: "Pantalla rota",
+  broken_screen: "Pantalla",
   battery: "Batería",
+  charging: "No carga",
   not_turning_on: "No enciende",
-  liquid_damage: "Daño por líquido",
+  liquid_damage: "Mojado",
+  signal: "Sin señal / WiFi",
+  audio: "Sonido / micrófono",
+  camera: "Cámara",
+  slow_performance: "Lento / software",
+  other: "Otro",
   connectivity: "Conectividad / carga",
-  slow_performance: "Lento",
   partial: "Funciona parcialmente",
   working: "Funciona bien",
-  other: "Otro",
 };
 
 export const PRIORITY_LABEL: Record<OrderRow["priority"], string> = {

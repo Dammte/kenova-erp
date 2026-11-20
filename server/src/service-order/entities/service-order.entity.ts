@@ -31,7 +31,11 @@ export enum ServiceStatus {
   CANCELADO = 'cancelado',
 }
 
-/** Faults the customer reports when handing the device in (the intake chips). */
+/**
+ * What the customer reports when handing the device in. The intake offers
+ * the symptoms; `connectivity`, `partial` and `working` are only kept for
+ * older orders.
+ */
 export const ORDER_FAULTS = [
   'broken_screen',
   'battery',
@@ -42,6 +46,10 @@ export const ORDER_FAULTS = [
   'partial',
   'working',
   'other',
+  'charging',
+  'signal',
+  'audio',
+  'camera',
 ] as const;
 export type OrderFault = (typeof ORDER_FAULTS)[number];
 

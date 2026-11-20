@@ -23,6 +23,7 @@ import {
   missing,
   newLine,
   orderTotal,
+  suggestedServices,
   toggleWord,
   type FoundClient,
   type IntakeState,
@@ -249,7 +250,14 @@ export function IntakeForm() {
             <label className={styles.group}>
               <span className={styles.label}>
                 Lo que cuenta el cliente{" "}
-                <span className={styles.muted}>· {s.faults.includes("other") ? "describe «Otro»" : "opcional"}</span>
+                <span className={styles.muted}>
+                  ·{" "}
+                  {s.faults.includes("other")
+                    ? "describe «Otro»"
+                    : s.faults.length
+                      ? "opcional"
+                      : "o marca un síntoma"}
+                </span>
               </span>
               <textarea
                 name="faultNotes"
@@ -263,7 +271,7 @@ export function IntakeForm() {
           </Block>
 
           <Block n={4} title="Servicios y precio">
-            <ServicePicker value={s} onChange={set} />
+            <ServicePicker value={s} suggested={suggestedServices(s.faults)} onChange={set} />
             <label className={styles.check}>
               <input
                 type="checkbox"

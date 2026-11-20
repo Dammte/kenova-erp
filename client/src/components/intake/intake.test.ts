@@ -7,6 +7,7 @@ import {
   newClientFrom,
   newLine,
   orderTotal,
+  suggestedServices,
   toggleWord,
   type IntakeState,
 } from "./intake";
@@ -101,6 +102,23 @@ describe("intakePayload", () => {
     expect(p).toMatchObject({ client: { firstName: "Ana", lastName: null, phoneNumber: "612345678", email: null } });
     expect("device" in p && p.device).toEqual({ type: "tablet", brand: "Apple", model: "iPad", imei: "35678910" });
     expect(p.order).toMatchObject({ accessories: "Funda", observations: "Urge" });
+  });
+});
+
+describe("avería declarada", () => {
+  const READY = { ...BASE, client: LUCIA, device: IPHONE };
+  it("is enough with a symptom or with the client's words", () => {
+    expect(missing(READY).map((m) => m.field)).toEqual(["faults"]);
+    expect(missing({ ...READY, faults: ["battery"] })).toEqual([]);
+    expect(missing({ ...READY, faultNotes: "Se calienta al cargar" })).toEqual([]);
+    expect(missing({ ...READY, faultNotes: "   " }).map((m) => m.field)).toEqual(["faults"]);
+  });
+  it("points each symptom to its usual job, once", () => {
+    expect(suggestedServices(["broken_screen", "charging", "audio"])).toEqual([
+      "Cambio de pantalla",
+      "Cambio de conector de carga",
+    ]);
+    expect(suggestedServices(["not_turning_on", "liquid_damage"])).toEqual(["Revisión"]);
   });
 });
 

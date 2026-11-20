@@ -147,7 +147,7 @@ describe("OrderPanel", () => {
       "Notas internas",
       "Historial",
     ]);
-    screen.getByText("Pantalla rota");
+    screen.getByText("Pantalla");
     screen.getByText("Rayas en el marco");
     screen.getByText("Alta");
     screen.getByText("Móvil · Apple iPhone 13");

@@ -1,4 +1,3 @@
-import { FAULT_LABEL } from "@/components/orders/orderList";
 import type { Method } from "@/components/orders/ChargeForm";
 
 /** A client as GET /api/clients/search returns it. */
@@ -148,8 +147,34 @@ export const DEVICE_TYPES = [
   ["otro", "Otro"],
 ] as const;
 
-/** The server's fault list, in its order. */
-export const FAULTS = Object.keys(FAULT_LABEL);
+/** The symptoms the intake offers, in screen order (labels in FAULT_LABEL). */
+export const FAULTS = [
+  "broken_screen",
+  "battery",
+  "charging",
+  "not_turning_on",
+  "liquid_damage",
+  "signal",
+  "audio",
+  "camera",
+  "slow_performance",
+  "other",
+];
+
+/** The usual job each symptom points to, offered first under Servicios. */
+export const SYMPTOM_SERVICE: Record<string, string> = {
+  broken_screen: "Cambio de pantalla",
+  battery: "Cambio de batería",
+  charging: "Cambio de conector de carga",
+  slow_performance: "Software / restauración",
+  not_turning_on: "Revisión",
+  liquid_damage: "Revisión",
+};
+
+/** The quick jobs the chosen symptoms suggest, without repeats. */
+export const suggestedServices = (faults: string[]) => [
+  ...new Set(faults.flatMap((f) => (SYMPTOM_SERVICE[f] ? [SYMPTOM_SERVICE[f]] : []))),
+];
 
 export const PRIORITIES: [Priority, string][] = [
   ["low", "Baja"],
@@ -219,7 +244,8 @@ export function missing(s: IntakeState): { field: string; text: string }[] {
     if (s.device.unlock === "pattern" && !PATTERN_RE.test(s.device.pattern))
       out.push({ field: "device-pattern", text: "Desbloqueo: patrón de 4 puntos o más" });
   }
-  if (s.faults.length === 0) out.push({ field: "faults", text: "Avería declarada" });
+  // A symptom or the client's own words: either is enough.
+  if (s.faults.length === 0 && !s.faultNotes.trim()) out.push({ field: "faults", text: "Avería declarada" });
   filledLines(s.lines).forEach((l, i) => {
     const name = l.description.trim();
     if (!name) out.push({ field: `${l.key}-description`, text: `Servicio ${i + 1}: qué se hace` });

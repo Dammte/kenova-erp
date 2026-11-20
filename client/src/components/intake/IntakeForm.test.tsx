@@ -117,14 +117,14 @@ describe("IntakeForm", () => {
     fireEvent.click(screen.getByRole("button", { name: /Lucía Fernández/ }));
     await act(async () => {});
     fireEvent.click(screen.getByRole("button", { name: /Apple iPhone 13/ }));
-    fireEvent.click(screen.getByLabelText("Pantalla rota"));
+    fireEvent.click(screen.getByLabelText("Pantalla"));
     await act(async () => {
       fireEvent.click(create());
     });
     expect(screen.getByRole("alert").textContent).toContain("Dispositivo no encontrado");
     expect(screen.getByRole("button", { name: "Reintentar" })).toBeTruthy();
     expect(push).not.toHaveBeenCalled();
-    expect((screen.getByLabelText("Pantalla rota") as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByLabelText("Pantalla") as HTMLInputElement).checked).toBe(true);
   });
 
   it("writes the services by hand or with a tap, takes a deposit and sends the money", async () => {
@@ -140,8 +140,13 @@ describe("IntakeForm", () => {
     fireEvent.click(screen.getByRole("button", { name: /Lucía Fernández/ }));
     await act(async () => {});
     fireEvent.click(screen.getByRole("button", { name: /Apple iPhone 13/ }));
-    fireEvent.click(screen.getByLabelText("Pantalla rota"));
+    fireEvent.click(screen.getByLabelText("Pantalla"));
 
+    // The symptom puts its usual job first, marked, without adding it.
+    const chips = screen.getByRole("group", { name: "Servicios habituales" }).querySelectorAll("button");
+    expect(chips[0].textContent).toBe("Cambio de pantalla");
+    expect(chips[0].title).toBe("Sugerido por la avería");
+    expect(screen.queryByLabelText("Servicio 1")).toBeNull();
     // A usual job is one tap; its amount is still to type.
     fireEvent.click(screen.getByRole("button", { name: "Cambio de pantalla" }));
     expect(screen.getByLabelText("Servicio 1")).toHaveProperty("value", "Cambio de pantalla");
@@ -238,7 +243,7 @@ describe("IntakeForm", () => {
       fireEvent.click(screen.getByRole("button", { name: "Abrir como garantía de MP-0098" }));
       expect(screen.getByRole("status").textContent).toContain("Garantía de MP-0098");
 
-      fireEvent.click(screen.getByLabelText("Pantalla rota"));
+      fireEvent.click(screen.getByLabelText("Pantalla"));
       fireEvent.click(create());
       await act(async () => {});
       expect(posted()!.body.order.warrantyOfId).toBe("id-MP-0098");
@@ -255,7 +260,7 @@ describe("IntakeForm", () => {
       });
       fireEvent.click(screen.getByRole("button", { name: "Es otra avería, seguir con el alta" }));
       expect(screen.queryByRole("status")).toBeNull();
-      fireEvent.click(screen.getByLabelText("Pantalla rota"));
+      fireEvent.click(screen.getByLabelText("Pantalla"));
       fireEvent.click(create());
       await act(async () => {});
       expect(posted()!.body.order.warrantyOfId).toBeUndefined();
@@ -338,7 +343,7 @@ describe("IntakeForm", () => {
     expect(screen.getByRole("status").textContent).toContain("Desde el presupuesto MP-P0031");
     expect(screen.getByLabelText("Importe 2")).toHaveProperty("value", "11,00");
 
-    fireEvent.click(screen.getByLabelText("Pantalla rota"));
+    fireEvent.click(screen.getByLabelText("Pantalla"));
     await act(async () => {
       fireEvent.click(create());
     });

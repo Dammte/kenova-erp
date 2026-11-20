@@ -111,7 +111,7 @@ describe("OrderList", () => {
       "/ordenes?orden=o1",
     );
     row.getByText("612 345 678");
-    row.getByText("Pantalla rota, Batería");
+    row.getByText("Pantalla, Batería");
     row.getByText("Cambio de pantalla");
     expect(row.getByText("+2").getAttribute("title")).toBe("Cambio de pantalla\nBatería\nLimpieza");
     row.getByText("Urgente");
