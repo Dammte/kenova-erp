@@ -5,42 +5,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-
-/**
- * How the ERP reads this supplier's orders from its website. Every route and
- * field name is data, so a change on the supplier's side is fixed here,
- * not in code. Field names are dot paths into the JSON ("data.orders").
- */
-export interface SupplierConnection {
-  /** https://… — the only host the ERP calls for this supplier. */
-  baseUrl: string;
-  login: {
-    path: string;
-    format: 'json' | 'form';
-    userField: string;
-    passwordField: string;
-    /** How the session is kept after logging in. */
-    session: 'cookie' | 'token';
-    /** Where the token comes in the login answer (session "token"). */
-    tokenPath: string | null;
-  };
-  orders: {
-    /** The list of orders. */
-    listPath: string;
-    /** Where the list is inside the answer; null = the answer itself. */
-    itemsPath: string | null;
-    /** One order, with {id}; null when the list already brings the lines. */
-    detailPath: string | null;
-    idField: string;
-    numberField: string | null;
-    dateField: string | null;
-    linesPath: string;
-    refField: string | null;
-    descriptionField: string;
-    quantityField: string;
-    unitCostField: string;
-  };
-}
+import type { SupplierWebConfig } from '../web/web-config';
 
 /**
  * A company Kenova buys parts from. Never deleted: a supplier that is no
@@ -82,7 +47,8 @@ export class Supplier {
   active: boolean;
 
   @Column({ type: 'jsonb', nullable: true })
-  connection: SupplierConnection | null;
+  /** How its orders are read from its website (see SupplierWebConfig). */
+  connection: SupplierWebConfig | null;
 
   /**
    * The login on the supplier's website, {username, password} encrypted

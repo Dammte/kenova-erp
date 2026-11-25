@@ -2,34 +2,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { SupplierConnection } from "./SupplierConnection";
 import {
+  PRESTASHOP,
   connectionBody,
   connectionDraftFrom,
-  emptyConnection,
   validateConnection,
   type SupplierConnection as Connection,
+  type WebTestResult,
 } from "./connection";
 import type { SupplierData } from "./suppliers";
 
-const CONNECTION: Connection = {
-  baseUrl: "https://b2b.norte.es",
-  login: { path: "/api/login", format: "json", userField: "email", passwordField: "password", session: "token", tokenPath: "data.token" },
-  orders: {
-    listPath: "/api/orders",
-    itemsPath: "data.orders",
-    detailPath: "/api/orders/{id}",
-    idField: "id",
-    numberField: "reference",
-    dateField: null,
-    linesPath: "lines",
-    refField: "sku",
-    descriptionField: "name",
-    quantityField: "qty",
-    unitCostField: "unit_price",
-  },
-};
+const CONNECTION: Connection = { ...PRESTASHOP, baseUrl: "https://rphoneb2b.com" };
 const supplier = (extra: Partial<SupplierData> = {}): SupplierData => ({
   id: "p1",
-  name: "Repuestos Norte",
+  name: "RPhone",
   taxId: null,
   customerNumber: null,
   contactName: null,
@@ -42,6 +27,36 @@ const supplier = (extra: Partial<SupplierData> = {}): SupplierData => ({
   credentialsUpdatedAt: null,
   ...extra,
 });
+const TEST: WebTestResult = {
+  ordersFound: 804,
+  orders: [
+    {
+      externalId: "1001",
+      reference: "ABCDEFGHI",
+      date: "2026-11-25",
+      total: "106.03",
+      payment: "Tarjeta",
+      status: "Pago aceptado",
+      invoiceUrl: null,
+      detailUrl: "https://rphoneb2b.com/index.php?controller=order-detail&id_order=1001",
+    },
+  ],
+  sample: {
+    order: {} as WebTestResult["orders"][number],
+    lines: [
+      {
+        description: "Batería para Teléfono X",
+        ref: "BT0001",
+        productUrl: "https://rphoneb2b.com/busqueda?controller=search&s=BT0001",
+        quantity: 2,
+        unitPrice: "20.52",
+        lineTotal: "41.04",
+      },
+    ],
+  },
+  warnings: [],
+};
+TEST.sample!.order = TEST.orders[0];
 
 const fetchMock = vi.fn();
 const onSaved = vi.fn();
@@ -55,7 +70,9 @@ const sent = (method: string) => {
 beforeEach(() => {
   fetchMock.mockReset();
   onSaved.mockReset();
-  fetchMock.mockImplementation(async () => new Response(JSON.stringify({ id: "p1" }), { status: 200 }));
+  fetchMock.mockImplementation(async (url: string) =>
+    new Response(JSON.stringify(url.endsWith("/test") ? TEST : { id: "p1" }), { status: 200 }),
+  );
   vi.stubGlobal("fetch", fetchMock);
 });
 afterEach(() => {
@@ -66,65 +83,113 @@ afterEach(() => {
 describe("connection logic", () => {
   it("round-trips what the server keeps", () => {
     expect(connectionBody(connectionDraftFrom(CONNECTION))).toEqual(CONNECTION);
-    expect(connectionDraftFrom(null)).toEqual(emptyConnection());
   });
 
-  it("drops the token place when the session goes by cookie, and the trailing slash", () => {
-    const d = { ...connectionDraftFrom(CONNECTION), session: "cookie" as const, baseUrl: "https://b2b.norte.es/" };
-    expect(connectionBody(d).login.tokenPath).toBeNull();
-    expect(connectionBody(d).baseUrl).toBe("https://b2b.norte.es");
+  it("a new connection starts from PrestaShop's places and the supplier's web", () => {
+    expect(connectionBody(connectionDraftFrom(null, "https://rphoneb2b.com/mi-cuenta"))).toEqual(CONNECTION);
+    expect(connectionDraftFrom(null, "http://rphoneb2b.com").baseUrl).toBe("");
+  });
+
+  it("leaves empty optional places as null", () => {
+    const d = { ...connectionDraftFrom(CONNECTION), "history.paymentSelector": " " };
+    expect(connectionBody(d).history.paymentSelector).toBeNull();
   });
 
   it("checks what the server would refuse, next to each field", () => {
     const d = {
       ...connectionDraftFrom(CONNECTION),
-      baseUrl: "http://b2b.norte.es/api",
-      loginPath: "//otra.web/login",
-      listPath: "/api/../admin",
-      detailPath: "/api/orders",
-      idField: "id; x",
-      tokenPath: "",
-      quantityField: "",
+      baseUrl: "http://rphoneb2b.com/api",
+      "login.path": "//otra.web/login",
+      "history.path": "/a/../admin",
+      "history.rowSelector": "tr[",
+      "history.idPattern": "id_order=\\d+",
+      "detail.path": "/pedido",
+      "detail.productSearchPath": "/busqueda",
+      "detail.quantitySelector": "",
     };
     expect(validateConnection(d)).toEqual({
       baseUrl: "Solo https:// y el dominio, sin rutas",
-      loginPath: "Debe empezar por /",
-      listPath: "No puede llevar «..»",
-      detailPath: "Tiene que llevar {id}",
-      idField: "Solo el nombre del campo, con puntos si va dentro de otro",
-      tokenPath: "Obligatorio con sesión por token",
-      quantityField: "Obligatorio",
+      "login.path": "Debe empezar por /",
+      "history.path": "No puede llevar «..»",
+      "history.rowSelector": "No es un selector válido",
+      "history.idPattern": "Una expresión con un solo grupo entre paréntesis",
+      "detail.path": "Tiene que llevar {id}",
+      "detail.productSearchPath": "Tiene que llevar {ref}",
+      "detail.quantitySelector": "Obligatorio",
     });
     expect(validateConnection(connectionDraftFrom(CONNECTION))).toEqual({});
   });
 });
 
 describe("Conexión con su web", () => {
-  it("saves the routes and fields as a whole", async () => {
-    render(<SupplierConnection supplier={supplier({ connection: CONNECTION })} onSaved={onSaved} />);
-    expect(screen.queryByRole("button", { name: "Guardar conexión" })).toBeNull();
-    fireEvent.change(screen.getByLabelText(/Ruta de la lista de pedidos/), { target: { value: "/api/v2/orders" } });
+  it("a new one is proposed filled in, to be saved", async () => {
+    render(<SupplierConnection supplier={supplier({ website: "https://rphoneb2b.com" })} onSaved={onSaved} />);
+    expect((screen.getByLabelText(/Página del historial/) as HTMLInputElement).value).toBe("/historial-compra");
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Guardar conexión" })));
-    expect(sent("PUT")).toEqual([
-      "/api/suppliers/p1/connection",
-      { ...CONNECTION, orders: { ...CONNECTION.orders, listPath: "/api/v2/orders" } },
-    ]);
+    expect(sent("PUT")).toEqual(["/api/suppliers/p1/connection", CONNECTION]);
     expect(onSaved).toHaveBeenCalled();
   });
 
-  it("asks for the token place only with a token session", () => {
-    render(<SupplierConnection supplier={supplier()} onSaved={onSaved} />);
-    expect(screen.queryByLabelText(/Dónde viene el token/)).toBeNull();
-    fireEvent.click(screen.getByLabelText("Sesión por token"));
-    expect(screen.getByLabelText(/Dónde viene el token/)).toBeTruthy();
+  it("saves a changed page as a whole", async () => {
+    render(<SupplierConnection supplier={supplier({ connection: CONNECTION })} onSaved={onSaved} />);
+    expect(screen.queryByRole("button", { name: "Guardar conexión" })).toBeNull();
+    fireEvent.change(screen.getByLabelText(/Página del historial/), { target: { value: "/order-history" } });
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Guardar conexión" })));
+    expect(sent("PUT")).toEqual([
+      "/api/suppliers/p1/connection",
+      { ...CONNECTION, history: { ...CONNECTION.history, path: "/order-history" } },
+    ]);
   });
 
-  it("does not send an incomplete connection", async () => {
-    render(<SupplierConnection supplier={supplier()} onSaved={onSaved} />);
-    fireEvent.change(screen.getByLabelText(/Dirección base/), { target: { value: "https://b2b.norte.es" } });
+  it("opens the places that have a mistake", async () => {
+    render(<SupplierConnection supplier={supplier({ connection: CONNECTION })} onSaved={onSaved} />);
+    const rows = screen.getByLabelText(/Filas del historial/);
+    expect(rows.closest("details")?.open).toBe(false);
+    fireEvent.change(rows, { target: { value: "tr[" } });
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Guardar conexión" })));
-    expect(screen.getAllByText("Obligatorio").length).toBeGreaterThan(0);
+    expect(rows.closest("details")?.open).toBe(true);
+    expect(screen.getByText("No es un selector válido")).toBeTruthy();
     expect(sent("PUT")).toBeNull();
+  });
+});
+
+describe("Probar conexión", () => {
+  it("waits for the connection and the credentials", () => {
+    render(<SupplierConnection supplier={supplier({ connection: CONNECTION })} onSaved={onSaved} />);
+    fireEvent.click(screen.getByRole("button", { name: /Probar conexión/ }));
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("shows what the ERP read: the history and the lines of the last order", async () => {
+    render(
+      <SupplierConnection
+        supplier={supplier({ connection: CONNECTION, credentialsUpdatedAt: "2026-11-25T10:00:00Z" })}
+        onSaved={onSaved}
+      />,
+    );
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: /Probar conexión/ })));
+    expect(sent("POST")?.[0]).toBe("/api/suppliers/p1/test");
+    expect(screen.getByText("804 pedidos en el historial.")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "ABCDEFGHI" }).getAttribute("href")).toContain("id_order=1001");
+    expect(screen.getByText("25/11/2026")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Batería para Teléfono X" }).getAttribute("href")).toContain("s=BT0001");
+  });
+
+  it("shows the website's refusal", async () => {
+    fetchMock.mockImplementation(
+      async () =>
+        new Response(JSON.stringify({ message: "La web del proveedor no ha aceptado el usuario y la contraseña." }), {
+          status: 400,
+        }),
+    );
+    render(
+      <SupplierConnection
+        supplier={supplier({ connection: CONNECTION, credentialsUpdatedAt: "2026-11-25T10:00:00Z" })}
+        onSaved={onSaved}
+      />,
+    );
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: /Probar conexión/ })));
+    expect(screen.getByRole("alert").textContent).toContain("no ha aceptado el usuario y la contraseña");
   });
 });
 

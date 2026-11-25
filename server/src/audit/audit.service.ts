@@ -44,7 +44,8 @@ export type AuditAction =
   | 'SUPPLIER_UPDATED'
   | 'SUPPLIER_CONNECTION_UPDATED'
   | 'SUPPLIER_CREDENTIALS_SET'
-  | 'SUPPLIER_CREDENTIALS_CLEARED';
+  | 'SUPPLIER_CREDENTIALS_CLEARED'
+  | 'SUPPLIER_WEB_TESTED';
 
 export interface AuditEntry {
   action: AuditAction;

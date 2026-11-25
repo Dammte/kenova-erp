@@ -1,0 +1,35 @@
+/* What «Proveedores» adds to the «Tienda» layout. */
+.places {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-3);
+}
+.places summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--k-text-muted);
+}
+.places[open] summary {
+  margin-bottom: var(--k-space-2);
+}
+.testResult {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-3);
+  overflow-x: auto;
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--k-text-sm);
+}
+.table th,
+.table td {
+  text-align: left;
+  padding: var(--k-space-2);
+  border-bottom: var(--k-border-w) solid var(--k-border);
+  vertical-align: top;
+}
+.table th {
+  font-weight: 600;
+}

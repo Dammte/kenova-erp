@@ -1,158 +1,216 @@
-/** «Conexión con su web»: how the ERP reads this supplier's orders (PUT /api/suppliers/:id/connection). */
+/**
+ * «Conexión con su web»: how the ERP reads this supplier's orders from the
+ * pages of its website (PUT /api/suppliers/:id/connection). Pages are
+ * addresses on its site; places are CSS selectors inside each page.
+ */
 
 export interface SupplierConnection {
+  kind: "html";
   baseUrl: string;
-  login: {
+  login: { path: string; userField: string; passwordField: string };
+  history: {
     path: string;
-    format: "json" | "form";
-    userField: string;
-    passwordField: string;
-    session: "cookie" | "token";
-    tokenPath: string | null;
+    rowSelector: string;
+    referenceSelector: string;
+    dateSelector: string;
+    totalSelector: string;
+    paymentSelector: string | null;
+    statusSelector: string | null;
+    invoiceLinkSelector: string | null;
+    detailLinkSelector: string;
+    idPattern: string;
   };
-  orders: {
-    listPath: string;
-    itemsPath: string | null;
-    detailPath: string | null;
-    idField: string;
-    numberField: string | null;
-    dateField: string | null;
-    linesPath: string;
-    refField: string | null;
-    descriptionField: string;
-    quantityField: string;
-    unitCostField: string;
+  detail: {
+    path: string;
+    rowSelector: string;
+    productSelector: string;
+    refSelector: string | null;
+    refPattern: string | null;
+    productLinkSelector: string | null;
+    productSearchPath: string | null;
+    quantitySelector: string;
+    unitPriceSelector: string;
+    lineTotalSelector: string | null;
   };
 }
 
-/** Every text field of the form, flat, as typed. */
-export interface ConnectionDraft {
-  baseUrl: string;
-  loginPath: string;
-  format: "json" | "form";
-  userField: string;
-  passwordField: string;
-  session: "cookie" | "token";
-  tokenPath: string;
-  listPath: string;
-  itemsPath: string;
-  detailPath: string;
-  idField: string;
-  numberField: string;
-  dateField: string;
-  linesPath: string;
-  refField: string;
-  descriptionField: string;
-  quantityField: string;
-  unitCostField: string;
+type Section = "login" | "history" | "detail";
+/** Every field of the form, as typed, named section.key (or baseUrl). */
+export type ConnectionDraft = Record<string, string>;
+export type ConnectionErrors = Record<string, string | undefined>;
+
+/**
+ * A PrestaShop 1.7 shop («classic» theme), checked against rphoneb2b.com.
+ * The same values as the server's PRESTASHOP_DEFAULTS.
+ */
+export const PRESTASHOP: Omit<SupplierConnection, "baseUrl"> = {
+  kind: "html",
+  login: { path: "/index.php?controller=authentication&back=history", userField: "email", passwordField: "password" },
+  history: {
+    path: "/historial-compra",
+    rowSelector: "#content table tbody tr",
+    referenceSelector: "th",
+    dateSelector: "td:nth-of-type(1)",
+    totalSelector: "td:nth-of-type(2)",
+    paymentSelector: "td:nth-of-type(3)",
+    statusSelector: "td:nth-of-type(4)",
+    invoiceLinkSelector: 'a[href*="pdf-invoice"]',
+    detailLinkSelector: 'a[href*="order-detail"]',
+    idPattern: "id_order=(\\d+)",
+  },
+  detail: {
+    path: "/index.php?controller=order-detail&id_order={id}",
+    rowSelector: "#order-products tbody tr",
+    productSelector: "td:nth-of-type(1) strong",
+    refSelector: "td:nth-of-type(1)",
+    refPattern: "Referencia:\\s*(\\S+)",
+    productLinkSelector: "td:nth-of-type(1) a",
+    productSearchPath: "/busqueda?controller=search&s={ref}",
+    quantitySelector: "td:nth-of-type(2)",
+    unitPriceSelector: "td:nth-of-type(3)",
+    lineTotalSelector: "td:nth-of-type(4)",
+  },
+};
+
+/** The kind of each field: how it is checked. */
+type Kind = "page" | "input" | "selector" | "pattern";
+interface FieldSpec {
+  key: string;
+  label: string;
+  kind: Kind;
+  optional?: boolean;
+  /** Text the page address must carry. */
+  needs?: string;
 }
-export type TextKey = Exclude<keyof ConnectionDraft, "format" | "session">;
-export type ConnectionErrors = Partial<Record<keyof ConnectionDraft, string>>;
 
-export const emptyConnection = (): ConnectionDraft => ({
-  baseUrl: "",
-  loginPath: "",
-  format: "json",
-  userField: "",
-  passwordField: "",
-  session: "cookie",
-  tokenPath: "",
-  listPath: "",
-  itemsPath: "",
-  detailPath: "",
-  idField: "",
-  numberField: "",
-  dateField: "",
-  linesPath: "",
-  refField: "",
-  descriptionField: "",
-  quantityField: "",
-  unitCostField: "",
-});
+export const FIELDS: Record<Section, FieldSpec[]> = {
+  login: [
+    { key: "login.path", label: "Página de inicio de sesión", kind: "page" },
+    { key: "login.userField", label: "Campo del usuario", kind: "input" },
+    { key: "login.passwordField", label: "Campo de la contraseña", kind: "input" },
+  ],
+  history: [
+    { key: "history.path", label: "Página del historial", kind: "page" },
+    { key: "history.rowSelector", label: "Filas del historial", kind: "selector" },
+    { key: "history.referenceSelector", label: "Referencia", kind: "selector" },
+    { key: "history.dateSelector", label: "Fecha", kind: "selector" },
+    { key: "history.totalSelector", label: "Total", kind: "selector" },
+    { key: "history.paymentSelector", label: "Pago", kind: "selector", optional: true },
+    { key: "history.statusSelector", label: "Estado", kind: "selector", optional: true },
+    { key: "history.invoiceLinkSelector", label: "Enlace a la factura", kind: "selector", optional: true },
+    { key: "history.detailLinkSelector", label: "Enlace al pedido", kind: "selector" },
+    { key: "history.idPattern", label: "Id dentro del enlace", kind: "pattern" },
+  ],
+  detail: [
+    { key: "detail.path", label: "Página del pedido", kind: "page", needs: "{id}" },
+    { key: "detail.productSearchPath", label: "Búsqueda del producto", kind: "page", optional: true, needs: "{ref}" },
+    { key: "detail.rowSelector", label: "Filas del pedido", kind: "selector" },
+    { key: "detail.productSelector", label: "Producto", kind: "selector" },
+    { key: "detail.refSelector", label: "Referencia", kind: "selector", optional: true },
+    { key: "detail.refPattern", label: "Referencia dentro del texto", kind: "pattern", optional: true },
+    { key: "detail.productLinkSelector", label: "Enlace al producto", kind: "selector", optional: true },
+    { key: "detail.quantitySelector", label: "Cantidad", kind: "selector" },
+    { key: "detail.unitPriceSelector", label: "Precio unitario", kind: "selector" },
+    { key: "detail.lineTotalSelector", label: "Precio total", kind: "selector", optional: true },
+  ],
+};
+const ALL = Object.values(FIELDS).flat();
 
-export function connectionDraftFrom(c: SupplierConnection | null): ConnectionDraft {
-  if (!c) return emptyConnection();
-  const { path: loginPath, ...login } = c.login;
-  const draft = { baseUrl: c.baseUrl, loginPath, ...login, ...c.orders };
-  return Object.fromEntries(Object.entries(draft).map(([k, v]) => [k, v ?? ""])) as unknown as ConnectionDraft;
+/** The saved connection as form fields; without one, PrestaShop's places and the supplier's web. */
+export function connectionDraftFrom(c: SupplierConnection | null, website?: string | null): ConnectionDraft {
+  const source = c ?? { ...PRESTASHOP, baseUrl: website?.startsWith("https://") ? new URL(website).origin : "" };
+  const draft: ConnectionDraft = { baseUrl: source.baseUrl };
+  for (const { key } of ALL) {
+    const [section, name] = key.split(".") as [Section, string];
+    const value = (source[section] as Record<string, string | null>)[name];
+    draft[key] = value ?? "";
+  }
+  return draft;
 }
 
 const BASE_URL = /^https:\/\/[a-z0-9-]+(\.[a-z0-9-]+)+(:\d{2,5})?\/?$/i;
 const PATH = /^\/(?!\/)[^\s\\]*$/;
 const DOTS = /(^|\/)\.\.?(\/|\?|$)/;
-const FIELD = /^[A-Za-z0-9_$-]+(\.[A-Za-z0-9_$-]+)*$/;
+const INPUT = /^[A-Za-z0-9_$.[\]-]+$/;
 
-const ROUTES: TextKey[] = ["loginPath", "listPath", "detailPath"];
-const FIELDS: TextKey[] = [
-  "userField",
-  "passwordField",
-  "tokenPath",
-  "itemsPath",
-  "idField",
-  "numberField",
-  "dateField",
-  "linesPath",
-  "refField",
-  "descriptionField",
-  "quantityField",
-  "unitCostField",
-];
-const REQUIRED: TextKey[] = [
-  "baseUrl",
-  "loginPath",
-  "userField",
-  "passwordField",
-  "listPath",
-  "idField",
-  "linesPath",
-  "descriptionField",
-  "quantityField",
-  "unitCostField",
-];
+const validSelector = (s: string) => {
+  try {
+    document.createDocumentFragment().querySelector(s);
+    return true;
+  } catch {
+    return false;
+  }
+};
+const oneGroup = (s: string) => {
+  try {
+    return new RegExp(`${s}|`).exec("")!.length === 2;
+  } catch {
+    return false;
+  }
+};
 
 /** The same rules the server applies, shown next to each field. */
 export function validateConnection(d: ConnectionDraft): ConnectionErrors {
   const e: ConnectionErrors = {};
-  const v = (k: TextKey) => d[k].trim();
-  if (v("baseUrl") && !BASE_URL.test(v("baseUrl"))) e.baseUrl = "Solo https:// y el dominio, sin rutas";
-  for (const k of ROUTES) {
-    if (v(k) && !PATH.test(v(k))) e[k] = "Debe empezar por /";
-    else if (DOTS.test(v(k))) e[k] = "No puede llevar «..»";
+  const base = d.baseUrl.trim();
+  if (!base) e.baseUrl = "Obligatorio";
+  else if (!BASE_URL.test(base)) e.baseUrl = "Solo https:// y el dominio, sin rutas";
+  for (const f of ALL) {
+    const v = (d[f.key] ?? "").trim();
+    if (!v) {
+      if (!f.optional) e[f.key] = "Obligatorio";
+      continue;
+    }
+    if (f.kind === "page") {
+      if (!PATH.test(v)) e[f.key] = "Debe empezar por /";
+      else if (DOTS.test(v)) e[f.key] = "No puede llevar «..»";
+      else if (f.needs && !v.includes(f.needs)) e[f.key] = `Tiene que llevar ${f.needs}`;
+    } else if (f.kind === "input" && !INPUT.test(v)) {
+      e[f.key] = "Escribe el nombre del campo";
+    } else if (f.kind === "selector" && !validSelector(v)) {
+      e[f.key] = "No es un selector válido";
+    } else if (f.kind === "pattern" && !oneGroup(v)) {
+      e[f.key] = "Una expresión con un solo grupo entre paréntesis";
+    }
   }
-  if (v("detailPath") && !e.detailPath && !v("detailPath").includes("{id}")) e.detailPath = "Tiene que llevar {id}";
-  for (const k of FIELDS) {
-    if (v(k) && !FIELD.test(v(k))) e[k] = "Solo el nombre del campo, con puntos si va dentro de otro";
-  }
-  for (const k of REQUIRED) if (!v(k)) e[k] = "Obligatorio";
-  if (d.session === "token" && !v("tokenPath")) e.tokenPath = "Obligatorio con sesión por token";
   return e;
 }
 
 export function connectionBody(d: ConnectionDraft): SupplierConnection {
-  const t = (k: TextKey) => d[k].trim();
-  const o = (k: TextKey) => d[k].trim() || null;
-  return {
-    baseUrl: t("baseUrl").replace(/\/+$/, ""),
-    login: {
-      path: t("loginPath"),
-      format: d.format,
-      userField: t("userField"),
-      passwordField: t("passwordField"),
-      session: d.session,
-      tokenPath: d.session === "token" ? o("tokenPath") : null,
-    },
-    orders: {
-      listPath: t("listPath"),
-      itemsPath: o("itemsPath"),
-      detailPath: o("detailPath"),
-      idField: t("idField"),
-      numberField: o("numberField"),
-      dateField: o("dateField"),
-      linesPath: t("linesPath"),
-      refField: o("refField"),
-      descriptionField: t("descriptionField"),
-      quantityField: t("quantityField"),
-      unitCostField: t("unitCostField"),
-    },
-  };
+  const out = { kind: "html", baseUrl: d.baseUrl.trim().replace(/\/+$/, ""), login: {}, history: {}, detail: {} } as Record<
+    string,
+    unknown
+  >;
+  for (const f of ALL) {
+    const [section, name] = f.key.split(".");
+    const v = (d[f.key] ?? "").trim();
+    (out[section] as Record<string, string | null>)[name] = v || (f.optional ? null : "");
+  }
+  return out as unknown as SupplierConnection;
+}
+
+/** POST /api/suppliers/:id/test: what the ERP understood, nothing saved. */
+export interface WebOrder {
+  externalId: string;
+  reference: string;
+  date: string | null;
+  total: string | null;
+  payment: string | null;
+  status: string | null;
+  invoiceUrl: string | null;
+  detailUrl: string;
+}
+export interface WebOrderLine {
+  description: string;
+  ref: string | null;
+  productUrl: string | null;
+  quantity: number | null;
+  unitPrice: string | null;
+  lineTotal: string | null;
+}
+export interface WebTestResult {
+  ordersFound: number;
+  orders: WebOrder[];
+  sample: { order: WebOrder; lines: WebOrderLine[] } | null;
+  warnings: string[];
 }
