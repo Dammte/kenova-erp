@@ -146,7 +146,7 @@ export class SupplierWebService {
   }
 
   /** Website problems and wrong places reach the administrator as a 400 with the reason. */
-  private async run<T>(work: () => Promise<T>): Promise<T> {
+  async run<T>(work: () => Promise<T>): Promise<T> {
     try {
       return await work();
     } catch (e) {

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -164,9 +165,16 @@ export class SuppliersService {
       .getOne();
     if (!row) throw new NotFoundException('Proveedor no encontrado');
     if (!row.credentialsCiphertext) return null;
-    return JSON.parse(
-      this.cipher.decrypt(row.credentialsCiphertext, aad(id)),
-    ) as { username: string; password: string };
+    try {
+      return JSON.parse(
+        this.cipher.decrypt(row.credentialsCiphertext, aad(id)),
+      ) as { username: string; password: string };
+    } catch {
+      // Saved with another key (DEVICE_SECRET_KEY changed): only typing them again fixes it.
+      throw new BadRequestException(
+        'No se pueden leer las credenciales guardadas de su web. Vuelve a guardarlas.',
+      );
+    }
   }
 
   private async save(supplier: Supplier, name: string): Promise<Supplier> {

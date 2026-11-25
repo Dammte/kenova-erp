@@ -26,6 +26,7 @@ const supplier = (id: string, name: string, extra: Partial<SupplierData> = {}): 
   active: true,
   connection: null,
   credentialsUpdatedAt: null,
+  ordersSyncedAt: null,
   ...extra,
 });
 const SUPPLIERS = [

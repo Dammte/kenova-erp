@@ -94,6 +94,9 @@ function Suppliers() {
       <section className={styles.listPane} aria-label="Proveedores">
         <div className={styles.top}>
           <h1 className={styles.title}>Proveedores</h1>
+          <Link href="/proveedores/pedidos" className={styles.link}>
+            Pedidos
+          </Link>
           <Button size="sm" onClick={() => select("nuevo")}>
             + Nuevo proveedor
           </Button>
