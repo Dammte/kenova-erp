@@ -119,6 +119,16 @@ export class ConfirmInvoiceDto extends InvoiceHeadDto {
   @IsBoolean()
   allowDuplicate?: boolean;
 
+  /** The supplier order this parcel is (Proveedores › Pedidos)… */
+  @IsOptional()
+  @IsUUID('4', { message: 'Pedido del proveedor no válido' })
+  supplierOrderId?: string;
+
+  /** …and the visto bueno: someone checked the parcel against it. */
+  @IsOptional()
+  @IsBoolean()
+  checked?: boolean;
+
   @IsArray()
   @ArrayMinSize(1, { message: 'La factura no tiene líneas' })
   @ArrayMaxSize(200)

@@ -10,6 +10,7 @@ import { formatEur } from "@/lib/format";
 import { PartCard } from "./PartCard";
 import { PartForm } from "./PartForm";
 import { InvoiceImport } from "./InvoiceImport";
+import { ReceiveSupplierOrder } from "./ReceiveSupplierOrder";
 import { PartOrders } from "./PartOrders";
 import { StockBadge } from "./StockBadge";
 import { skuTag, type PartPage } from "./inventory";
@@ -48,7 +49,10 @@ const VIEWS: [View, string][] = [
 function Inventory() {
   const router = useRouter();
   const pathname = usePathname();
-  const asked = useSearchParams().get("vista");
+  const params = useSearchParams();
+  const asked = params.get("vista");
+  // «Revisar y recibir» from Proveedores › Pedidos.
+  const supplierOrder = params.get("pedidoProveedor");
   const view: View = VIEWS.some(([v]) => v === asked) ? (asked as View) : "repuestos";
   if (view === "repuestos") return <PartsList />;
   return (
@@ -57,6 +61,8 @@ function Inventory() {
         <Header view={view} />
         {view === "pedidos" ? (
           <PartOrders />
+        ) : supplierOrder ? (
+          <ReceiveSupplierOrder orderId={supplierOrder} onDone={() => router.replace(pathname, { scroll: false })} />
         ) : (
           <InvoiceImport onDone={() => router.replace(pathname, { scroll: false })} />
         )}

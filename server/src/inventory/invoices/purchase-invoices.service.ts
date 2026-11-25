@@ -8,6 +8,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager, IsNull } from 'typeorm';
 import type { AuthUser } from '../../auth/auth.types';
 import { PartOrder } from '../../part-orders/entities/part-order.entity';
+import { SupplierOrder } from '../../suppliers/entities/supplier-order.entity';
 import { ServiceHistory } from '../../service-history/entities/service-history.entity';
 import { User } from '../../users/entities/user.entity';
 import { Inventory } from '../entities/inventory.entity';
@@ -111,7 +112,15 @@ export class PurchaseInvoicesService {
         );
       }
     });
+    if (dto.supplierOrderId && dto.checked !== true) {
+      throw new BadRequestException(
+        'Marca «He comprobado que el paquete coincide» antes de confirmar.',
+      );
+    }
     return this.dataSource.transaction(async (m) => {
+      const supplierOrder = dto.supplierOrderId
+        ? await this.pendingSupplierOrder(m, dto.supplierOrderId)
+        : null;
       const providerKey = key(dto.provider)!;
       const numberKey = key(dto.number);
       if (numberKey) {
@@ -143,6 +152,14 @@ export class PurchaseInvoicesService {
       const lines: ConfirmedLine[] = [];
       for (const [i, line] of dto.lines.entries()) {
         lines.push(await this.enter(m, line, i, dto, invoice.id, note, actor));
+      }
+      if (supplierOrder) {
+        await m.update(SupplierOrder, supplierOrder.id, {
+          state: 'RECIBIDO',
+          purchaseInvoiceId: invoice.id,
+          receivedAt: new Date(),
+          receivedById: actor.id,
+        });
       }
       return {
         invoiceId: invoice.id,
@@ -314,6 +331,24 @@ export class PurchaseInvoicesService {
       if (!(await taken(sku))) return sku;
     }
     throw new ConflictException(`Línea ${index + 1}: indica un SKU`);
+  }
+
+  /** The supplier order being received, locked: it can only be received once. */
+  private async pendingSupplierOrder(m: EntityManager, id: string) {
+    const order = await m.findOne(SupplierOrder, {
+      where: { id },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (!order)
+      throw new NotFoundException('Pedido del proveedor no encontrado');
+    if (order.state !== 'PENDIENTE') {
+      throw new ConflictException(
+        order.state === 'RECIBIDO'
+          ? `El pedido ${order.reference} ya se recibió.`
+          : `El pedido ${order.reference} no está pendiente de recibir.`,
+      );
+    }
+    return order;
   }
 
   private async duplicateOf(m: EntityManager, head: InvoiceHeadDto) {

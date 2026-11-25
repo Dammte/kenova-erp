@@ -352,6 +352,84 @@ describe('Pedidos del proveedor', () => {
     });
   });
 
+  describe('Recibir con visto bueno', () => {
+    let pending: any;
+    const invoice = (extra: object = {}) => ({
+      provider: 'Delta',
+      number: pending.reference,
+      invoiceDate: pending.orderDate,
+      supplierOrderId: pending.id,
+      lines: pending.lines.map((l: any) => ({
+        description: l.description,
+        ref: l.ref,
+        quantity: l.quantity,
+        unitCost: l.unitPrice,
+        newPart: { name: l.description },
+      })),
+      ...extra,
+    });
+    beforeAll(async () => {
+      const list = await get(
+        `/api/supplier-orders?supplierId=${id}&state=PENDIENTE&q=REFTREINTA`,
+      );
+      pending = (await get(`/api/supplier-orders/${list.body.items[0].id}`))
+        .body;
+    });
+
+    it('needs the visto bueno: without it nothing enters stock', async () => {
+      const res = await send('post', sa, '/api/purchase-invoices', invoice());
+      expect(res.status).toBe(400);
+      expect(res.body.message).toContain(
+        'He comprobado que el paquete coincide',
+      );
+      const [{ n }] = await t.db.query(
+        `SELECT count(*)::int AS n FROM purchase_invoices WHERE number = $1`,
+        [pending.reference],
+      );
+      expect(n).toBe(0);
+    });
+
+    it('with it, the stock goes up and the order is received, once', async () => {
+      const res = await send(
+        'post',
+        sa,
+        '/api/purchase-invoices',
+        invoice({ checked: true }),
+      );
+      expect(res.status).toBe(201);
+      expect(res.body.units).toBe(3);
+      const order = (await get(`/api/supplier-orders/${pending.id}`)).body;
+      expect(order).toMatchObject({
+        state: 'RECIBIDO',
+        purchaseInvoiceId: res.body.invoiceId,
+        receivedAt: expect.any(String),
+        receivedBy: { id: t.superAdmin.id, fullName: expect.any(String) },
+      });
+      const again = await send(
+        'post',
+        sa,
+        '/api/purchase-invoices',
+        invoice({ checked: true, allowDuplicate: true }),
+      );
+      expect(again.status).toBe(409);
+      expect(again.body.message).toBe(
+        `El pedido ${pending.reference} ya se recibió.`,
+      );
+    });
+
+    it('only a pending order is received', async () => {
+      const list = await get(
+        `/api/supplier-orders?supplierId=${id}&state=ANTERIOR&q=REFDIEZ`,
+      );
+      const res = await send('post', sa, '/api/purchase-invoices', {
+        ...invoice({ checked: true, number: 'OTRA' }),
+        supplierOrderId: list.body.items[0].id,
+      });
+      expect(res.status).toBe(409);
+      expect(res.body.message).toContain('no está pendiente de recibir');
+    });
+  });
+
   it('credentials that no longer open (the key changed) are asked for again', async () => {
     const [{ c }] = await t.db.query(
       `SELECT "credentialsCiphertext" AS c FROM suppliers WHERE id = $1`,

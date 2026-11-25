@@ -451,12 +451,22 @@ function OrderCard({ id, onClose, onChanged }: CardProps) {
         )}
       </section>
 
+      {received && (
+        <section className={styles.section} aria-label="Recepción">
+          <h3 className={styles.subTitle}>Recibido</h3>
+          <p className={styles.muted}>
+            {order.receivedAt ? `Comprobado y dado de entrada el ${formatDay(order.receivedAt)}` : "Comprobado y dado de entrada"}
+            {order.receivedBy ? ` por ${order.receivedBy.fullName}` : ""}. Su stock ya está en el inventario.
+          </p>
+        </section>
+      )}
+
       {!received && (
         <section className={styles.section} aria-label="Estado para Kenova">
           <h3 className={styles.subTitle}>Estado para Kenova</h3>
           <p className={styles.muted}>
             {order.state === "PENDIENTE"
-              ? "Esperando el paquete. El stock no cambia hasta que se reciba y se compruebe."
+              ? "Esperando el paquete. Cuando llegue, pulsa «Revisar y recibir»: compruebas el paquete, das el visto bueno y entonces sube el stock."
               : order.state === "ANTERIOR"
                 ? "Ya estaba en su historial cuando se conectó el ERP, así que se da por recibido. Si aún esperas el paquete, márcalo como pendiente."
                 : "No se va a recibir (cancelado, devuelto…)."}
@@ -469,6 +479,11 @@ function OrderCard({ id, onClose, onChanged }: CardProps) {
             )}
             {order.state === "PENDIENTE" && (
               <>
+                {lines.length > 0 && (
+                  <Link href={`/inventario?vista=importar&pedidoProveedor=${order.id}`} className={styles.primaryLink}>
+                    Revisar y recibir
+                  </Link>
+                )}
                 <Button variant="secondary" size="sm" loading={busy === "DESCARTADO"} onClick={() => void setState("DESCARTADO")}>
                   Descartar
                 </Button>

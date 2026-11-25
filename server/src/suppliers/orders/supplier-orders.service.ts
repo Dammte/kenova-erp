@@ -224,6 +224,8 @@ export class SupplierOrdersService {
       .leftJoin('o.supplier', 's')
       .addSelect(['s.id', 's.name'])
       .leftJoinAndSelect('o.lines', 'l')
+      .leftJoin('o.receivedBy', 'u')
+      .addSelect(['u.id', 'u.fullName'])
       .where('o.id = :id', { id })
       .orderBy('l.position', 'ASC')
       .getOne();
