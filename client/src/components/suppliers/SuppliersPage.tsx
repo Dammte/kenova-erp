@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { X } from "lucide-react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { Button, TextField, type TextFieldProps } from "@/components/ui";
@@ -17,6 +17,7 @@ import {
   type SupplierDraft,
   type SupplierErrors,
 } from "./suppliers";
+import { SupplierConnection } from "./SupplierConnection";
 // Same list-and-card layout as «Tienda».
 import styles from "../stores/Stores.module.css";
 
@@ -134,7 +135,9 @@ function Suppliers() {
             select(id);
           }}
           onCancel={() => select(null)}
-        />
+        >
+          {current && <SupplierConnection supplier={current} onSaved={() => setAttempt((a) => a + 1)} />}
+        </SupplierForm>
       )}
     </div>
   );
@@ -145,10 +148,12 @@ interface FormProps {
   supplier?: SupplierData;
   onSaved: (id: string) => void;
   onCancel: () => void;
+  /** Shown under the company data, with their own «Guardar». */
+  children?: ReactNode;
 }
 
 /** One supplier, all its data, one «Guardar». */
-export function SupplierForm({ supplier, onSaved, onCancel }: FormProps) {
+export function SupplierForm({ supplier, onSaved, onCancel, children }: FormProps) {
   const original = supplier ? supplierDraftFrom(supplier) : undefined;
   const [d, setD] = useState<SupplierDraft>(original ?? emptySupplier());
   const [errors, setErrors] = useState<SupplierErrors>({});
@@ -233,36 +238,6 @@ export function SupplierForm({ supplier, onSaved, onCancel }: FormProps) {
           })}
         </fieldset>
 
-        {supplier && (
-          <fieldset className={styles.section}>
-            <legend>{supplier.active ? "Desactivar proveedor" : "Proveedor desactivado"}</legend>
-            {supplier.active ? (
-              <>
-                <p className={styles.muted}>Deja de proponerse para compras nuevas. Las compras anteriores lo conservan.</p>
-                {confirmOff ? (
-                  <div className={styles.confirm}>
-                    <span>¿Desactivar {supplier.name}?</span>
-                    <Button variant="danger" size="sm" loading={saving} onClick={() => void send({ active: false })}>
-                      Sí, desactivar
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={() => setConfirmOff(false)}>
-                      No
-                    </Button>
-                  </div>
-                ) : (
-                  <Button variant="secondary" size="sm" onClick={() => setConfirmOff(true)}>
-                    Desactivar…
-                  </Button>
-                )}
-              </>
-            ) : (
-              <Button variant="secondary" size="sm" loading={saving} onClick={() => void send({ active: true })}>
-                Reactivar
-              </Button>
-            )}
-          </fieldset>
-        )}
-
         {problem && (
           <p role="alert" className={styles.error}>
             {problem}
@@ -286,6 +261,40 @@ export function SupplierForm({ supplier, onSaved, onCancel }: FormProps) {
           </div>
         )}
       </form>
+      {children}
+      {supplier && (
+        <fieldset className={styles.section}>
+          <legend>{supplier.active ? "Desactivar proveedor" : "Proveedor desactivado"}</legend>
+          {supplier.active ? (
+            <>
+              <p className={styles.muted}>Deja de proponerse para compras nuevas. Las compras anteriores lo conservan.</p>
+              {confirmOff ? (
+                <div className={styles.confirm}>
+                  <span>¿Desactivar {supplier.name}?</span>
+                  <Button variant="danger" size="sm" loading={saving} onClick={() => void send({ active: false })}>
+                    Sí, desactivar
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => setConfirmOff(false)}>
+                    No
+                  </Button>
+                </div>
+              ) : (
+                <div>
+                  <Button variant="secondary" size="sm" onClick={() => setConfirmOff(true)}>
+                    Desactivar…
+                  </Button>
+                </div>
+              )}
+            </>
+          ) : (
+            <div>
+              <Button variant="secondary" size="sm" loading={saving} onClick={() => void send({ active: true })}>
+                Reactivar
+              </Button>
+            </div>
+          )}
+        </fieldset>
+      )}
     </aside>
   );
 }
