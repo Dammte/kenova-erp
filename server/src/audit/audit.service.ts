@@ -39,7 +39,9 @@ export type AuditAction =
   | 'CLIENT_RESTORED'
   | 'CLIENT_MERGED'
   | 'SERVICE_ORDER_DELETED'
-  | 'SERVICE_ORDER_PARTS_CONSUMED';
+  | 'SERVICE_ORDER_PARTS_CONSUMED'
+  | 'SUPPLIER_CREATED'
+  | 'SUPPLIER_UPDATED';
 
 export interface AuditEntry {
   action: AuditAction;

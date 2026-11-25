@@ -53,6 +53,7 @@ describe("BottomBar", () => {
       "Dinero",
       "Servicios",
       "Catálogo",
+      "Proveedores",
       "Plantillas",
       "Usuarios",
       "Tienda",

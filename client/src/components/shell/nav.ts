@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   MessageSquareText,
   Package,
+  PackageSearch,
   Store,
   Tags,
   Trash2,
@@ -41,6 +42,7 @@ const SERVICES: NavItem = { label: "Servicios", href: "/servicios", icon: Wrench
 const TEMPLATES: NavItem = { label: "Plantillas", href: "/plantillas", icon: MessageSquareText };
 const USERS: NavItem = { label: "Usuarios", href: "/usuarios", icon: UserCog };
 const SHIPMENTS: NavItem = { label: "Envíos", href: "/envios", icon: Truck };
+const SUPPLIERS: NavItem = { label: "Proveedores", href: "/proveedores", icon: PackageSearch };
 const CATALOG: NavItem = { label: "Catálogo", href: "/catalogo", icon: Library };
 const TRASH: NavItem = { label: "Papelera", href: "/papelera", icon: Trash2 };
 const STORE: NavItem = { label: "Tienda", href: "/tienda", icon: Store };
@@ -56,7 +58,7 @@ export function navFor(role: Role, shipments = false): NavSections {
   if (role === "SUPER_ADMIN") {
     return {
       main: [PANEL, ORDERS, ...ship, QUOTES, RATES, CLIENTS, INVENTORY, MONEY],
-      settings: [SERVICES, CATALOG, TEMPLATES, USERS, STORE, TRASH, BACKUP],
+      settings: [SERVICES, CATALOG, SUPPLIERS, TEMPLATES, USERS, STORE, TRASH, BACKUP],
     };
   }
   return { main: [PANEL, ORDERS, ...ship, QUOTES, RATES, CLIENTS, MONEY], settings: [TEMPLATES] };

@@ -25,6 +25,7 @@ import { ServicesModule } from './services/services.module';
 import { ShipmentsModule } from './shipments/shipments.module';
 import { StickyNotesModule } from './sticky-notes/sticky-notes.module';
 import { StoresModule } from './stores/stores.module';
+import { SuppliersModule } from './suppliers/suppliers.module';
 import { TrashModule } from './trash/trash.module';
 import { BackupModule } from './backup/backup.module';
 import { UsersModule } from './users/users.module';
@@ -58,6 +59,7 @@ import { UsersModule } from './users/users.module';
     ServiceOrderModule,
     InventoryModule,
     PartOrdersModule,
+    SuppliersModule,
     ServicesModule,
     BrandsModule,
     ModelsModule,
