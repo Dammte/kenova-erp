@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><title>Iniciar sesión</title></head>
+<body id="authentication">
+<form method="get" action="//b2b.proveedor.test/busqueda"><input type="text" name="s" value=""></form>
+<section id="content" class="page-content card card-block">
+  <form id="login-form" action="https://b2b.proveedor.test/iniciar-sesion?back=history" method="post">
+    <input type="hidden" name="back" value="history">
+    <input class="form-control" name="email" type="email" value="" required>
+    <input class="form-control js-child-focus js-visible-password" name="password" type="password" value="" required>
+    <input type="hidden" name="submitLogin" value="1">
+    <button id="submit-login" class="btn btn-primary" data-link-action="sign-in" type="submit">Iniciar sesión</button>
+  </form>
+</section>
+</body></html>

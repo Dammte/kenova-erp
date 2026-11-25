@@ -1,3 +1,7 @@
+import { readFileSync } from 'fs';
+import { join } from 'path';
+import { PRESTASHOP_DEFAULTS } from '../src/suppliers/web/web-config';
+import { SupplierWebService } from '../src/suppliers/web/supplier-web.service';
 import { ORIGIN, TestContext, createTestApp } from './utils/harness';
 
 describe('Proveedores', () => {
@@ -113,75 +117,54 @@ describe('Proveedores', () => {
   describe('Conexión con la web del proveedor', () => {
     let id: string;
     const CONNECTION = {
-      baseUrl: 'https://b2b.norte.test/',
-      login: {
-        path: '/api/login',
-        format: 'json',
-        userField: 'email',
-        passwordField: 'password',
-        session: 'token',
-        tokenPath: 'data.token',
-      },
-      orders: {
-        listPath: '/api/orders?status=all',
-        itemsPath: 'data.orders',
-        detailPath: '/api/orders/{id}',
-        idField: 'id',
-        numberField: 'reference',
-        dateField: '',
-        linesPath: 'lines',
-        refField: 'sku',
-        descriptionField: 'name',
-        quantityField: 'qty',
-        unitCostField: 'unit_price',
-      },
+      ...PRESTASHOP_DEFAULTS,
+      baseUrl: 'https://b2b.proveedor.test/',
     };
-
     beforeAll(async () => {
       id = (await send('post', sa, '/api/suppliers', { name: 'Gamma' })).body
         .id;
     });
 
-    it('saves the routes and field names, tidied', async () => {
-      const res = await send(
-        'put',
-        sa,
-        `/api/suppliers/${id}/connection`,
-        CONNECTION,
-      );
+    it('saves the pages and the places of each value, tidied', async () => {
+      const res = await send('put', sa, `/api/suppliers/${id}/connection`, {
+        ...CONNECTION,
+        history: { ...CONNECTION.history, paymentSelector: '  ' },
+      });
       expect(res.status).toBe(200);
       expect(res.body.connection).toEqual({
         ...CONNECTION,
-        baseUrl: 'https://b2b.norte.test',
-        orders: { ...CONNECTION.orders, dateField: null },
+        baseUrl: 'https://b2b.proveedor.test',
+        history: { ...CONNECTION.history, paymentSelector: null },
       });
-      const list = await t.http().get('/api/suppliers').set('Cookie', sa);
-      expect(
-        list.body.find((s: { id: string }) => s.id === id).connection.baseUrl,
-      ).toBe('https://b2b.norte.test');
     });
 
-    it('refuses another address, plain http and routes that leave the host', async () => {
+    it('refuses another address, plain http, pages that leave the host and broken places', async () => {
       const res = await send('put', sa, `/api/suppliers/${id}/connection`, {
         ...CONNECTION,
-        baseUrl: 'http://b2b.norte.test/api',
-        login: { ...CONNECTION.login, path: '//evil.test/x', tokenPath: '' },
-        orders: {
-          ...CONNECTION.orders,
-          listPath: '/api/../admin',
-          detailPath: '/api/orders',
-          idField: 'id; DROP',
+        baseUrl: 'http://b2b.proveedor.test/api',
+        login: { ...CONNECTION.login, path: '//evil.test/x' },
+        history: {
+          ...CONNECTION.history,
+          path: '/a/../admin',
+          rowSelector: 'tr[',
+          idPattern: 'id_order=\\d+',
+        },
+        detail: {
+          ...CONNECTION.detail,
+          path: '/pedido',
+          productSearchPath: '/busqueda',
         },
       });
       expect(res.status).toBe(400);
       expect(res.body.message).toEqual(
         expect.arrayContaining([
           'Dirección base: solo https:// y el dominio, sin rutas (https://b2b.proveedor.es)',
-          'login.Ruta de inicio de sesión: debe empezar por /',
-          'login.Indica dónde viene el token',
-          'orders.Ruta de la lista de pedidos: no puede llevar «..»',
-          'orders.Ruta del detalle: tiene que llevar {id}',
-          'orders.Id del pedido: escribe el nombre del campo, con puntos si va dentro de otro (data.pedidos)',
+          'login.Página de inicio de sesión: debe empezar por /',
+          'history.Página del historial: no puede llevar «..»',
+          'history.Filas del historial: no es un selector válido',
+          'history.Patrón del id: una expresión con un solo grupo, por ejemplo id_order=(\\d+)',
+          'detail.Página del pedido: tiene que llevar {id}',
+          'detail.Búsqueda del producto: tiene que llevar {ref}',
         ]),
       );
     });
@@ -226,6 +209,126 @@ describe('Proveedores', () => {
       await expect(service.credentials(other)).rejects.toThrow();
     });
 
+    describe('Probar conexión', () => {
+      const page = (name: string) =>
+        readFileSync(join(__dirname, 'fixtures/prestashop', name), 'utf8');
+      const BASE = 'https://b2b.proveedor.test';
+      let calls: { method: string; url: string; body?: string }[];
+      let loggedIn: boolean;
+
+      /** A fake rphoneb2b: the login page, the form, the history and one order. */
+      const fakeSite =
+        (password: string) => async (url: string, init: RequestInit) => {
+          const u = new URL(url);
+          calls.push({ method: init.method!, url, body: init.body as string });
+          const cookie = (init.headers as Record<string, string>).Cookie ?? '';
+          if (u.pathname === '/iniciar-sesion' && init.method === 'POST') {
+            loggedIn =
+              new URLSearchParams(init.body as string).get('password') ===
+              password;
+            return new Response(null, {
+              status: 302,
+              headers: {
+                location: loggedIn
+                  ? '/historial-compra'
+                  : '/index.php?controller=authentication',
+                'set-cookie': `PS=${loggedIn ? 'in' : 'out'}; path=/`,
+              },
+            });
+          }
+          if (u.searchParams.get('controller') === 'authentication') {
+            return new Response(page('login.html'), {
+              headers: { 'set-cookie': 'PS=out; path=/' },
+            });
+          }
+          if (cookie !== 'PS=in') return new Response(page('login.html'));
+          if (u.pathname === '/historial-compra')
+            return new Response(page('history.html'));
+          if (u.searchParams.get('controller') === 'order-detail') {
+            return new Response(page('order-detail.html'));
+          }
+          return new Response('no', { status: 404 });
+        };
+
+      beforeEach(() => {
+        calls = [];
+        loggedIn = false;
+        t.app.get(SupplierWebService).sessionOptions = {
+          fetcher: fakeSite('S3creta!'),
+          resolver: async () => ['203.0.113.10'],
+        };
+      });
+
+      it('logs in, reads the history and the first order, and saves nothing', async () => {
+        const before = await t.db.query(
+          `SELECT count(*)::int AS n FROM suppliers`,
+        );
+        const res = await send('post', sa, `/api/suppliers/${id}/test`);
+        expect(res.status).toBe(200);
+        expect(res.body.ordersFound).toBe(2);
+        expect(res.body.orders[0]).toMatchObject({
+          externalId: '1001',
+          reference: 'ABCDEFGHI',
+          date: '2026-11-25',
+          total: '1106.03',
+          status: 'Pago aceptado',
+        });
+        expect(res.body.sample.lines).toHaveLength(2);
+        expect(res.body.sample.lines[0]).toMatchObject({
+          ref: 'BT0001',
+          quantity: 2,
+          unitPrice: '20.52',
+        });
+        expect(res.body.warnings).toEqual([]);
+        // Only reads: the one thing sent is the login form.
+        expect(
+          calls.filter((c) => c.method !== 'GET').map((c) => c.url),
+        ).toEqual([`${BASE}/iniciar-sesion?back=history`]);
+        expect(calls.every((c) => c.url.startsWith(`${BASE}/`))).toBe(true);
+        expect(
+          await t.db.query(`SELECT count(*)::int AS n FROM suppliers`),
+        ).toEqual(before);
+      });
+
+      it('says so when the website refuses the password', async () => {
+        t.app.get(SupplierWebService).sessionOptions.fetcher = fakeSite('otra');
+        const res = await send('post', sa, `/api/suppliers/${id}/test`);
+        expect(res.status).toBe(400);
+        expect(res.body.message).toBe(
+          'La web del proveedor no ha aceptado el usuario y la contraseña.',
+        );
+      });
+
+      it('warns when the places find nothing', async () => {
+        await send('put', sa, `/api/suppliers/${id}/connection`, {
+          ...CONNECTION,
+          history: { ...CONNECTION.history, rowSelector: 'table.otra tr' },
+        });
+        const res = await send('post', sa, `/api/suppliers/${id}/test`);
+        expect(res.status).toBe(200);
+        expect(res.body.ordersFound).toBe(0);
+        expect(res.body.warnings[0]).toMatch(
+          /No se ha encontrado ningún pedido/,
+        );
+        await send('put', sa, `/api/suppliers/${id}/connection`, CONNECTION);
+      });
+
+      it('needs a saved connection and credentials', async () => {
+        const bare = (
+          await send('post', sa, '/api/suppliers', { name: 'Épsilon' })
+        ).body.id;
+        const res = await send('post', sa, `/api/suppliers/${bare}/test`);
+        expect(res.status).toBe(400);
+        expect(res.body.message).toBe(
+          'Rellena y guarda antes la conexión con su web.',
+        );
+        await send('put', sa, `/api/suppliers/${bare}/connection`, CONNECTION);
+        expect(
+          (await send('post', sa, `/api/suppliers/${bare}/test`)).body.message,
+        ).toBe('Guarda antes las credenciales de su web.');
+      });
+    });
+
     it('deletes the login', async () => {
       const res = await send('delete', sa, `/api/suppliers/${id}/credentials`);
       expect(res.status).toBe(200);
@@ -238,6 +341,10 @@ describe('Proveedores', () => {
         'SUPPLIER_CREATED',
         'SUPPLIER_CONNECTION_UPDATED',
         'SUPPLIER_CREDENTIALS_SET',
+        'SUPPLIER_WEB_TESTED',
+        'SUPPLIER_CONNECTION_UPDATED',
+        'SUPPLIER_WEB_TESTED',
+        'SUPPLIER_CONNECTION_UPDATED',
         'SUPPLIER_CREDENTIALS_CLEARED',
       ]);
     });

@@ -1,14 +1,17 @@
 import { applyDecorators } from '@nestjs/common';
 import { Transform, Type } from 'class-transformer';
+import { load } from 'cheerio';
 import {
-  IsIn,
+  Equals,
   IsNotEmpty,
   IsOptional,
   IsString,
   Matches,
   MaxLength,
-  ValidateIf,
+  Validate,
   ValidateNested,
+  ValidatorConstraint,
+  type ValidatorConstraintInterface,
 } from 'class-validator';
 
 const trim = ({ value }: { value: unknown }) =>
@@ -16,16 +19,49 @@ const trim = ({ value }: { value: unknown }) =>
 const emptyToNull = ({ value }: { value: unknown }) =>
   typeof value === 'string' ? value.trim() || null : value;
 
-/** https://host[:port] with nothing after it: the routes go apart. */
+/** https://host[:port] with nothing after it: the pages go apart. */
 const BASE_URL =
   /^https:\/\/[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+(:\d{2,5})?$/i;
-/** /a/b?c=d — a route on that host, never another address. */
+/** /a/b?c=d — a page on that host, never another address. */
 const PATH = /^\/(?!\/)[^\s\\]*$/;
 const NO_DOTS = /^(?!.*(^|\/)\.\.?(\/|\?|$))/;
-/** data.orders, order_lines, items.0.price */
-const FIELD = /^[A-Za-z0-9_$-]+(\.[A-Za-z0-9_$-]+)*$/;
+/** The name of a form input: email, customer[email]… */
+const INPUT_NAME = /^[A-Za-z0-9_$.[\]-]+$/;
 
-const Route = (label: string) =>
+@ValidatorConstraint({ name: 'cssSelector' })
+class CssSelector implements ValidatorConstraintInterface {
+  private readonly $ = load('<p></p>');
+  validate(value: unknown) {
+    if (typeof value !== 'string' || !value) return false;
+    try {
+      this.$(value);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  defaultMessage() {
+    return 'no es un selector válido';
+  }
+}
+
+@ValidatorConstraint({ name: 'idPattern' })
+/** A regular expression with exactly one group. */
+class IdPattern implements ValidatorConstraintInterface {
+  validate(value: unknown) {
+    if (typeof value !== 'string') return false;
+    try {
+      return new RegExp(`${value}|`).exec('')!.length === 2;
+    } catch {
+      return false;
+    }
+  }
+  defaultMessage() {
+    return 'Patrón del id: una expresión con un solo grupo, por ejemplo id_order=(\\d+)';
+  }
+}
+
+const Page = (label: string) =>
   applyDecorators(
     Transform(trim),
     IsString(),
@@ -33,81 +69,120 @@ const Route = (label: string) =>
     Matches(PATH, { message: `${label}: debe empezar por /` }),
     Matches(NO_DOTS, { message: `${label}: no puede llevar «..»` }),
   );
-const Field = (label: string) =>
+const Input = (label: string) =>
   applyDecorators(
     Transform(trim),
     IsString(),
-    MaxLength(100),
-    Matches(FIELD, {
-      message: `${label}: escribe el nombre del campo, con puntos si va dentro de otro (data.pedidos)`,
-    }),
+    MaxLength(60),
+    Matches(INPUT_NAME, { message: `${label}: escribe el nombre del campo` }),
+  );
+const Selector = (label: string) =>
+  applyDecorators(
+    Transform(trim),
+    IsString(),
+    MaxLength(200),
+    Validate(CssSelector, { message: `${label}: no es un selector válido` }),
   );
 /** Left empty, it is saved as null. */
 const Optional = (inner: PropertyDecorator) =>
   applyDecorators(Transform(emptyToNull), IsOptional(), inner);
 
 export class LoginDto {
-  @Route('Ruta de inicio de sesión')
+  @Page('Página de inicio de sesión')
   path: string;
 
-  @IsIn(['json', 'form'], { message: 'Formato de inicio de sesión no válido' })
-  format: 'json' | 'form';
-
-  @Field('Campo del usuario')
+  @Input('Campo del usuario')
   userField: string;
 
-  @Field('Campo de la contraseña')
+  @Input('Campo de la contraseña')
   passwordField: string;
-
-  @IsIn(['cookie', 'token'], { message: 'Indica cómo se mantiene la sesión' })
-  session: 'cookie' | 'token';
-
-  @Transform(emptyToNull)
-  @ValidateIf((o: LoginDto) => o.session === 'token' || o.tokenPath != null)
-  @IsNotEmpty({ message: 'Indica dónde viene el token' })
-  @Field('Dónde viene el token')
-  tokenPath: string | null;
 }
 
-export class OrdersDto {
-  @Route('Ruta de la lista de pedidos')
-  listPath: string;
+export class HistoryDto {
+  @Page('Página del historial')
+  path: string;
 
-  @Optional(Field('Dónde está la lista'))
-  itemsPath: string | null;
+  @Selector('Filas del historial')
+  rowSelector: string;
+
+  @Selector('Referencia')
+  referenceSelector: string;
+
+  @Selector('Fecha')
+  dateSelector: string;
+
+  @Selector('Total')
+  totalSelector: string;
+
+  @Optional(Selector('Pago'))
+  paymentSelector: string | null;
+
+  @Optional(Selector('Estado'))
+  statusSelector: string | null;
+
+  @Optional(Selector('Enlace a la factura'))
+  invoiceLinkSelector: string | null;
+
+  @Selector('Enlace al pedido')
+  detailLinkSelector: string;
+
+  @Transform(trim)
+  @IsString()
+  @IsNotEmpty({ message: 'Indica el patrón del id' })
+  @MaxLength(100)
+  @Validate(IdPattern)
+  idPattern: string;
+}
+
+export class DetailDto {
+  @Page('Página del pedido')
+  @Matches(/\{id\}/, { message: 'Página del pedido: tiene que llevar {id}' })
+  path: string;
+
+  @Selector('Filas del pedido')
+  rowSelector: string;
+
+  @Selector('Producto')
+  productSelector: string;
+
+  @Optional(Selector('Referencia del producto'))
+  refSelector: string | null;
 
   @Transform(emptyToNull)
   @IsOptional()
-  @Route('Ruta del detalle')
-  @Matches(/\{id\}/, { message: 'Ruta del detalle: tiene que llevar {id}' })
-  detailPath: string | null;
+  @IsString()
+  @MaxLength(100)
+  @Validate(IdPattern, {
+    message:
+      'Patrón de la referencia: una expresión con un solo grupo, por ejemplo Referencia:\\s*(\\S+)',
+  })
+  refPattern: string | null;
 
-  @Field('Id del pedido')
-  idField: string;
+  @Optional(Selector('Enlace al producto'))
+  productLinkSelector: string | null;
 
-  @Optional(Field('Número del pedido'))
-  numberField: string | null;
+  @Transform(emptyToNull)
+  @IsOptional()
+  @Page('Búsqueda del producto')
+  @Matches(/\{ref\}/, {
+    message: 'Búsqueda del producto: tiene que llevar {ref}',
+  })
+  productSearchPath: string | null;
 
-  @Optional(Field('Fecha del pedido'))
-  dateField: string | null;
+  @Selector('Cantidad')
+  quantitySelector: string;
 
-  @Field('Dónde están las líneas')
-  linesPath: string;
+  @Selector('Precio unitario')
+  unitPriceSelector: string;
 
-  @Optional(Field('Referencia'))
-  refField: string | null;
-
-  @Field('Descripción')
-  descriptionField: string;
-
-  @Field('Cantidad')
-  quantityField: string;
-
-  @Field('Coste por unidad')
-  unitCostField: string;
+  @Optional(Selector('Precio total'))
+  lineTotalSelector: string | null;
 }
 
 export class SupplierConnectionDto {
+  @Equals('html', { message: 'Tipo de conexión no válido' })
+  kind: 'html';
+
   @Transform(({ value }: { value: unknown }) =>
     typeof value === 'string' ? value.trim().replace(/\/+$/, '') : value,
   )
@@ -124,8 +199,12 @@ export class SupplierConnectionDto {
   login: LoginDto;
 
   @ValidateNested()
-  @Type(() => OrdersDto)
-  orders: OrdersDto;
+  @Type(() => HistoryDto)
+  history: HistoryDto;
+
+  @ValidateNested()
+  @Type(() => DetailDto)
+  detail: DetailDto;
 }
 
 export class SupplierCredentialsDto {

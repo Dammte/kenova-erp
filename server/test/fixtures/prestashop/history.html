@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><title>Historial de pedidos</title></head>
+<body id="history" class="page-history page-customer-account">
+<section id="main"><section id="content" class="page-content">
+<table class="table table-striped table-bordered table-labeled hidden-sm-down">
+  <thead class="thead-default"><tr><th>Referencia del pedido</th><th>Fecha</th><th>Precio total</th><th class="hidden-md-down">Pago</th><th class="hidden-md-down">Estado</th><th class="hidden-md-down">Factura</th><th>&nbsp;</th></tr></thead>
+  <tbody>
+    <tr>
+      <th scope="row">ABCDEFGHI</th>
+      <td>25/11/2026</td>
+      <td class="text-xs-right">1.106,03&nbsp;€</td>
+      <td class="hidden-md-down">Pago con tarjeta</td>
+      <td><span class="label label-pill dark" style="background-color:#3498D8"> Pago aceptado </span></td>
+      <td class="text-sm-center hidden-md-down"> - </td>
+      <td class="text-sm-center order-actions">
+        <a href="https://b2b.proveedor.test/index.php?controller=order-detail&amp;id_order=1001" data-link-action="view-order-details"> Datos </a>
+        <a href="https://b2b.proveedor.test/pedido?submitReorder=&amp;id_order=1001">Pedir de nuevo</a>
+      </td>
+    </tr>
+    <tr>
+      <th scope="row">JKLMNOPQR</th>
+      <td>07/07/2023</td>
+      <td class="text-xs-right">16,15&nbsp;€</td>
+      <td class="hidden-md-down">Pago contra reembolso</td>
+      <td><span class="label label-pill bright"> Entregado </span></td>
+      <td class="text-sm-center hidden-md-down"><a href="https://b2b.proveedor.test/index.php?controller=pdf-invoice&amp;id_order=998"><i class="material-icons">&#xE415;</i></a></td>
+      <td class="text-sm-center order-actions">
+        <a href="https://b2b.proveedor.test/index.php?controller=order-detail&amp;id_order=998" data-link-action="view-order-details"> Datos </a>
+      </td>
+    </tr>
+  </tbody>
+</table>
+</section></section>
+</body></html>

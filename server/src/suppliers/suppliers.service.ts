@@ -85,15 +85,22 @@ export class SuppliersService {
   ): Promise<Supplier> {
     const found = await this.findOne(id);
     found.connection = {
+      kind: 'html',
       baseUrl: dto.baseUrl,
-      login: { ...dto.login, tokenPath: dto.login.tokenPath ?? null },
-      orders: {
-        ...dto.orders,
-        itemsPath: dto.orders.itemsPath ?? null,
-        detailPath: dto.orders.detailPath ?? null,
-        numberField: dto.orders.numberField ?? null,
-        dateField: dto.orders.dateField ?? null,
-        refField: dto.orders.refField ?? null,
+      login: { ...dto.login },
+      history: {
+        ...dto.history,
+        paymentSelector: dto.history.paymentSelector ?? null,
+        statusSelector: dto.history.statusSelector ?? null,
+        invoiceLinkSelector: dto.history.invoiceLinkSelector ?? null,
+      },
+      detail: {
+        ...dto.detail,
+        refSelector: dto.detail.refSelector ?? null,
+        refPattern: dto.detail.refPattern ?? null,
+        productLinkSelector: dto.detail.productLinkSelector ?? null,
+        productSearchPath: dto.detail.productSearchPath ?? null,
+        lineTotalSelector: dto.detail.lineTotalSelector ?? null,
       },
     };
     const saved = await this.repo.save(found);

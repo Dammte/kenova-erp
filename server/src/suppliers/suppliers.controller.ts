@@ -3,12 +3,14 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
   Param,
   ParseUUIDPipe,
   Patch,
   Post,
   Put,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import type { AuthUser } from '../auth/auth.types';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -19,12 +21,16 @@ import {
 } from './dto/connection.dto';
 import { CreateSupplierDto, UpdateSupplierDto } from './dto/supplier.dto';
 import { SuppliersService } from './suppliers.service';
+import { SupplierWebService } from './web/supplier-web.service';
 
 /** Buying parts is the administrator's, like the stock (decision 5). */
 @Roles(UserRole.SUPER_ADMIN)
 @Controller('suppliers')
 export class SuppliersController {
-  constructor(private readonly suppliers: SuppliersService) {}
+  constructor(
+    private readonly suppliers: SuppliersService,
+    private readonly web: SupplierWebService,
+  ) {}
 
   @Get()
   list() {
@@ -76,5 +82,13 @@ export class SuppliersController {
     @CurrentUser() user: AuthUser,
   ) {
     return this.suppliers.clearCredentials(id, user.id);
+  }
+
+  /** «Probar conexión»: logs in on its website and reads; saves nothing. */
+  @Post(':id/test')
+  @HttpCode(200)
+  @Throttle({ default: { limit: 6, ttl: 60_000 } })
+  test(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthUser) {
+    return this.web.test(id, user.id);
   }
 }
