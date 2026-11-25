@@ -7,6 +7,7 @@ import Sidebar from "@/components/shell/Sidebar";
 import Topbar from "@/components/shell/Topbar";
 import styles from "@/app/admin-layout.module.css";
 import { AuthProvider, useAuth } from "./AuthProvider";
+import { StartupScreen } from "./StartupScreen";
 
 /** Pages that render without the sidebar and without a session. */
 const PUBLIC_PATHS = ["/login", "/recuperar-contrasena", "/restablecer-contrasena"];
@@ -16,10 +17,11 @@ const isPrintPage = (pathname: string) =>
   /^\/ordenes\/[^/]+\/resguardo$/.test(pathname) || /^\/envios\/[^/]+\/hoja$/.test(pathname);
 
 function ProtectedContent({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
+  const { user, loading, unreachable, refresh } = useAuth();
   const pathname = usePathname();
-  // Nothing from the app is rendered until the session is confirmed.
-  if (loading || !user) return null;
+  // Nothing from the app is rendered until the session is confirmed; a slow
+  // or absent server gets a message instead of a blank page.
+  if (loading || !user) return <StartupScreen unreachable={unreachable} onRetry={() => void refresh()} />;
   // First access: only the "choose a new password" screen, without the app
   // around it; any other page waits for the redirect to it.
   if (user.mustChangePassword) {
