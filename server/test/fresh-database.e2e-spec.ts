@@ -69,6 +69,7 @@ describe('Migrations on an empty database', () => {
       'RefundOfCharge1764900000000',
       'CashCorrections1765000000000',
       'OrderSymptoms1765100000000',
+      'Suppliers1765200000000',
     ]);
   });
 
