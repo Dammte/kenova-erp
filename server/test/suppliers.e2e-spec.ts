@@ -6,10 +6,10 @@ describe('Proveedores', () => {
   let store: string;
 
   const send = (
-    method: 'post' | 'patch',
+    method: 'post' | 'patch' | 'put' | 'delete',
     cookie: string,
     url: string,
-    body: object,
+    body: object = {},
   ) =>
     t
       .http()
@@ -108,5 +108,159 @@ describe('Proveedores', () => {
     expect(
       (await send('post', store, '/api/suppliers', { name: 'Tienda' })).status,
     ).toBe(403);
+  });
+
+  describe('Conexión con la web del proveedor', () => {
+    let id: string;
+    const CONNECTION = {
+      baseUrl: 'https://b2b.norte.test/',
+      login: {
+        path: '/api/login',
+        format: 'json',
+        userField: 'email',
+        passwordField: 'password',
+        session: 'token',
+        tokenPath: 'data.token',
+      },
+      orders: {
+        listPath: '/api/orders?status=all',
+        itemsPath: 'data.orders',
+        detailPath: '/api/orders/{id}',
+        idField: 'id',
+        numberField: 'reference',
+        dateField: '',
+        linesPath: 'lines',
+        refField: 'sku',
+        descriptionField: 'name',
+        quantityField: 'qty',
+        unitCostField: 'unit_price',
+      },
+    };
+
+    beforeAll(async () => {
+      id = (await send('post', sa, '/api/suppliers', { name: 'Gamma' })).body
+        .id;
+    });
+
+    it('saves the routes and field names, tidied', async () => {
+      const res = await send(
+        'put',
+        sa,
+        `/api/suppliers/${id}/connection`,
+        CONNECTION,
+      );
+      expect(res.status).toBe(200);
+      expect(res.body.connection).toEqual({
+        ...CONNECTION,
+        baseUrl: 'https://b2b.norte.test',
+        orders: { ...CONNECTION.orders, dateField: null },
+      });
+      const list = await t.http().get('/api/suppliers').set('Cookie', sa);
+      expect(
+        list.body.find((s: { id: string }) => s.id === id).connection.baseUrl,
+      ).toBe('https://b2b.norte.test');
+    });
+
+    it('refuses another address, plain http and routes that leave the host', async () => {
+      const res = await send('put', sa, `/api/suppliers/${id}/connection`, {
+        ...CONNECTION,
+        baseUrl: 'http://b2b.norte.test/api',
+        login: { ...CONNECTION.login, path: '//evil.test/x', tokenPath: '' },
+        orders: {
+          ...CONNECTION.orders,
+          listPath: '/api/../admin',
+          detailPath: '/api/orders',
+          idField: 'id; DROP',
+        },
+      });
+      expect(res.status).toBe(400);
+      expect(res.body.message).toEqual(
+        expect.arrayContaining([
+          'Dirección base: solo https:// y el dominio, sin rutas (https://b2b.proveedor.es)',
+          'login.Ruta de inicio de sesión: debe empezar por /',
+          'login.Indica dónde viene el token',
+          'orders.Ruta de la lista de pedidos: no puede llevar «..»',
+          'orders.Ruta del detalle: tiene que llevar {id}',
+          'orders.Id del pedido: escribe el nombre del campo, con puntos si va dentro de otro (data.pedidos)',
+        ]),
+      );
+    });
+
+    it('keeps the login encrypted and never sends it back', async () => {
+      const res = await send('put', sa, `/api/suppliers/${id}/credentials`, {
+        username: ' compras@kenova.test ',
+        password: 'S3creta!',
+      });
+      expect(res.status).toBe(200);
+      expect(res.body.credentialsUpdatedAt).toEqual(expect.any(String));
+      expect(JSON.stringify(res.body)).not.toContain('S3creta');
+      expect(JSON.stringify(res.body)).not.toContain('credentialsCiphertext');
+      const [row] = await t.db.query(
+        `SELECT "credentialsCiphertext" AS c FROM suppliers WHERE id = $1`,
+        [id],
+      );
+      expect(row.c).toMatch(/^[\w-]+:[\w-]+:[\w-]+:[\w-]+$/);
+      expect(row.c).not.toContain('S3creta');
+      const list = await t.http().get('/api/suppliers').set('Cookie', sa);
+      expect(JSON.stringify(list.body)).not.toContain(row.c);
+    });
+
+    it('the server can open it, only for that supplier', async () => {
+      const { SuppliersService } = await import(
+        '../src/suppliers/suppliers.service'
+      );
+      const service = t.app.get(SuppliersService);
+      expect(await service.credentials(id)).toEqual({
+        username: 'compras@kenova.test',
+        password: 'S3creta!',
+      });
+      const other = (
+        await send('post', sa, '/api/suppliers', { name: 'Delta' })
+      ).body.id;
+      await t.db.query(
+        `UPDATE suppliers SET "credentialsCiphertext" =
+           (SELECT "credentialsCiphertext" FROM suppliers WHERE id = $1)
+         WHERE id = $2`,
+        [id, other],
+      );
+      await expect(service.credentials(other)).rejects.toThrow();
+    });
+
+    it('deletes the login', async () => {
+      const res = await send('delete', sa, `/api/suppliers/${id}/credentials`);
+      expect(res.status).toBe(200);
+      expect(res.body.credentialsUpdatedAt).toBeNull();
+      const audit = await t.db.query(
+        `SELECT action FROM audit_events WHERE "entityId" = $1 ORDER BY "createdAt"`,
+        [id],
+      );
+      expect(audit.map((a: { action: string }) => a.action)).toEqual([
+        'SUPPLIER_CREATED',
+        'SUPPLIER_CONNECTION_UPDATED',
+        'SUPPLIER_CREDENTIALS_SET',
+        'SUPPLIER_CREDENTIALS_CLEARED',
+      ]);
+    });
+
+    it('is only for the administrator', async () => {
+      expect(
+        (
+          await send('put', store, `/api/suppliers/${id}/credentials`, {
+            username: 'a',
+            password: 'b',
+          })
+        ).status,
+      ).toBe(403);
+      expect(
+        (
+          await send(
+            'put',
+            store,
+            `/api/suppliers/${id}/connection`,
+            CONNECTION,
+          )
+        ).status,
+      ).toBe(403);
+    });
   });
 });

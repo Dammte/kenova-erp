@@ -1,16 +1,22 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
 } from '@nestjs/common';
 import type { AuthUser } from '../auth/auth.types';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../users/entities/user.entity';
+import {
+  SupplierConnectionDto,
+  SupplierCredentialsDto,
+} from './dto/connection.dto';
 import { CreateSupplierDto, UpdateSupplierDto } from './dto/supplier.dto';
 import { SuppliersService } from './suppliers.service';
 
@@ -43,5 +49,32 @@ export class SuppliersController {
     @CurrentUser() user: AuthUser,
   ) {
     return this.suppliers.update(id, dto, user.id);
+  }
+
+  @Put(':id/connection')
+  saveConnection(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SupplierConnectionDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.suppliers.saveConnection(id, dto, user.id);
+  }
+
+  /** Write-only: the answer says that there is a login, never what it is. */
+  @Put(':id/credentials')
+  setCredentials(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SupplierCredentialsDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.suppliers.setCredentials(id, dto, user.id);
+  }
+
+  @Delete(':id/credentials')
+  clearCredentials(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.suppliers.clearCredentials(id, user.id);
   }
 }

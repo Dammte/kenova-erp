@@ -6,8 +6,16 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { QueryFailedError, Repository } from 'typeorm';
 import { AuditService } from '../audit/audit.service';
+import { SecretCipher } from '../common/crypto/secret-cipher';
+import {
+  SupplierConnectionDto,
+  SupplierCredentialsDto,
+} from './dto/connection.dto';
 import { CreateSupplierDto, UpdateSupplierDto } from './dto/supplier.dto';
 import { Supplier } from './entities/supplier.entity';
+
+/** Binds the ciphertext to its supplier: copied onto another row it does not open. */
+const aad = (supplierId: string) => `supplier:${supplierId}`;
 
 const isUniqueViolation = (e: unknown) =>
   e instanceof QueryFailedError &&
@@ -15,6 +23,8 @@ const isUniqueViolation = (e: unknown) =>
 
 @Injectable()
 export class SuppliersService {
+  private readonly cipher = SecretCipher.fromEnv();
+
   constructor(
     @InjectRepository(Supplier) private readonly repo: Repository<Supplier>,
     private readonly audit: AuditService,
@@ -65,6 +75,91 @@ export class SuppliersService {
       metadata: { fields: Object.keys(dto) },
     });
     return saved;
+  }
+
+  /** «Conexión»: the routes and field names, replaced as a whole. */
+  async saveConnection(
+    id: string,
+    dto: SupplierConnectionDto,
+    actorId: string,
+  ): Promise<Supplier> {
+    const found = await this.findOne(id);
+    found.connection = {
+      baseUrl: dto.baseUrl,
+      login: { ...dto.login, tokenPath: dto.login.tokenPath ?? null },
+      orders: {
+        ...dto.orders,
+        itemsPath: dto.orders.itemsPath ?? null,
+        detailPath: dto.orders.detailPath ?? null,
+        numberField: dto.orders.numberField ?? null,
+        dateField: dto.orders.dateField ?? null,
+        refField: dto.orders.refField ?? null,
+      },
+    };
+    const saved = await this.repo.save(found);
+    await this.audit.record({
+      action: 'SUPPLIER_CONNECTION_UPDATED',
+      actorUserId: actorId,
+      entityType: 'supplier',
+      entityId: id,
+      metadata: { baseUrl: dto.baseUrl },
+    });
+    return saved;
+  }
+
+  /** Stores the website login encrypted; it is never shown again. */
+  async setCredentials(
+    id: string,
+    dto: SupplierCredentialsDto,
+    actorId: string,
+  ): Promise<Supplier> {
+    await this.findOne(id);
+    await this.repo.update(id, {
+      credentialsCiphertext: this.cipher.encrypt(
+        JSON.stringify({ username: dto.username, password: dto.password }),
+        aad(id),
+      ),
+      credentialsUpdatedAt: new Date(),
+    });
+    await this.audit.record({
+      action: 'SUPPLIER_CREDENTIALS_SET',
+      actorUserId: actorId,
+      entityType: 'supplier',
+      entityId: id,
+      metadata: { keyId: this.cipher.activeKeyId },
+    });
+    return this.findOne(id);
+  }
+
+  async clearCredentials(id: string, actorId: string): Promise<Supplier> {
+    await this.findOne(id);
+    await this.repo.update(id, {
+      credentialsCiphertext: null,
+      credentialsUpdatedAt: null,
+    });
+    await this.audit.record({
+      action: 'SUPPLIER_CREDENTIALS_CLEARED',
+      actorUserId: actorId,
+      entityType: 'supplier',
+      entityId: id,
+    });
+    return this.findOne(id);
+  }
+
+  /** The login in clear, for the server's own calls to the supplier; null without one. */
+  async credentials(
+    id: string,
+  ): Promise<{ username: string; password: string } | null> {
+    const row = await this.repo
+      .createQueryBuilder('s')
+      .addSelect('s.credentialsCiphertext')
+      .where('s.id = :id', { id })
+      .getOne();
+    if (!row) throw new NotFoundException('Proveedor no encontrado');
+    if (!row.credentialsCiphertext) return null;
+    return JSON.parse(
+      this.cipher.decrypt(row.credentialsCiphertext, aad(id)),
+    ) as { username: string; password: string };
   }
 
   private async save(supplier: Supplier, name: string): Promise<Supplier> {

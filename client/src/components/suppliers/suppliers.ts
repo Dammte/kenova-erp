@@ -1,4 +1,5 @@
 /** «Configuración › Proveedores»: the companies Kenova buys parts from. */
+import type { SupplierConnection } from "./connection";
 
 /** GET /api/suppliers. */
 export interface SupplierData {
@@ -12,9 +13,12 @@ export interface SupplierData {
   website: string | null;
   notes: string | null;
   active: boolean;
+  connection: SupplierConnection | null;
+  /** When the website login was saved; null = none. The login itself never comes. */
+  credentialsUpdatedAt: string | null;
 }
 
-type Field = Exclude<keyof SupplierData, "id" | "active">;
+type Field = Exclude<keyof SupplierData, "id" | "active" | "connection" | "credentialsUpdatedAt">;
 
 /** The form's fields, as typed. */
 export type SupplierDraft = Record<Field, string>;
