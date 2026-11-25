@@ -16,9 +16,11 @@ export interface SupplierData {
   connection: SupplierConnection | null;
   /** When the website login was saved; null = none. The login itself never comes. */
   credentialsUpdatedAt: string | null;
+  /** When «Sincronizar» last read its orders; null = never. */
+  ordersSyncedAt: string | null;
 }
 
-type Field = Exclude<keyof SupplierData, "id" | "active" | "connection" | "credentialsUpdatedAt">;
+type Field = Exclude<keyof SupplierData, "id" | "active" | "connection" | "credentialsUpdatedAt" | "ordersSyncedAt">;
 
 /** The form's fields, as typed. */
 export type SupplierDraft = Record<Field, string>;

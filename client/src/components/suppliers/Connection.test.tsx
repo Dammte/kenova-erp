@@ -25,6 +25,7 @@ const supplier = (extra: Partial<SupplierData> = {}): SupplierData => ({
   active: true,
   connection: null,
   credentialsUpdatedAt: null,
+  ordersSyncedAt: null,
   ...extra,
 });
 const TEST: WebTestResult = {

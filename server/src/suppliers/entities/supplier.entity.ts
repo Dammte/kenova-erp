@@ -67,6 +67,10 @@ export class Supplier {
   @Column({ type: 'timestamptz', nullable: true })
   credentialsUpdatedAt: Date | null;
 
+  /** When «Sincronizar» last read its orders; null = never. */
+  @Column({ type: 'timestamptz', nullable: true })
+  ordersSyncedAt: Date | null;
+
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;
 
