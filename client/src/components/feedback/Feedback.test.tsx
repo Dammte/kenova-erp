@@ -3,11 +3,11 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import NotFound from "@/app/not-found";
 import AppError from "@/app/error";
 import { OfflineBanner } from "./OfflineBanner";
-import { OPEN_SEARCH_EVENT } from "@/components/shell/BottomBar";
 
 const push = vi.fn();
 const back = vi.fn();
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push, back }) }));
+const replace = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push, back, replace }) }));
 
 afterEach(() => {
   cleanup();
@@ -15,21 +15,14 @@ afterEach(() => {
   vi.unstubAllGlobals();
   push.mockReset();
   back.mockReset();
+  replace.mockReset();
 });
 
 describe("error screens", () => {
-  it("404 offers the search, the Panel and going back", () => {
-    const opened = vi.fn();
-    window.addEventListener(OPEN_SEARCH_EVENT, opened);
+  it("a link that leads nowhere goes straight to the Panel", () => {
     render(<NotFound />);
-    screen.getByRole("heading", { name: "Esta página no existe" });
-    fireEvent.click(screen.getByRole("button", { name: "Buscar orden, cliente o teléfono…" }));
-    expect(opened).toHaveBeenCalledOnce();
-    fireEvent.click(screen.getByRole("button", { name: "Ir al Panel" }));
-    expect(push).toHaveBeenCalledWith("/panel");
-    fireEvent.click(screen.getByRole("button", { name: "Volver atrás" }));
-    expect(back).toHaveBeenCalledOnce();
-    window.removeEventListener(OPEN_SEARCH_EVENT, opened);
+    screen.getByRole("heading", { name: "Te llevamos al Panel…" });
+    expect(replace).toHaveBeenCalledWith("/panel");
   });
 
   it("a failure gives the time to tell a partner, and retries", () => {

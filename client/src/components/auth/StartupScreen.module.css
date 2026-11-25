@@ -1,0 +1,6 @@
+/* Fills the window: it shows before the app shell exists. */
+.page {
+  display: grid;
+  min-height: 100dvh;
+  background: var(--k-bg);
+}
