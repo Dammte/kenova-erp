@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { SuppliersPage } from "./SuppliersPage";
 import { emptySupplier, supplierBody, supplierDraftFrom, supplierSummary, validateSupplier, type SupplierData } from "./suppliers";
 
@@ -91,6 +91,16 @@ describe("Proveedores", () => {
     expect(screen.getByText("Ane · 944 000 000 · nº cliente C-1042")).toBeTruthy();
     expect(screen.getByText("Desactivado")).toBeTruthy();
     expect(screen.getByText("Sin datos de contacto")).toBeTruthy();
+  });
+
+  it("is the «Proveedores» tab, next to «Pedidos»", async () => {
+    render(<SuppliersPage />);
+    await screen.findByText("Repuestos Norte");
+    const tabs = within(screen.getByRole("navigation", { name: "Proveedores" }));
+    expect(tabs.getByRole("link", { name: "Pedidos" }).getAttribute("href")).toBe("/proveedores/pedidos");
+    const own = tabs.getByRole("link", { current: "page" });
+    expect(own.getAttribute("href")).toBe("/proveedores");
+    expect(own.textContent).toMatch(/^Proveedores\d+$/);
   });
 
   it("creates one, refusing a bad email before sending", async () => {

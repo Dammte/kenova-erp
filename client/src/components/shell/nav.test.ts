@@ -6,8 +6,8 @@ const labels = (items: { label: string }[]) => items.map((i) => i.label);
 describe("navFor", () => {
   it("the partners see stock and settings", () => {
     const nav = navFor("SUPER_ADMIN", true);
-    expect(labels(nav.main)).toEqual(["Panel", "Órdenes", "Envíos", "Presupuestos", "Tarifas", "Clientes", "Inventario", "Dinero"]);
-    expect(labels(nav.settings)).toEqual(["Servicios", "Catálogo", "Proveedores", "Plantillas", "Usuarios", "Tienda", "Papelera", "Copia de seguridad"]);
+    expect(labels(nav.main)).toEqual(["Panel", "Órdenes", "Envíos", "Presupuestos", "Tarifas", "Clientes", "Inventario", "Proveedores", "Dinero"]);
+    expect(labels(nav.settings)).toEqual(["Servicios", "Catálogo", "Plantillas", "Usuarios", "Tienda", "Papelera", "Copia de seguridad"]);
   });
 
   it("a store sees no stock and only its own notice texts in settings", () => {
@@ -31,6 +31,12 @@ describe("isActive", () => {
     expect(isActive("/serviceOrders", "/serviceOrders/newServiceOrder")).toBe(true);
     expect(isActive("/services", "/serviceOrders")).toBe(false);
     expect(isActive("/clients", "/clientsx")).toBe(false);
+  });
+
+  it("Proveedores stays lit on both its tabs", () => {
+    expect(isActive("/proveedores/pedidos", "/proveedores/pedidos")).toBe(true);
+    expect(isActive("/proveedores/pedidos", "/proveedores")).toBe(true);
+    expect(isActive("/inventario", "/proveedores")).toBe(false);
   });
 
   it("Órdenes stays lit on the older order screens", () => {
