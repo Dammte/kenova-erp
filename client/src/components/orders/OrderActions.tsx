@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, type FormEvent, type ReactNode } from "react";
-import { Check, PackageCheck, PackageOpen, PhoneIncoming } from "lucide-react";
+import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { Banknote, Check, MoreHorizontal, PackageCheck, PackageOpen, PhoneIncoming, Send } from "lucide-react";
 import { Button } from "@/components/ui";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { API_URL, apiFetch, errorMessage } from "@/lib/api";
@@ -13,17 +13,30 @@ import { PartOrderForm, PartOrderList, usePartOrders } from "./PartOrderSection"
 import styles from "./OrderPanel.module.css";
 
 /**
- * Design 1.5: the one next step for the order's status, at the top of the
- * panel. Other moves stay in the list's status menu.
+ * Design R3 3.3: the panel's main action for the order's status, «Cobrar» as
+ * the second one while money is owed, and the rest under «⋯». Other moves
+ * stay in the list's status menu.
  */
 export function OrderActions({
   order,
   payments,
   onChanged,
+  onCharge,
+  onNotify,
+  notified = true,
+  menu,
 }: {
   order: OrderDetail;
   payments: OrderPayment[];
   onChanged: () => void;
+  /** Opens the charge form; offered while something is owed. */
+  onCharge?: () => void;
+  /** Opens the notice form; a finished order not notified yet leads with it. */
+  onNotify?: () => void;
+  /** Whether the client was told since the order was finished. */
+  notified?: boolean;
+  /** Links that go first under «⋯» (printing, the quote). */
+  menu?: ReactNode;
 }) {
   const { user } = useAuth();
   const [step, setStep] = useState<"idle" | "finish" | "deliver" | "cancel" | "part" | "reject">("idle");
@@ -107,13 +120,37 @@ export function OrderActions({
     body =
       step === "deliver" ? (
         <DeliverForm order={order} onCancel={() => setStep("idle")} onDone={onChanged} />
+      ) : !notified && onNotify ? (
+        <>
+          <Button variant="primary" icon={<Send size={16} aria-hidden />} onClick={onNotify}>
+            Avisar al cliente
+          </Button>
+          <Button icon={<PackageOpen size={16} aria-hidden />} onClick={() => setStep("deliver")}>
+            Entregar…
+          </Button>
+        </>
       ) : (
         <Button variant="primary" icon={<PackageOpen size={16} aria-hidden />} onClick={() => setStep("deliver")}>
           Entregar…
         </Button>
       );
   } else {
-    return null;
+    // Delivered or cancelled: read only; printing is what is left to do.
+    return (
+      <section className={styles.next} aria-label="Acciones de la orden">
+        <p className={styles.readOnly}>
+          {status === "entregado" ? "Entregada" : "Cancelada"} · solo lectura
+        </p>
+        <div className={styles.actionRow}>
+          {onCharge && Number(order.balance) > 0 && status !== "cancelado" && (
+            <Button variant="primary" icon={<Banknote size={16} aria-hidden />} onClick={onCharge}>
+              Cobrar
+            </Button>
+          )}
+          <MoreMenu>{menu}</MoreMenu>
+        </div>
+      </section>
+    );
   }
   const canOrderPart = partner && (status === "en_progreso" || status === "pendiente_piezas");
   if (step === "cancel") {
@@ -145,37 +182,44 @@ export function OrderActions({
     );
   } else if (step === "idle") {
     // A delivered order is not cancelled: its money goes back with a refund.
-    body = (
-      <>
+    const owed = Number(order.balance) > 0;
+    const row = (
+      <div className={styles.actionRow}>
         {body}
-        <p className={styles.secondary}>
+        {onCharge && owed && (
+          <Button icon={<Banknote size={16} aria-hidden />} onClick={onCharge}>
+            Cobrar
+          </Button>
+        )}
+        <MoreMenu>
+          {menu}
           {canOrderPart && (
-            <Button variant="ghost" size="sm" onClick={() => setStep("part")}>
+            <button type="button" className={styles.menuItem} onClick={() => setStep("part")}>
               {ordered?.length ? "Pedir otra pieza…" : "Pedir pieza…"}
-            </Button>
+            </button>
           )}
           {/* Design R2 «Garantía no procede»: the claim is not covered, the work is charged as usual. */}
           {order.warrantyOfId &&
             (order.warrantyRejectedReason ? (
-              <Button variant="ghost" size="sm" loading={saving} onClick={() => void patch({ warrantyRejectedReason: null })}>
+              <button type="button" className={styles.menuItem} onClick={() => void patch({ warrantyRejectedReason: null })}>
                 La garantía sí procede
-              </Button>
+              </button>
             ) : (
-              <Button variant="ghost" size="sm" onClick={() => setStep("reject")}>
+              <button type="button" className={styles.menuItem} onClick={() => setStep("reject")}>
                 Garantía no procede…
-              </Button>
+              </button>
             ))}
-          <Button variant="ghost" size="sm" onClick={() => setStep("cancel")}>
+          <button type="button" className={`${styles.menuItem} ${styles.menuDanger}`} onClick={() => setStep("cancel")}>
             Cancelar orden…
-          </Button>
-        </p>
-      </>
+          </button>
+        </MoreMenu>
+      </div>
     );
+    body = row;
   }
 
   return (
-    <section className={styles.section}>
-      <h3 className={styles.sectionTitle}>Siguiente paso</h3>
+    <section className={styles.next} aria-label="Siguiente paso">
       {body}
       {problem && (
         <p className={styles.error} role="alert">
@@ -245,5 +289,45 @@ function ReasonForm({
         </Button>
       </p>
     </form>
+  );
+}
+
+/** «⋯»: the order's less frequent actions. Esc and a click outside close it. */
+function MoreMenu({ children }: { children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const id = useId();
+  const wrap = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onClick = (e: MouseEvent) => {
+      if (!wrap.current?.contains(e.target as Node)) setOpen(false);
+    };
+    window.addEventListener("mousedown", onClick);
+    return () => window.removeEventListener("mousedown", onClick);
+  }, [open]);
+  return (
+    <div
+      className={styles.more}
+      ref={wrap}
+      onKeyDown={(e) => {
+        // Esc closes the menu, not the panel.
+        if (e.key === "Escape" && open) {
+          e.stopPropagation();
+          setOpen(false);
+        }
+      }}
+    >
+      <Button
+        variant="secondary"
+        aria-label="Más acciones"
+        aria-expanded={open}
+        aria-controls={id}
+        icon={<MoreHorizontal size={16} aria-hidden />}
+        onClick={() => setOpen((o) => !o)}
+      />
+      <div id={id} className={styles.menu} hidden={!open} onClick={() => setOpen(false)}>
+        {children}
+      </div>
+    </div>
   );
 }
