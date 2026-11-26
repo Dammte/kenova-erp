@@ -119,3 +119,46 @@
   font-size: var(--k-text-sm);
   text-decoration: none;
 }
+
+/* Design R3 3.6: «Pedidos» and «Proveedores», two tabs of one section. */
+.tabs {
+  display: flex;
+  gap: var(--k-space-1);
+  border-bottom: var(--k-border-w) solid var(--k-border);
+}
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--k-space-2);
+  height: var(--k-control-h);
+  padding: 0 var(--k-space-3);
+  border-bottom: 2px solid transparent;
+  color: var(--k-text-muted);
+  font: 500 14px/20px var(--k-font-sans);
+  text-decoration: none;
+}
+.tab:hover {
+  color: var(--k-text);
+}
+.tab[aria-current="page"] {
+  color: var(--k-accent);
+  border-bottom-color: var(--k-accent);
+}
+.tab:focus-visible {
+  outline: none;
+  box-shadow: var(--k-focus-ring);
+}
+.tabCount {
+  min-width: 20px;
+  padding: 0 var(--k-space-1);
+  border-radius: var(--k-radius-full);
+  background: var(--k-subtle);
+  color: var(--k-text-muted);
+  font: var(--k-text-xs);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.tab[aria-current="page"] .tabCount {
+  background: var(--k-accent-subtle);
+  color: var(--k-accent);
+}

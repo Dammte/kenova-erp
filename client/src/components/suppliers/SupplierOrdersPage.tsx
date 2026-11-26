@@ -22,6 +22,7 @@ import {
 import type { SupplierData } from "./suppliers";
 import stores from "../stores/Stores.module.css";
 import own from "./Suppliers.module.css";
+import { SuppliersTabs } from "./SuppliersTabs";
 
 const styles = { ...stores, ...own };
 
@@ -125,11 +126,9 @@ function Orders() {
     <div className={styles.page}>
       <section className={styles.listPane} aria-label="Pedidos al proveedor">
         <div className={styles.top}>
-          <h1 className={styles.title}>Pedidos al proveedor</h1>
-          <Link href="/proveedores" className={styles.link}>
-            Proveedores
-          </Link>
+          <h1 className={styles.title}>Proveedores</h1>
         </div>
+        <SuppliersTabs current="pedidos" pending={data?.counts.PENDIENTE} suppliers={suppliers?.length} />
 
         <Sync
           supplier={syncing}

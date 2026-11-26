@@ -20,6 +20,7 @@ import {
 import { SupplierConnection } from "./SupplierConnection";
 // Same list-and-card layout as «Tienda».
 import styles from "../stores/Stores.module.css";
+import { SuppliersTabs } from "./SuppliersTabs";
 
 /** Administrator only, like the stock and the menu entry. */
 export function SuppliersPage() {
@@ -94,13 +95,11 @@ function Suppliers() {
       <section className={styles.listPane} aria-label="Proveedores">
         <div className={styles.top}>
           <h1 className={styles.title}>Proveedores</h1>
-          <Link href="/proveedores/pedidos" className={styles.link}>
-            Pedidos
-          </Link>
           <Button size="sm" onClick={() => select("nuevo")}>
             + Nuevo proveedor
           </Button>
         </div>
+        <SuppliersTabs current="directorio" suppliers={suppliers?.length} />
         {suppliers === null ? (
           <p className={styles.muted}>Cargando proveedores…</p>
         ) : suppliers.length === 0 ? (

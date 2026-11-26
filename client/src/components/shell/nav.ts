@@ -42,7 +42,8 @@ const SERVICES: NavItem = { label: "Servicios", href: "/servicios", icon: Wrench
 const TEMPLATES: NavItem = { label: "Plantillas", href: "/plantillas", icon: MessageSquareText };
 const USERS: NavItem = { label: "Usuarios", href: "/usuarios", icon: UserCog };
 const SHIPMENTS: NavItem = { label: "Envíos", href: "/envios", icon: Truck };
-const SUPPLIERS: NavItem = { label: "Proveedores", href: "/proveedores", icon: PackageSearch };
+// Design R3 3.6: daily use, so it opens on the orders bought from the suppliers.
+const SUPPLIERS: NavItem = { label: "Proveedores", href: "/proveedores/pedidos", icon: PackageSearch };
 const CATALOG: NavItem = { label: "Catálogo", href: "/catalogo", icon: Library };
 const TRASH: NavItem = { label: "Papelera", href: "/papelera", icon: Trash2 };
 const STORE: NavItem = { label: "Tienda", href: "/tienda", icon: Store };
@@ -57,8 +58,8 @@ export function navFor(role: Role, shipments = false): NavSections {
   const ship = shipments ? [SHIPMENTS] : [];
   if (role === "SUPER_ADMIN") {
     return {
-      main: [PANEL, ORDERS, ...ship, QUOTES, RATES, CLIENTS, INVENTORY, MONEY],
-      settings: [SERVICES, CATALOG, SUPPLIERS, TEMPLATES, USERS, STORE, TRASH, BACKUP],
+      main: [PANEL, ORDERS, ...ship, QUOTES, RATES, CLIENTS, INVENTORY, SUPPLIERS, MONEY],
+      settings: [SERVICES, CATALOG, TEMPLATES, USERS, STORE, TRASH, BACKUP],
     };
   }
   return { main: [PANEL, ORDERS, ...ship, QUOTES, RATES, CLIENTS, MONEY], settings: [TEMPLATES] };
@@ -74,6 +75,8 @@ const ALSO_UNDER: Record<string, string[]> = {
   "/clientes": ["/clients"],
   "/inventario": ["/inventory"],
   "/servicios": ["/services"],
+  // The suppliers' directory is the other tab of the same section.
+  "/proveedores/pedidos": ["/proveedores"],
 };
 
 const isUnder = (href: string, pathname: string): boolean =>

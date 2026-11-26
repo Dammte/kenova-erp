@@ -103,6 +103,14 @@ describe("Pedidos al proveedor", () => {
     expect(screen.getAllByText(/25\/11\/2026 · 106,03\s€ · Enviado/)).toHaveLength(2);
   });
 
+  it("is the first tab of «Proveedores», with the orders still to receive", async () => {
+    await show();
+    screen.getByRole("heading", { name: "Proveedores" });
+    const tabs = within(screen.getByRole("navigation", { name: "Proveedores" }));
+    expect(tabs.getByRole("link", { current: "page" }).textContent).toBe("Pedidos1");
+    expect(tabs.getByRole("link", { name: /Proveedores/ }).getAttribute("href")).toBe("/proveedores");
+  });
+
   it("filters by state through the address", async () => {
     await show();
     fireEvent.click(within(screen.getByRole("group", { name: "Estado" })).getByRole("button", { name: /Anterior al ERP/ }));
