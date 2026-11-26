@@ -127,42 +127,109 @@ async function open(order?: Partial<OrderDetail>) {
   await act(async () => {});
 }
 
+const tab = (name: string | RegExp) => fireEvent.click(screen.getByRole("tab", { name }));
+const more = () => fireEvent.click(screen.getByRole("button", { name: "Más acciones" }));
+const NOTES_TAB = /^Notas y avisos/;
+
 const patches = () =>
   fetchMock.mock.calls
     .filter(([, init]) => (init as RequestInit | undefined)?.method === "PATCH")
     .map(([url, init]) => [url, JSON.parse((init as RequestInit).body as string)]);
 
 describe("OrderPanel", () => {
-  it("leads with the fault, then the work, the money, the device and the client", async () => {
+  it("leads with the main action, then client, device, money, the fault and the tabs", async () => {
     await open();
     screen.getByRole("dialog", { name: "Orden MP-0142" });
+    screen.getByRole("button", { name: "Finalizar…" });
+    screen.getByRole("button", { name: "Cobrar" });
     const titles = screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent);
-    expect(titles).toEqual([
-      "Siguiente paso",
-      "Avería declarada en la entrada",
-      "Servicios y piezas",
-      "Pagos",
-      "Dispositivo",
-      "Cliente",
-      "Notas internas",
+    expect(titles).toEqual(["Cliente", "Equipo", "Dinero", "Avería declarada"]);
+    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual([
+      "Trabajo",
+      "Pagos2",
+      "Notas y avisos1",
       "Historial",
     ]);
+    expect(screen.getByRole("tab", { name: "Trabajo" }).getAttribute("aria-selected")).toBe("true");
     screen.getByText("Pantalla");
-    screen.getByText("Rayas en el marco");
+    screen.getByText("Estado: Rayas en el marco · Entrega: Funda");
     screen.getByText("Alta");
     screen.getByText("Móvil · Apple iPhone 13");
+    expect(screen.getByText("IMEI …521337").getAttribute("title")).toBe("356789104521337");
     screen.getByText("Lucía Fernández");
     screen.getByText("NIF 12345678Z", { exact: false });
-    screen.getByText("No restaurar sin llamar");
+    // An important note is shown above the tabs, whichever is open.
+    expect(screen.getByRole("list", { name: "Notas importantes" }).textContent).toBe("No restaurar sin llamar");
+    screen.getByText("Cambio de pantalla");
+    screen.getByText("Sin trabajo realizado todavía · se escribe al finalizar.");
+    expect(screen.getByRole("link", { name: "Ficha" }).getAttribute("href")).toBe("/serviceOrders/o1");
+
+    tab("Historial");
     screen.getByText("Orden creada");
+    expect(screen.queryByText("Cambio de pantalla")).toBeNull();
+  });
+
+  it("moves between tabs with the arrow keys", async () => {
+    await open();
+    fireEvent.keyDown(screen.getByRole("tab", { name: "Trabajo" }), { key: "ArrowLeft" });
+    expect(screen.getByRole("tab", { name: "Historial" }).getAttribute("aria-selected")).toBe("true");
+    expect(document.activeElement).toBe(screen.getByRole("tab", { name: "Historial" }));
+    fireEvent.keyDown(document.activeElement!, { key: "ArrowRight" });
+    expect(screen.getByRole("tab", { name: "Trabajo" }).getAttribute("aria-selected")).toBe("true");
+  });
+
+  it("«Cobrar» opens the charge form in Pagos", async () => {
+    await open();
+    fireEvent.click(screen.getByRole("button", { name: "Cobrar" }));
+    expect(screen.getByRole("tab", { name: "Pagos 2" }).getAttribute("aria-selected")).toBe("true");
+    screen.getByLabelText("Importe");
+  });
+
+  it("keeps the less frequent actions under «⋯» and closes it with Esc, not the panel", async () => {
+    await open();
+    const button = screen.getByRole("button", { name: "Más acciones" });
+    expect(screen.queryByRole("link", { name: "Imprimir resguardo" })).toBeNull();
+    more();
+    expect(button.getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByRole("link", { name: "Imprimir resguardo" }).getAttribute("href")).toBe("/ordenes/o1/resguardo");
+    screen.getByRole("link", { name: "Imprimir etiqueta" });
+    screen.getByRole("button", { name: "Cancelar orden…" });
+    fireEvent.keyDown(button, { key: "Escape" });
+    expect(button.getAttribute("aria-expanded")).toBe("false");
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("a finished order not yet notified leads with «Avisar al cliente», then «Entregar»", async () => {
+    await open({ status: "finalizado", finishedAt: "2026-10-30T10:00:00Z" });
+    screen.getByRole("button", { name: "Avisar al cliente" });
+    screen.getByRole("button", { name: "Entregar…" });
+  });
+
+  it("says a delivered order is read only and still offers printing", async () => {
+    await open({ status: "entregado", balance: "0.00" });
+    screen.getByText("Entregada · solo lectura");
+    expect(screen.queryByRole("button", { name: "Cobrar" })).toBeNull();
+    more();
+    screen.getByRole("link", { name: "Imprimir resguardo" });
+    expect(screen.queryByRole("button", { name: "Cancelar orden…" })).toBeNull();
+  });
+
+  it("right after creating it, points to printing the receipt", async () => {
+    render(
+      <OrderPanel id="o1" code="MP-0142" fullHref="/serviceOrders/o1" onClose={onClose} justCreated />,
+    );
+    await act(async () => {});
+    screen.getByText("Orden creada.");
+    expect(document.activeElement).toBe(screen.getAllByRole("link", { name: "Imprimir resguardo" })[0]);
   });
 
   it("lists charges and refunds and what is still owed", async () => {
     await open();
+    expect(screen.getByText("Pendiente").nextSibling?.textContent).toMatch(/^90,00\s€$/);
+    tab("Pagos 2");
     screen.getByText("79,00 €");
     screen.getByText("-20,00 €");
     screen.getByText(/Devolución · Tarjeta · Funda devuelta/);
-    expect(screen.getByText("Pendiente").nextSibling?.textContent).toMatch(/^90,00\s€$/);
   });
 
   it("calls and messages the client", async () => {
@@ -195,6 +262,7 @@ describe("OrderPanel", () => {
 
   it("adds an internal note on the spot, with its author", async () => {
     await open();
+    tab(NOTES_TAB);
     screen.getByText(/Ana Rojo · 29\/10\/2026 \d\d:58 · importante/);
     const field = screen.getByLabelText("Nueva nota interna");
     expect(screen.getByRole("button", { name: "Añadir" }).hasAttribute("disabled")).toBe(true);
@@ -222,6 +290,7 @@ describe("OrderPanel", () => {
 
   it("keeps the note typed when it cannot be saved", async () => {
     await open();
+    tab(NOTES_TAB);
     const field = screen.getByLabelText("Nueva nota interna");
     fireEvent.change(field, { target: { value: "Llamar mañana" } });
     serve({
@@ -384,9 +453,14 @@ describe("OrderPanel next step", () => {
     expect(onChanged).not.toHaveBeenCalled();
   });
 
-  it("offers nothing on a delivered or cancelled order", async () => {
+  it("offers no next step on a delivered or cancelled order", async () => {
     await open({ status: "entregado" });
-    expect(screen.queryByText("Siguiente paso")).toBeNull();
+    expect(screen.queryByRole("region", { name: "Siguiente paso" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Entregar…" })).toBeNull();
+    cleanup();
+    await open({ status: "cancelado" });
+    screen.getByText("Cancelada · solo lectura");
+    expect(screen.queryByRole("button", { name: "Cobrar" })).toBeNull();
   });
 });
 
@@ -398,7 +472,7 @@ describe("OrderPanel charge", () => {
 
   it("charges what is pending with the chosen method", async () => {
     await open();
-    fireEvent.click(screen.getByRole("button", { name: "Registrar cobro" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cobrar" }));
     expect((screen.getByLabelText("Importe") as HTMLInputElement).value).toBe("90,00");
     expect(screen.getByRole("button", { name: /^Cobrar 90,00\s€$/ }).hasAttribute("disabled")).toBe(true);
     screen.getByText("Elige la forma de pago.");
@@ -413,7 +487,7 @@ describe("OrderPanel charge", () => {
 
   it("offers half the pending amount and works out the change in cash", async () => {
     await open();
-    fireEvent.click(screen.getByRole("button", { name: "Registrar cobro" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cobrar" }));
     fireEvent.click(screen.getByRole("button", { name: /^50 % · 45,00\s€$/ }));
     expect((screen.getByLabelText("Importe") as HTMLInputElement).value).toBe("45,00");
     fireEvent.click(screen.getByLabelText("Efectivo"));
@@ -423,7 +497,7 @@ describe("OrderPanel charge", () => {
 
   it("retries a lost charge with the same id, so it is never recorded twice", async () => {
     await open();
-    fireEvent.click(screen.getByRole("button", { name: "Registrar cobro" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cobrar" }));
     fireEvent.click(screen.getByLabelText("Efectivo"));
     fetchMock.mockImplementationOnce(async () => {
       throw new TypeError("Failed to fetch");
@@ -440,7 +514,7 @@ describe("OrderPanel charge", () => {
 
   it("closes the form with Esc and leaves the panel open", async () => {
     await open();
-    fireEvent.click(screen.getByRole("button", { name: "Registrar cobro" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cobrar" }));
     fireEvent.keyDown(screen.getByLabelText("Importe"), { key: "Escape" });
     expect(screen.queryByLabelText("Importe")).toBeNull();
     expect(onClose).not.toHaveBeenCalled();
@@ -448,6 +522,8 @@ describe("OrderPanel charge", () => {
 
   it("says when the order is already paid", async () => {
     await open({ balance: "0.00", amountPaid: "149.00", paymentStatus: "paid" });
+    expect(screen.queryByRole("button", { name: "Cobrar" })).toBeNull();
+    tab(/^Pagos/);
     expect(screen.getByRole("button", { name: "Registrar cobro" }).hasAttribute("disabled")).toBe(true);
     screen.getByText("Esta orden ya está pagada.");
   });
@@ -519,6 +595,7 @@ describe("OrderPanel part orders", () => {
     });
     render(<OrderPanel id="o1" code="MP-0142" fullHref="/serviceOrders/o1" onClose={onClose} onChanged={onChanged} />);
     await act(async () => {});
+    more();
     fireEvent.click(screen.getByRole("button", { name: "Pedir pieza…" }));
     await act(async () => {});
     const create = () => screen.getByRole("button", { name: "Crear pedido y pasar a Pendiente de piezas" });
@@ -544,6 +621,7 @@ describe("OrderPanel part orders", () => {
       "/api/part-orders": new Response(JSON.stringify(LINE), { status: 201 }),
     });
     await open();
+    more();
     fireEvent.click(screen.getByRole("button", { name: "Pedir pieza…" }));
     await act(async () => {});
     fireEvent.change(screen.getByLabelText("Pieza que falta"), { target: { value: "Flex home iPad 9" } });
@@ -565,6 +643,7 @@ describe("OrderPanel part orders", () => {
     await act(async () => {});
     screen.getByText(/RecambiosNorte · llegaba 30\/10 · retrasada/);
     expect(screen.queryByRole("button", { name: "Pieza recibida" })).toBeNull();
+    more();
     screen.getByRole("button", { name: "Pedir otra pieza…" });
 
     fetchMock.mockImplementation(async (url: string) => {
@@ -588,6 +667,7 @@ describe("OrderPanel part orders", () => {
   it("keeps the plain step for a store, which has no stock", async () => {
     await open({ status: "pendiente_piezas" });
     screen.getByRole("button", { name: "Pieza recibida" });
+    more();
     expect(screen.queryByRole("button", { name: "Pedir otra pieza…" })).toBeNull();
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/part-orders"))).toBe(false);
   });
@@ -600,6 +680,7 @@ describe("OrderPanel cancel", () => {
       .map(([url, init]) => [url, JSON.parse((init as RequestInit).body as string)]);
   const start = async (order?: Partial<OrderDetail>) => {
     await open(order);
+    more();
     fireEvent.click(screen.getByRole("button", { name: "Cancelar orden…" }));
   };
   const submit = () => screen.getByRole("button", { name: "Cancelar orden" });
@@ -651,7 +732,7 @@ describe("OrderPanel cancel", () => {
 
   it("only asks for the reason when nothing was charged", async () => {
     await start({ amountPaid: "0.00", balance: "149.00" });
-    expect(screen.queryByText(/^Cobrado/)).toBeNull();
+    expect(screen.queryByText(/^Cobrado \d/)).toBeNull();
     fireEvent.change(screen.getByLabelText("Motivo de la cancelación"), { target: { value: "Error" } });
     fireEvent.click(submit());
     await act(async () => {});
@@ -735,7 +816,7 @@ describe("order helpers", () => {
       extra({ status: "finalizado", finishedAt: new Date().toISOString() });
       render(<OrderPanel id="o1" code="MP-0142" fullHref="/serviceOrders/o1" onClose={onClose} onChanged={onChanged} />);
       await act(async () => {});
-      fireEvent.click(screen.getByRole("button", { name: "Enviar aviso" }));
+      fireEvent.click(screen.getByRole("button", { name: "Avisar al cliente" }));
       await act(async () => {});
       expect(fetchMock.mock.calls.map((c) => c[0])).toContain("/api/message-templates?storeId=st1");
       expect(screen.getByRole("radio", { name: /Listo para recoger · sugerida/ })).toHaveProperty("checked", true);
@@ -760,6 +841,7 @@ describe("order helpers", () => {
       extra();
       render(<OrderPanel id="o1" code="MP-0142" fullHref="/serviceOrders/o1" onClose={onClose} onChanged={onChanged} />);
       await act(async () => {});
+      tab("Historial");
       const entry = screen.getByText("Aviso «Recibido» por WhatsApp").closest("li");
       expect(entry?.textContent).toMatch(/Ana Rojo · 29\/10\/2026 \d\d:00/);
       expect(screen.getByText("Ver texto").closest("details")?.textContent).toContain("Hola Lucía, recibido.");
@@ -769,6 +851,7 @@ describe("order helpers", () => {
       extra({ client: { ...ORDER.client, phoneNumber: null } });
       render(<OrderPanel id="o1" code="MP-0142" fullHref="/serviceOrders/o1" onClose={onClose} onChanged={onChanged} />);
       await act(async () => {});
+      tab(NOTES_TAB);
       expect(screen.getByRole("button", { name: "Enviar aviso" })).toHaveProperty("disabled", true);
       screen.getByText("El cliente no tiene teléfono");
       expect(screen.getByRole("link", { name: "Añadir" }).getAttribute("href")).toBe("/clients/c1");
@@ -787,11 +870,13 @@ describe("OrderPanel · garantía no procede", () => {
 
   it("is only offered on a warranty claim", async () => {
     await open();
+    more();
     expect(screen.queryByRole("button", { name: "Garantía no procede…" })).toBeNull();
   });
 
   it("marks the claim as not covered with a reason", async () => {
     await open(claim);
+    more();
     fireEvent.click(screen.getByRole("button", { name: "Garantía no procede…" }));
     const submit = screen.getByRole("button", { name: "Marcar «no procede»" });
     expect(submit.hasAttribute("disabled")).toBe(true);
@@ -806,6 +891,7 @@ describe("OrderPanel · garantía no procede", () => {
   it("shows why it does not apply and can undo it", async () => {
     await open({ ...claim, warrantyRejectedReason: "Golpe" });
     expect(screen.getByText(/^Garantía de/).textContent).toBe("Garantía de MP-0098 · no procede: Golpe");
+    more();
     fireEvent.click(screen.getByRole("button", { name: "La garantía sí procede" }));
     await act(async () => {});
     expect(patches()).toEqual([["/api/service-orders/o1", { warrantyRejectedReason: null }]]);
@@ -844,12 +930,14 @@ describe("OrderPanel · devolver cobro", () => {
   it("is not offered with nothing left to give back", async () => {
     withPayments([charge("p1", "59.00", { refunded: "59.00" })]);
     await open();
+    tab(/^Pagos/);
     expect(screen.queryByRole("button", { name: "Devolver cobro…" })).toBeNull();
   });
 
   it("gives back the charge with a reason and shows the result in place", async () => {
     withPayments([charge("p1", "59.00")]);
     await open();
+    tab(/^Pagos/);
     fireEvent.click(screen.getByRole("button", { name: "Devolver cobro…" }));
     expect((screen.getByLabelText("Importe a devolver") as HTMLInputElement).value).toBe("59,00");
     expect((screen.getByLabelText("Tarjeta") as HTMLInputElement).checked).toBe(true);
@@ -881,6 +969,7 @@ describe("OrderPanel · devolver cobro", () => {
   it("chooses among several charges, the last one first, up to what is left", async () => {
     withPayments([charge("p1", "59.00", { method: "cash" }), charge("p2", "40.00", { refunded: "10.00" })]);
     await open();
+    tab(/^Pagos/);
     fireEvent.click(screen.getByRole("button", { name: "Devolver cobro…" }));
     const [first, second] = screen.getAllByRole("radio", { name: /€/ }) as HTMLInputElement[];
     expect(second.checked).toBe(true);
@@ -897,6 +986,7 @@ describe("OrderPanel · devolver cobro", () => {
   it("gives saldo a favor back to the saldo, with no method to choose", async () => {
     withPayments([charge("p1", "20.00", { method: "credit" })]);
     await open();
+    tab(/^Pagos/);
     fireEvent.click(screen.getByRole("button", { name: "Devolver cobro…" }));
     screen.getByText("Se pagó con saldo a favor: vuelve al saldo del cliente.");
     expect(screen.queryByLabelText("Tarjeta")).toBeNull();
@@ -909,6 +999,7 @@ describe("OrderPanel · devolver cobro", () => {
   it("a store account cannot give back a charge of a closed cash day", async () => {
     withPayments([charge("p1", "59.00", { dayClosed: true })]);
     await open();
+    tab(/^Pagos/);
     fireEvent.click(screen.getByRole("button", { name: "Devolver cobro…" }));
     screen.getByText("Este cobro es de un día de caja ya cerrado: lo devuelve el administrador.");
     expect(screen.getByRole("button", { name: "Devolver" }).hasAttribute("disabled")).toBe(true);
@@ -919,6 +1010,7 @@ describe("OrderPanel · devolver cobro", () => {
     role = "SUPER_ADMIN";
     withPayments([charge("p1", "59.00", { dayClosed: true })]);
     await open();
+    tab(/^Pagos/);
     fireEvent.click(screen.getByRole("button", { name: "Devolver cobro…" }));
     expect(screen.queryByText(/día de caja ya cerrado/)).toBeNull();
     screen.getByLabelText("Motivo");
@@ -927,6 +1019,7 @@ describe("OrderPanel · devolver cobro", () => {
   it("retries a lost refund with the same id and says not to hand the money yet", async () => {
     withPayments([charge("p1", "59.00")]);
     await open();
+    tab(/^Pagos/);
     fireEvent.click(screen.getByRole("button", { name: "Devolver cobro…" }));
     fireEvent.change(screen.getByLabelText("Motivo"), { target: { value: "Funda" } });
     fetchMock.mockImplementationOnce(async () => {
@@ -951,6 +1044,7 @@ describe("OrderPanel · devolver cobro", () => {
     serve();
     render(<OrderPanel id="o1" code="MP-0142" fullHref="/serviceOrders/o1" onClose={onClose} onChanged={onChanged} />);
     await act(async () => {});
+    more();
     expect(screen.getByRole("link", { name: "Hacer presupuesto" }).getAttribute("href")).toBe(
       "/presupuestos?presupuesto=nuevo&orden=o1",
     );
@@ -959,6 +1053,7 @@ describe("OrderPanel · devolver cobro", () => {
     serve({ "/api/service-orders/o1": new Response(JSON.stringify({ ...ORDER, quote: { id: "q1", code: "MP-P0031", status: "sent" } })) });
     render(<OrderPanel id="o1" code="MP-0142" fullHref="/serviceOrders/o1" onClose={onClose} onChanged={onChanged} />);
     await act(async () => {});
+    more();
     expect(screen.queryByRole("link", { name: "Hacer presupuesto" })).toBeNull();
     expect(screen.getByRole("link", { name: "Presupuesto MP-P0031" }).getAttribute("href")).toBe("/presupuestos?presupuesto=q1");
   });

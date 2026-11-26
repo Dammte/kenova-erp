@@ -54,6 +54,7 @@
 
 .code {
   margin: 0;
+  white-space: nowrap;
   font: 600 22px/28px var(--k-font-mono);
 }
 .code:focus {
@@ -130,6 +131,11 @@
   flex-direction: column;
   gap: var(--k-space-4);
   padding: var(--k-space-4) var(--k-space-6) var(--k-space-8);
+}
+
+/* The body scrolls: its blocks keep their height instead of shrinking. */
+.body > * {
+  flex-shrink: 0;
 }
 
 .loading {
@@ -432,6 +438,252 @@
   font: var(--k-text-md);
 }
 
+
+/* Design R3 3.3: header link to the full order. */
+.fullLink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--k-space-1);
+  margin-left: auto;
+  color: var(--k-accent);
+  font: 500 13px/18px var(--k-font-sans);
+}
+.fullLink + .close {
+  margin-left: 0;
+}
+.fullLink:focus-visible {
+  outline: none;
+  box-shadow: var(--k-focus-ring);
+}
+.created {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--k-space-1) var(--k-space-4);
+  margin: var(--k-space-1) 0 0;
+  padding: var(--k-space-2) var(--k-space-3);
+  border-radius: var(--k-radius-md);
+  background: var(--k-status-finalizado-bg);
+  color: var(--k-status-finalizado);
+  font: var(--k-text-sm);
+  font-weight: 500;
+}
+
+/* The main action, «Cobrar» and «⋯», first in the body. */
+.next {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-2);
+}
+.next p {
+  margin: 0;
+}
+.actionRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--k-space-2);
+}
+.actionRow > p,
+.actionRow > ul {
+  flex-basis: 100%;
+}
+.readOnly {
+  padding: var(--k-space-2) var(--k-space-3);
+  border-radius: var(--k-radius-md);
+  background: var(--k-status-entregado-bg);
+  color: var(--k-status-entregado);
+  font: var(--k-text-sm);
+  font-weight: 500;
+}
+.more {
+  position: relative;
+}
+.menu {
+  position: absolute;
+  top: calc(100% + var(--k-space-1));
+  left: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  min-width: 220px;
+  padding: var(--k-space-1);
+  border: var(--k-border-w) solid var(--k-border);
+  border-radius: var(--k-radius-md);
+  background: var(--k-surface);
+  box-shadow: var(--k-shadow-pop);
+}
+.menu[hidden] {
+  display: none;
+}
+.menuItem {
+  display: flex;
+  align-items: center;
+  gap: var(--k-space-2);
+  min-height: 36px;
+  padding: 0 var(--k-space-3);
+  border: 0;
+  border-radius: var(--k-radius-sm, 4px);
+  background: none;
+  color: var(--k-text);
+  font: var(--k-text-sm);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.menuItem:hover {
+  background: var(--k-subtle);
+}
+.menuItem:focus-visible {
+  outline: none;
+  box-shadow: var(--k-focus-ring);
+}
+.menuDanger {
+  color: var(--k-danger);
+}
+
+/* Client, device and money side by side. */
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--k-space-3);
+}
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: var(--k-space-3);
+  border: var(--k-border-w) solid var(--k-border);
+  border-radius: var(--k-radius-lg);
+  background: var(--k-surface);
+}
+.card p {
+  margin: 0;
+}
+.card .actions {
+  flex-wrap: wrap;
+  margin-top: var(--k-space-2) !important;
+}
+.cardTitle {
+  margin: 0 0 var(--k-space-1);
+  color: var(--k-text-muted);
+  font: var(--k-text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.clip {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.unlock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-1);
+  margin-top: var(--k-space-1);
+  font: var(--k-text-sm);
+}
+.card .totals {
+  margin: 0;
+  font: var(--k-text-sm);
+}
+.faultMeta {
+  color: var(--k-warning);
+  font: var(--k-text-sm);
+}
+.flagged {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.flagged li {
+  padding: var(--k-space-2) var(--k-space-3);
+  border-left: 3px solid var(--k-warning);
+  background: var(--k-status-pendiente-cliente-bg);
+  font-weight: 500;
+}
+.flagged .urgent {
+  border-left-color: var(--k-danger);
+  background: var(--k-status-cancelado-bg);
+}
+
+/* Work · Payments · Notes and notices · History. */
+.tabs {
+  display: flex;
+  gap: var(--k-space-1);
+  overflow-x: auto;
+  border-bottom: var(--k-border-w) solid var(--k-border);
+}
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--k-space-1);
+  flex-shrink: 0;
+  min-height: 40px;
+  padding: 0 var(--k-space-3);
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--k-text-muted);
+  font: var(--k-text-base);
+  cursor: pointer;
+}
+.tab[aria-selected="true"] {
+  border-bottom-color: var(--k-accent);
+  color: var(--k-text);
+  font-weight: 600;
+}
+.tab:focus-visible {
+  outline: none;
+  box-shadow: var(--k-focus-ring);
+}
+.tabCount {
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: var(--k-radius-full);
+  background: var(--k-subtle);
+  color: var(--k-text-muted);
+  font: var(--k-text-xs);
+  text-align: center;
+}
+.tabPanel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-3);
+  margin-top: calc(-1 * var(--k-space-1));
+}
+.tabPanel > p {
+  margin: 0;
+}
+.box {
+  padding: 0 var(--k-space-3);
+  border: var(--k-border-w) solid var(--k-border);
+  border-radius: var(--k-radius-lg);
+  background: var(--k-surface);
+}
+.lineTotal {
+  font-weight: 600;
+}
+.subTitle {
+  margin: var(--k-space-2) 0 0;
+  font: var(--k-text-sm);
+  font-weight: 600;
+}
+.work p {
+  margin: var(--k-space-1) 0 0;
+  white-space: pre-wrap;
+}
+.cancelReason {
+  padding: var(--k-space-2) var(--k-space-3);
+  border-left: 3px solid var(--k-danger);
+  background: var(--k-status-cancelado-bg);
+}
+
 /* Phone: the panel takes the whole screen. */
 @media (max-width: 640px) {
   .header,
@@ -442,6 +694,26 @@
   .field {
     grid-template-columns: 1fr;
     gap: 0;
+  }
+  .cards {
+    grid-template-columns: 1fr 1fr;
+  }
+  .cards > :last-child {
+    grid-column: 1 / -1;
+  }
+  /* Design R3: on a phone the main action sits at the bottom, by the thumb. */
+  .next:not(:has(form)) {
+    position: sticky;
+    bottom: calc(-1 * var(--k-space-8));
+    order: 99;
+    margin: 0 calc(-1 * var(--k-space-4)) calc(-1 * var(--k-space-8));
+    padding: var(--k-space-3) var(--k-space-4);
+    border-top: var(--k-border-w) solid var(--k-border);
+    background: var(--k-surface);
+  }
+  .next:not(:has(form)) .menu {
+    top: auto;
+    bottom: calc(100% + var(--k-space-1));
   }
 }
 button.chip {
