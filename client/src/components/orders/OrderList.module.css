@@ -409,3 +409,92 @@
     padding: var(--k-space-2) 0;
   }
 }
+
+/* Design R3 3.2: «Finalizar» over the list. */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgb(0 0 0 / 0.35);
+  z-index: var(--k-z-modal);
+}
+.dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-4);
+  width: min(640px, calc(100vw - 2 * var(--k-space-4)));
+  max-height: calc(100vh - 2 * var(--k-space-4));
+  overflow-y: auto;
+  padding: var(--k-space-6);
+  border-radius: var(--k-radius-lg);
+  background: var(--k-surface);
+  box-shadow: var(--k-shadow-modal);
+  color: var(--k-text);
+  font: var(--k-text-base);
+  z-index: calc(var(--k-z-modal) + 1);
+}
+.dialog p {
+  margin: 0;
+}
+.dialogHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--k-space-3);
+}
+.dialogTitle {
+  display: flex;
+  align-items: center;
+  gap: var(--k-space-2);
+  margin: 0;
+  font: var(--k-text-lg);
+}
+.okIcon {
+  color: var(--k-success);
+}
+.dialogSub {
+  color: var(--k-text-muted);
+  font: var(--k-text-sm);
+}
+.dialogClose {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: var(--k-radius-md);
+  background: transparent;
+  color: var(--k-text-muted);
+  cursor: pointer;
+}
+.dialogClose:hover {
+  background: var(--k-subtle);
+}
+.dialogClose:focus-visible {
+  outline: none;
+  box-shadow: var(--k-focus-ring);
+}
+.dialogActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--k-space-2);
+}
+.dialogError {
+  color: var(--k-danger);
+  font: var(--k-text-sm);
+}
+
+/* Phones: the dialog takes the whole screen. */
+@media (max-width: 600px) {
+  .dialog {
+    inset: 0;
+    transform: none;
+    width: 100%;
+    max-height: none;
+    border-radius: 0;
+    padding: var(--k-space-4);
+  }
+}

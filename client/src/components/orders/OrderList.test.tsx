@@ -242,6 +242,25 @@ describe("OrderList", () => {
     expect(screen.queryByRole("status")).toBeNull();
   });
 
+  it("«Finalizar…» opens its dialog over the list, and «Abrir la orden» its panel", async () => {
+    await show();
+    fireEvent.click(screen.getByRole("button", { name: /cambiar estado de MP-0142/ }));
+    respond({ id: "o1", workDone: null });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /Finalizar…/ }));
+    });
+    screen.getByRole("dialog", { name: "Finalizar MP-0142" });
+    expect(requested()).toBe("/api/service-orders/o1");
+    fireEvent.change(screen.getByLabelText(/Trabajo realizado/), { target: { value: "Pantalla cambiada" } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Finalizar orden" }));
+    });
+    screen.getByRole("dialog", { name: "MP-0142 finalizada" });
+    fireEvent.click(screen.getByRole("button", { name: "Abrir la orden" }));
+    expect(replace).toHaveBeenLastCalledWith("/ordenes?orden=o1", { scroll: false });
+    expect(screen.queryByRole("dialog", { name: /MP-0142/ })).toBeNull();
+  });
+
   it("says why a status change was refused and keeps the old status", async () => {
     await show();
     fetchMock.mockResolvedValueOnce(

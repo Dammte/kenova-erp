@@ -23,6 +23,7 @@ import {
 import { Toast } from "@/components/feedback/Toast";
 import OrderPanel from "./OrderPanel";
 import { StatusMenu } from "./StatusMenu";
+import { FinishDialog } from "./FinishDialog";
 import styles from "./OrderList.module.css";
 
 /** The order's own page, for what the panel cannot do yet. */
@@ -202,6 +203,7 @@ export default function OrderList() {
     go({ q: "", debt: false });
   };
 
+  const [finishing, setFinishing] = useState<OrderRow | null>(null);
   const rows = data?.rows ?? [];
   const filtered = Boolean(query.q.trim()) || query.debt;
 
@@ -311,6 +313,7 @@ export default function OrderList() {
                   open={row.id === openId}
                   onOpen={() => openOrder(row.id)}
                   onStatus={(from, to) => void changeStatus(row, from, to)}
+                  onFinish={() => setFinishing(row)}
                 />
               ))}
             </tbody>
@@ -328,6 +331,18 @@ export default function OrderList() {
           justCreated={params.get("creada") === "1"}
           onClose={() => closeOrder(openId)}
           onChanged={retry}
+        />
+      )}
+
+      {finishing && (
+        <FinishDialog
+          row={finishing}
+          onClose={() => setFinishing(null)}
+          onFinished={retry}
+          onOpen={() => {
+            setFinishing(null);
+            openOrder(finishing.id);
+          }}
         />
       )}
 
@@ -350,6 +365,7 @@ function Row({
   open,
   onOpen,
   onStatus,
+  onFinish,
 }: {
   row: OrderRow;
   /** Opens the order's panel; the number links there too, for the keyboard. */
@@ -358,6 +374,8 @@ function Row({
   open: boolean;
   onOpen: () => void;
   onStatus: (from: OrderStatus, to: OrderStatus) => void;
+  /** «Finalizar…» in the status menu: its dialog opens over the list. */
+  onFinish: () => void;
 }) {
   const faults = row.faults.map((f) => FAULT_LABEL[f] ?? f).join(", ");
   const [firstService, ...moreServices] = row.services;
@@ -402,8 +420,9 @@ function Row({
         <StatusMenu
           code={row.code}
           status={row.status}
-          href={orderHref(row.id)}
           onChange={(to) => onStatus(row.status, to)}
+          onFinish={onFinish}
+          onOpen={onOpen}
         />
       </td>
       <td className={styles.payment}>

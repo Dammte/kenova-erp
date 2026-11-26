@@ -3,21 +3,21 @@ import { ORIGIN, TestContext, createTestApp } from './utils/harness';
 describe('Order lifecycle dates and cancel reason', () => {
   let t: TestContext;
   let cookie: string;
+  let partner: string;
   let clientId: string;
 
-  const send = (method: 'post' | 'patch', url: string, body: object) =>
-    t
-      .http()
-      [method](url)
-      .set('Cookie', cookie)
-      .set('Origin', ORIGIN)
-      .send(body);
+  const send = (
+    method: 'post' | 'patch',
+    url: string,
+    body: object,
+    as = cookie,
+  ) => t.http()[method](url).set('Cookie', as).set('Origin', ORIGIN).send(body);
   const newOrder = async () =>
     (await send('post', '/api/service-orders', { clientId })).body as {
       id: string;
     };
-  const setStatus = async (id: string, body: object) => {
-    const res = await send('patch', `/api/service-orders/${id}`, body);
+  const setStatus = async (id: string, body: object, as = cookie) => {
+    const res = await send('patch', `/api/service-orders/${id}`, body, as);
     expect(res.status).toBe(200);
     return res.body as {
       finishedAt: string | null;
@@ -29,6 +29,7 @@ describe('Order lifecycle dates and cancel reason', () => {
   beforeAll(async () => {
     t = await createTestApp();
     cookie = await t.login(t.storeAdmin.email);
+    partner = await t.login(t.superAdmin.email);
     clientId = (await send('post', '/api/clients', { firstName: 'Eva' })).body
       .id;
   });
@@ -55,7 +56,15 @@ describe('Order lifecycle dates and cancel reason', () => {
   it('reopening an order clears its dates', async () => {
     const o = await newOrder();
     await setStatus(o.id, { status: 'entregado' });
-    const back = await setStatus(o.id, { status: 'finalizado' });
+    // A delivered order is closed: only a partner reopens it.
+    const refused = await send('patch', `/api/service-orders/${o.id}`, {
+      status: 'finalizado',
+    });
+    expect(refused.status).toBe(400);
+    expect(refused.body.message).toBe(
+      'La orden ya está entregada: solo un socio puede reabrirla',
+    );
+    const back = await setStatus(o.id, { status: 'finalizado' }, partner);
     expect(back.finishedAt).not.toBeNull();
     expect(back.deliveredAt).toBeNull();
     const reopened = await setStatus(o.id, { status: 'en_progreso' });
@@ -81,7 +90,13 @@ describe('Order lifecycle dates and cancel reason', () => {
     });
     expect(cancelled.cancelReason).toBe('El cliente no acepta el presupuesto');
 
-    const reopened = await setStatus(o.id, { status: 'en_progreso' });
+    const refused = await send('patch', `/api/service-orders/${o.id}`, {
+      status: 'en_progreso',
+    });
+    expect(refused.body.message).toBe(
+      'La orden está cancelada: solo un socio puede reabrirla',
+    );
+    const reopened = await setStatus(o.id, { status: 'en_progreso' }, partner);
     expect(reopened.cancelReason).toBeNull();
 
     const ignored = await setStatus(o.id, { cancelReason: 'No aplica' });
