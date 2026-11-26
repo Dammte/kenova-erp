@@ -498,3 +498,40 @@
     padding: var(--k-space-4);
   }
 }
+
+/* Design R3 3.1: quick views, totals, entry day and last notice. */
+.views {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--k-space-2);
+}
+.viewCount {
+  margin-left: var(--k-space-2);
+  font-variant-numeric: tabular-nums;
+  color: var(--k-text-muted);
+}
+.toggle[aria-pressed="true"] .viewCount {
+  color: var(--k-accent);
+}
+.code > .priority {
+  display: block;
+  padding-left: calc(var(--k-space-2) + 3px);
+  font: var(--k-text-xs);
+  font-weight: 500;
+}
+.total {
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.paid {
+  color: var(--k-success);
+}
+.entry {
+  display: block;
+  color: var(--k-text-muted);
+  font: var(--k-text-xs);
+  font-variant-numeric: tabular-nums;
+}
+.notice {
+  white-space: nowrap;
+}

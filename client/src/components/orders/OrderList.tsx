@@ -9,11 +9,13 @@ import { API_URL, apiFetch, errorMessage } from "@/lib/api";
 import { formatEur } from "@/lib/format";
 import {
   EMPTY_TAB,
+  EMPTY_VIEW,
   FAULT_LABEL,
-  PAYMENT_LABEL,
   PRIORITY_LABEL,
   TABS,
+  VIEWS,
   daysLevel,
+  noticeAgo,
   queryString,
   readQuery,
   type ListQuery,
@@ -59,7 +61,7 @@ function useOrderPage(query: ListQuery) {
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
-  const qs = queryString(query);
+  const qs = queryString(query, true);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -200,12 +202,12 @@ export default function OrderList() {
   const clearFilters = () => {
     sentQ.current = "";
     setDraft("");
-    go({ q: "", debt: false });
+    go({ q: "", view: null });
   };
 
   const [finishing, setFinishing] = useState<OrderRow | null>(null);
   const rows = data?.rows ?? [];
-  const filtered = Boolean(query.q.trim()) || query.debt;
+  const filtered = Boolean(query.q.trim()) || Boolean(query.view);
 
   return (
     <div className={styles.page}>
@@ -242,14 +244,21 @@ export default function OrderList() {
             /
           </kbd>
         </label>
-        <button
-          type="button"
-          className={styles.toggle}
-          aria-pressed={query.debt}
-          onClick={() => go({ debt: !query.debt })}
-        >
-          Con saldo pendiente
-        </button>
+        {/* Design R3 3.1: quick views of what needs doing today. */}
+        <div className={styles.views} role="group" aria-label="Vistas rápidas">
+          {VIEWS.map(({ view, label }) => (
+            <button
+              key={view}
+              type="button"
+              className={styles.toggle}
+              aria-pressed={query.view === view}
+              onClick={() => go({ view: query.view === view ? null : view })}
+            >
+              {label}
+              {data?.views && <span className={styles.viewCount}>{data.views[view]}</span>}
+            </button>
+          ))}
+        </div>
       </div>
 
       {failed ? (
@@ -267,8 +276,10 @@ export default function OrderList() {
               <p className={styles.emptyTitle}>
                 {query.q.trim()
                   ? `Ninguna orden coincide con «${query.q.trim()}»`
-                  : "Ninguna orden tiene saldo pendiente"}
-                {query.q.trim() && query.debt ? " y el filtro «Con saldo pendiente»." : "."}
+                  : query.view && EMPTY_VIEW[query.view]}
+                {query.q.trim() && query.view
+                  ? ` en «${VIEWS.find((v) => v.view === query.view)?.label}».`
+                  : "."}
               </p>
               <div className={styles.emptyActions}>
                 <Button size="sm" onClick={clearFilters}>
@@ -290,17 +301,16 @@ export default function OrderList() {
               <tr>
                 <th scope="col">Nº</th>
                 <th scope="col">Cliente</th>
-                <th scope="col">Dispositivo · avería</th>
-                <th scope="col" className={styles.wide}>
-                  Servicios
-                </th>
-                <th scope="col" className={styles.wide}>
-                  Prioridad
-                </th>
+                <th scope="col">Equipo · avería</th>
                 <th scope="col">Estado</th>
-                <th scope="col">Pago</th>
                 <th scope="col" className={styles.num}>
-                  Días
+                  Total · saldo
+                </th>
+                <th scope="col" className={styles.num}>
+                  Días · entrada
+                </th>
+                <th scope="col" className={styles.wide}>
+                  Último aviso
                 </th>
               </tr>
             </thead>
@@ -378,7 +388,10 @@ function Row({
   onFinish: () => void;
 }) {
   const faults = row.faults.map((f) => FAULT_LABEL[f] ?? f).join(", ");
-  const [firstService, ...moreServices] = row.services;
+  // Design R3: the services go after the fault, counted when there are several.
+  const services =
+    row.services.length === 0 ? "" : row.services.length === 1 ? row.services[0] : `${row.services.length} servicios`;
+  const problem = [faults, services].filter(Boolean).join(" · ");
   return (
     <tr className={`${styles.row} ${open ? styles.rowOpen : ""}`} onClick={onOpen}>
       <td className={styles.code}>
@@ -393,7 +406,12 @@ function Row({
         >
           {row.code}
         </Link>
-        {row.warrantyOf && <span className={styles.warranty}>Garantía de {row.warrantyOf}</span>}
+        {row.warrantyOf ? (
+          <span className={styles.warranty}>Garantía de {row.warrantyOf}</span>
+        ) : (
+          // Priority as the number's edge and in words, so it does not rely on colour.
+          <span className={`${styles.priority} ${styles[`p_${row.priority}`]}`}>{PRIORITY_LABEL[row.priority]}</span>
+        )}
       </td>
       <td className={styles.client}>
         <span className={styles.strong}>{row.clientName}</span>
@@ -401,20 +419,11 @@ function Row({
       </td>
       <td className={styles.device}>
         <span className={styles.strong}>{row.device || "Sin dispositivo"}</span>
-        {faults && <span className={styles.muted}>{faults}</span>}
-      </td>
-      <td className={styles.wide}>
-        {firstService ?? <span className={styles.muted}>—</span>}
-        {moreServices.length > 0 && (
-          <span className={styles.more} title={row.services.join("\n")}>
-            +{moreServices.length}
+        {problem && (
+          <span className={styles.muted} title={row.services.length > 1 ? row.services.join("\n") : undefined}>
+            {problem}
           </span>
         )}
-      </td>
-      <td className={styles.wide}>
-        <span className={`${styles.priority} ${styles[`p_${row.priority}`]}`}>
-          {PRIORITY_LABEL[row.priority]}
-        </span>
       </td>
       <td className={styles.status}>
         <StatusMenu
@@ -425,15 +434,39 @@ function Row({
           onOpen={onOpen}
         />
       </td>
-      <td className={styles.payment}>
-        <span>{row.paymentStatus ? PAYMENT_LABEL[row.paymentStatus] : "—"}</span>
-        {row.balance > 0 && <span className={styles.debt}>Debe {formatEur(row.balance)}</span>}
+      <td className={`${styles.num} ${styles.payment}`}>
+        <span className={styles.total}>{formatEur(row.totalPrice)}</span>
+        {row.balance > 0 ? (
+          <span className={styles.debt}>Debe {formatEur(row.balance)}</span>
+        ) : (
+          row.paymentStatus === "paid" && row.totalPrice > 0 && <span className={styles.paid}>Pagado</span>
+        )}
       </td>
       <td className={`${styles.num} ${styles.daysCell}`}>
         <Days row={row} />
+        <span className={styles.entry}>{entryDay(row.createdAt)}</span>
+      </td>
+      <td className={`${styles.wide} ${styles.notice}`}>
+        <LastNotice row={row} />
       </td>
     </tr>
   );
+}
+
+/** Entry day as dd/mm in Madrid (some ICU builds drop the leading zero). */
+const entryDay = (iso: string) => {
+  const parts = new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "numeric", timeZone: "Europe/Madrid" }).formatToParts(
+    new Date(iso),
+  );
+  const part = (type: string) => (parts.find((p) => p.type === type)?.value ?? "").padStart(2, "0");
+  return `${part("day")}/${part("month")}`;
+};
+
+/** «Último aviso»: a finished order nobody has told the client about stands out. */
+function LastNotice({ row }: { row: OrderRow }) {
+  if (row.lastNoticeAt) return <span className={styles.muted}>{noticeAgo(row.lastNoticeAt)}</span>;
+  if (row.status === "finalizado") return <span className={styles.warning}>Sin avisar</span>;
+  return <span className={styles.muted}>—</span>;
 }
 
 function Days({ row }: { row: OrderRow }) {

@@ -111,13 +111,17 @@ describe("OrderList", () => {
       "/ordenes?orden=o1",
     );
     row.getByText("612 345 678");
-    row.getByText("Pantalla, Batería");
-    row.getByText("Cambio de pantalla");
-    expect(row.getByText("+2").getAttribute("title")).toBe("Cambio de pantalla\nBatería\nLimpieza");
+    expect(row.getByText("Pantalla, Batería · 3 servicios").getAttribute("title")).toBe(
+      "Cambio de pantalla\nBatería\nLimpieza",
+    );
     row.getByText("Urgente");
-    row.getByText("Pago parcial");
+    row.getByText(/^129,00\s€$/);
     row.getByText("Debe 90,00 €");
     row.getByLabelText("40 días en taller");
+    row.getByText("01/10");
+    // Not finished: nobody needs telling yet.
+    row.getByText("—");
+    within(second).getByText("Sin avisar");
     within(second).getByText("sin recoger");
     within(second).getByText("Garantía de MP-0098");
     expect(row.queryByText(/Garantía de/)).toBeNull();
@@ -167,11 +171,34 @@ describe("OrderList", () => {
   });
 
   it("asks for what the address says and changes tab from page 1", async () => {
-    search = "tab=finalizado&debt=true&page=2";
+    search = "tab=finalizado&vista=debt&page=2";
     await show();
-    expect(requested()).toBe("/api/service-orders/list?tab=finalizado&debt=true&page=2");
+    expect(requested()).toBe("/api/service-orders/list?tab=finalizado&view=debt&page=2");
     fireEvent.click(screen.getByRole("button", { name: /Entregadas/ }));
-    expect(replace).toHaveBeenCalledWith("/ordenes?tab=entregado&debt=true", { scroll: false });
+    expect(replace).toHaveBeenCalledWith("/ordenes?tab=entregado&vista=debt", { scroll: false });
+  });
+
+  it("quick views show their counts and filter the list, one at a time", async () => {
+    respond({ ...PAGE, views: { urgent: 1, to_notify: 2, uncollected: 0, debt: 1 } });
+    await show();
+    const views = within(screen.getByRole("group", { name: "Vistas rápidas" }));
+    expect(views.getAllByRole("button").map((b) => b.textContent)).toEqual([
+      "Urgentes y altas1",
+      "Listas para avisar2",
+      "Sin recoger +15 días0",
+      "Con saldo1",
+    ]);
+    fireEvent.click(views.getByRole("button", { name: /Listas para avisar/ }));
+    expect(replace).toHaveBeenLastCalledWith("/ordenes?vista=to_notify", { scroll: false });
+  });
+
+  it("a view already on turns off", async () => {
+    search = "vista=urgent";
+    await show();
+    const on = within(screen.getByRole("group", { name: "Vistas rápidas" })).getByRole("button", { pressed: true });
+    expect(on.textContent).toMatch(/^Urgentes y altas/);
+    fireEvent.click(on);
+    expect(replace).toHaveBeenLastCalledWith("/ordenes", { scroll: false });
   });
 
   it("searches once the user stops typing", async () => {
@@ -196,7 +223,7 @@ describe("OrderList", () => {
     search = "q=galaxy%20s9&debt=true";
     respond({ ...PAGE, rows: [], total: 0 });
     await show();
-    screen.getByText("Ninguna orden coincide con «galaxy s9» y el filtro «Con saldo pendiente».");
+    screen.getByText("Ninguna orden coincide con «galaxy s9» en «Con saldo».");
     fireEvent.click(screen.getByRole("button", { name: "Quitar filtros" }));
     expect(replace).toHaveBeenCalledWith("/ordenes", { scroll: false });
   });
@@ -290,11 +317,15 @@ describe("list query", () => {
     expect(readQuery(new URLSearchParams("tab=nope&page=-3"))).toEqual({
       tab: "open",
       q: "",
-      debt: false,
+      view: null,
       page: 1,
     });
-    const q = readQuery(new URLSearchParams("tab=cancelado&q=ana&debt=true&page=4"));
-    expect(queryString(q)).toBe("tab=cancelado&q=ana&debt=true&page=4");
+    const q = readQuery(new URLSearchParams("tab=cancelado&q=ana&vista=uncollected&page=4"));
+    expect(queryString(q)).toBe("tab=cancelado&q=ana&vista=uncollected&page=4");
+    expect(queryString(q, true)).toBe("tab=cancelado&q=ana&view=uncollected&page=4");
+    // The older link to «Con saldo pendiente» still works.
+    expect(readQuery(new URLSearchParams("debt=true")).view).toBe("debt");
+    expect(readQuery(new URLSearchParams("vista=nope")).view).toBeNull();
   });
 
   it("marks days in the shop from 7 and from 30", () => {
