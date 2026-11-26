@@ -84,3 +84,12 @@
     box-shadow: var(--k-shadow-modal);
   }
 }
+
+/* The current status of a finished order, which the menu cannot pick again. */
+.static {
+  margin: 0;
+  cursor: default;
+}
+.static:hover {
+  background: transparent;
+}

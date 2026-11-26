@@ -35,6 +35,7 @@ import { CREDIT, OrderPayment } from './entities/order-payment.entity';
 import { OrderPaymentsService } from './order-payments.service';
 import { commissionFor, NO_COMMISSION } from './commission';
 import { derivePayment } from './payment-status';
+import { transitionProblem } from './status-transitions';
 import { User, UserRole } from '../users/entities/user.entity';
 
 /** IMEI or serial as typed or scanned: no spaces or dashes, upper case. */
@@ -721,6 +722,15 @@ export class ServiceOrderService {
         actor,
         serviceOrder.id,
       );
+    }
+
+    if (updateData.status) {
+      const problem = transitionProblem(
+        previousStatus,
+        updateData.status,
+        actor.role,
+      );
+      if (problem) throw new BadRequestException(problem);
     }
 
     Object.assign(serviceOrder, updateData);

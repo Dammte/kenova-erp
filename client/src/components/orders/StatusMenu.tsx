@@ -1,14 +1,14 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { STATUS_LABEL, StatusChip, type OrderStatus } from "@/components/ui";
 import styles from "./StatusMenu.module.css";
 
 /**
- * Statuses the list changes on the spot. Finishing, cancelling and delivering
- * ask for more (notes, reason, payment), so they open the order instead.
+ * Statuses the list changes on the spot. Finishing asks for the work done
+ * (its own dialog); cancelling and delivering ask for more (reason, payment),
+ * so they open the order's panel.
  */
 export const QUICK_STATUSES: OrderStatus[] = [
   "pendiente_cliente",
@@ -19,13 +19,15 @@ export const QUICK_STATUSES: OrderStatus[] = [
 interface Props {
   code: string;
   status: OrderStatus;
-  /** The order's page, where finishing and cancelling happen for now. */
-  href: string;
   onChange: (status: OrderStatus) => void;
+  /** Opens the «Finalizar» dialog over the list. */
+  onFinish: () => void;
+  /** Opens the order's panel, where cancelling and delivering happen. */
+  onOpen: () => void;
 }
 
 /** Design 1.4: the status chip of a row is a menu to move the order on. */
-export function StatusMenu({ code, status, href, onChange }: Props) {
+export function StatusMenu({ code, status, onChange, onFinish, onOpen }: Props) {
   const [open, setOpen] = useState(false);
   const menuId = useId();
   const wrap = useRef<HTMLDivElement>(null);
@@ -44,13 +46,20 @@ export function StatusMenu({ code, status, href, onChange }: Props) {
     };
   }, [open]);
 
-  // Finished, delivered and cancelled orders change from their own page.
-  if (!QUICK_STATUSES.includes(status)) return <StatusChip status={status} />;
+  // Delivered and cancelled orders are closed: they change from their panel.
+  const finished = status === "finalizado";
+  if (!finished && !QUICK_STATUSES.includes(status)) return <StatusChip status={status} />;
 
   const pick = (next: OrderStatus) => {
     setOpen(false);
     if (next !== status) onChange(next);
   };
+  const then = (go: () => void) => () => {
+    setOpen(false);
+    go();
+  };
+  // A finished order can only go back to work or be delivered.
+  const quick: OrderStatus[] = finished ? ["en_progreso"] : QUICK_STATUSES;
 
   return (
     // Clicks here must not open the row.
@@ -70,7 +79,13 @@ export function StatusMenu({ code, status, href, onChange }: Props) {
       {open && (
         <div id={menuId} className={styles.menu}>
           <p className={styles.head}>Cambiar estado de {code}</p>
-          {QUICK_STATUSES.map((s) => (
+          {finished && (
+            <p className={`${styles.item} ${styles.static}`} aria-current="true">
+              {STATUS_LABEL.finalizado}
+              <span className={styles.hint}>actual</span>
+            </p>
+          )}
+          {quick.map((s) => (
             <button
               key={s}
               type="button"
@@ -82,12 +97,20 @@ export function StatusMenu({ code, status, href, onChange }: Props) {
               {s === status && <span className={styles.hint}>actual</span>}
             </button>
           ))}
-          <Link href={href} className={styles.item}>
-            {STATUS_LABEL.finalizado}…<span className={styles.hint}>abre la orden</span>
-          </Link>
-          <Link href={href} className={styles.item}>
-            {STATUS_LABEL.cancelado}…<span className={styles.hint}>abre la orden</span>
-          </Link>
+          {finished ? (
+            <button type="button" className={styles.item} onClick={then(onOpen)}>
+              Entregar…<span className={styles.hint}>abre la orden</span>
+            </button>
+          ) : (
+            <>
+              <button type="button" className={styles.item} onClick={then(onFinish)}>
+                Finalizar…<span className={styles.hint}>trabajo y repuestos</span>
+              </button>
+              <button type="button" className={styles.item} onClick={then(onOpen)}>
+                Cancelar…<span className={styles.hint}>abre la orden</span>
+              </button>
+            </>
+          )}
         </div>
       )}
     </div>
