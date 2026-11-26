@@ -14,6 +14,7 @@ interface Row {
   balance: number;
   days: number | null;
   uncollected: boolean;
+  lastNoticeAt: string | null;
 }
 interface List {
   rows: Row[];
@@ -21,6 +22,7 @@ interface List {
   page: number;
   pageSize: number;
   counts: Record<string, number>;
+  views: Record<string, number>;
 }
 
 describe('Order list', () => {
@@ -175,6 +177,52 @@ describe('Order list', () => {
     expect(delivered_).toMatchObject({ code: delivered.code, days: null });
     expect((await list('?tab=all')).body.total).toBe(5);
     expect(codes((await list('?debt=true')).body)).toEqual([urgent.code]);
+  });
+
+  it('quick views: urgent, to notify, uncollected and money owed', async () => {
+    const all = (await list()).body;
+    expect(all.views).toEqual({
+      urgent: 1,
+      to_notify: 1,
+      uncollected: 0,
+      debt: 1,
+    });
+    expect(codes((await list('?view=urgent')).body)).toEqual([urgent.code]);
+    expect(codes((await list('?view=debt')).body)).toEqual([urgent.code]);
+    expect(codes((await list('?view=to_notify')).body)).toEqual([
+      finished.code,
+    ]);
+    expect((await list('?view=uncollected')).body.rows).toEqual([]);
+    expect((await list('?view=nope')).status).toBe(400);
+
+    // Telling the client takes it out of «Listas para avisar».
+    const sent = await send(
+      'post',
+      main,
+      `/api/service-orders/${finished.id}/notices`,
+      { trigger: 'ready', body: 'Hola Iker, ya está listo.' },
+    );
+    expect(sent.status).toBe(201);
+    const after = (await list()).body;
+    expect(after.views.to_notify).toBe(0);
+    const row = after.rows.find((r) => r.code === finished.code);
+    expect(row?.lastNoticeAt).not.toBeNull();
+    expect(
+      after.rows.find((r) => r.code === urgent.code)?.lastNoticeAt,
+    ).toBeNull();
+
+    // Not collected after 15 days.
+    await t.db.query(
+      `UPDATE service_orders SET "finishedAt" = now() - interval '16 days' WHERE id = $1`,
+      [finished.id],
+    );
+    expect(codes((await list('?view=uncollected')).body)).toEqual([
+      finished.code,
+    ]);
+    await t.db.query(
+      `UPDATE service_orders SET "finishedAt" = now() - interval '8 days' WHERE id = $1`,
+      [finished.id],
+    );
   });
 
   it('searches by code, name without accents, device, phone or IMEI', async () => {

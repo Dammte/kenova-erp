@@ -14,6 +14,13 @@ import { ServiceStatus } from '../entities/service-order.entity';
 export const ORDER_TABS = ['open', 'all', ...Object.values(ServiceStatus)];
 export type OrderTab = 'open' | 'all' | ServiceStatus;
 
+/**
+ * Quick views of the list (design R3 3.1): what needs doing today, over the
+ * tab chosen.
+ */
+export const ORDER_VIEWS = ['urgent', 'to_notify', 'uncollected', 'debt'];
+export type OrderView = 'urgent' | 'to_notify' | 'uncollected' | 'debt';
+
 export class ListOrdersDto {
   @IsOptional()
   @IsIn(ORDER_TABS)
@@ -24,7 +31,11 @@ export class ListOrdersDto {
   @MaxLength(100)
   q?: string;
 
-  /** Only orders with money still owed. */
+  @IsOptional()
+  @IsIn(ORDER_VIEWS)
+  view?: OrderView;
+
+  /** Only orders with money still owed (older links; same as view=debt). */
   @IsOptional()
   @Transform(({ value }) => value === 'true' || value === true)
   @IsBoolean()

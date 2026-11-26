@@ -22,7 +22,25 @@ export interface OrderRow {
   uncollected: boolean;
   /** Code of the delivered order this one is a warranty claim of. */
   warrantyOf?: string | null;
+  /** When the client was last sent a notice about this order. */
+  lastNoticeAt?: string | null;
 }
+
+/** Quick views of the list (design R3 3.1). */
+export type OrderView = "urgent" | "to_notify" | "uncollected" | "debt";
+export const VIEWS: { view: OrderView; label: string }[] = [
+  { view: "urgent", label: "Urgentes y altas" },
+  { view: "to_notify", label: "Listas para avisar" },
+  { view: "uncollected", label: "Sin recoger +15 días" },
+  { view: "debt", label: "Con saldo" },
+];
+/** What an empty quick view says. */
+export const EMPTY_VIEW: Record<OrderView, string> = {
+  urgent: "Ninguna orden urgente ni de prioridad alta",
+  to_notify: "No hay órdenes finalizadas sin avisar",
+  uncollected: "Ninguna orden lleva más de 15 días sin recoger",
+  debt: "Ninguna orden tiene saldo pendiente",
+};
 
 export interface OrderListPage {
   rows: OrderRow[];
@@ -30,12 +48,14 @@ export interface OrderListPage {
   page: number;
   pageSize: number;
   counts: Record<OrderTab, number>;
+  /** Open orders in each quick view. */
+  views?: Record<OrderView, number>;
 }
 
 export interface ListQuery {
   tab: OrderTab;
   q: string;
-  debt: boolean;
+  view: OrderView | null;
   page: number;
 }
 
@@ -97,27 +117,38 @@ export const PAYMENT_LABEL: Record<NonNullable<OrderRow["paymentStatus"]>, strin
 };
 
 const TAB_VALUES = new Set<string>(TABS.map((t) => t.tab));
+const VIEW_VALUES = new Set<string>(VIEWS.map((v) => v.view));
 
 /** Reads the list state from the address, so going back keeps tab, search and page. */
 export function readQuery(params: URLSearchParams): ListQuery {
   const tab = params.get("tab") ?? "open";
+  const view = params.get("vista") ?? "";
   const page = Number(params.get("page"));
   return {
     tab: TAB_VALUES.has(tab) ? (tab as OrderTab) : "open",
     q: params.get("q") ?? "",
-    debt: params.get("debt") === "true",
+    // ?debt=true is the older link to «Con saldo».
+    view: VIEW_VALUES.has(view) ? (view as OrderView) : params.get("debt") === "true" ? "debt" : null,
     page: Number.isInteger(page) && page > 1 ? page : 1,
   };
 }
 
 /** Query string for both the address bar and the API; defaults are left out. */
-export function queryString({ tab, q, debt, page }: ListQuery): string {
+export function queryString({ tab, q, view, page }: ListQuery, api = false): string {
   const params = new URLSearchParams();
   if (tab !== "open") params.set("tab", tab);
   if (q.trim()) params.set("q", q.trim());
-  if (debt) params.set("debt", "true");
+  // The address speaks Spanish; the API keeps its own names.
+  if (view) params.set(api ? "view" : "vista", view);
   if (page > 1) params.set("page", String(page));
   return params.toString();
+}
+
+/** «Último aviso»: when the client was last told, in words. */
+export function noticeAgo(at: string, now = Date.now()): string {
+  const days = Math.floor((now - new Date(at).getTime()) / 86_400_000);
+  if (days <= 0) return "Avisado hoy";
+  return days === 1 ? "Avisado hace 1 día" : `Avisado hace ${days} días`;
 }
 
 /** Days in the shop: amber from 7, red from 30, as in design 1.4. */

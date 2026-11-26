@@ -5,7 +5,7 @@ import type { AuthUser } from '../auth/auth.types';
 import { Brand } from '../brands/entities/brand.entity';
 import { scopedStoreId } from '../common/store-scope';
 import { digitsSql, foldSql, likeTerms } from '../common/text-search';
-import type { ListOrdersDto, OrderTab } from './dto/list-orders.dto';
+import type { ListOrdersDto, OrderTab, OrderView } from './dto/list-orders.dto';
 import { OrderLine, OrderLineKind } from './entities/order-line.entity';
 import { ServiceOrder, ServiceStatus } from './entities/service-order.entity';
 
@@ -20,6 +20,21 @@ const OPEN: ServiceStatus[] = [
 ];
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+/** A finished order not collected after this many days needs a call. */
+export const UNCOLLECTED_DAYS = 15;
+
+/** The SQL condition of each quick view, over service_orders `o`. */
+const VIEW_SQL: Record<OrderView, string> = {
+  urgent: `o.priority IN ('urgent', 'high')`,
+  // Finished and nobody told the client since.
+  to_notify: `o.status = '${ServiceStatus.FINALIZADO}' AND NOT EXISTS (
+    SELECT 1 FROM order_notices n
+    WHERE n."serviceOrderId" = o.id
+      AND n."sentAt" >= coalesce(o."finishedAt", o."createdAt" AT TIME ZONE 'UTC'))`,
+  uncollected: `o.status = '${ServiceStatus.FINALIZADO}'
+    AND coalesce(o."finishedAt", o."createdAt" AT TIME ZONE 'UTC') < now() - interval '${UNCOLLECTED_DAYS} days'`,
+  debt: 'coalesce(o.balance, 0) > 0',
+};
 
 export interface OrderRow {
   id: string;
@@ -43,6 +58,8 @@ export interface OrderRow {
   uncollected: boolean;
   /** Code of the delivered order this one is a warranty claim of. */
   warrantyOf: string | null;
+  /** When the client was last sent a notice about this order. */
+  lastNoticeAt: string | null;
 }
 
 export interface OrderList {
@@ -52,6 +69,8 @@ export interface OrderList {
   pageSize: number;
   /** Orders per tab, regardless of the search and filters. */
   counts: Record<OrderTab, number>;
+  /** Open orders in each quick view, regardless of tab and search. */
+  views: Record<OrderView, number>;
 }
 
 interface RawRow {
@@ -71,6 +90,7 @@ interface RawRow {
   createdAt: Date;
   finishedAt: Date | null;
   warrantyOf: string | null;
+  lastNoticeAt: Date | null;
 }
 
 /** Design 1.4: the order list with its tabs, search, filters and pages. */
@@ -103,7 +123,8 @@ export class OrderListService {
     const tab = query.tab ?? 'open';
     if (tab === 'open') qb.andWhere('o.status IN (:...open)', { open: OPEN });
     else if (tab !== 'all') qb.andWhere('o.status = :tab', { tab });
-    if (query.debt) qb.andWhere('coalesce(o.balance, 0) > 0');
+    const view = query.view ?? (query.debt ? 'debt' : undefined);
+    if (view) qb.andWhere(VIEW_SQL[view]);
 
     const terms = likeTerms(query.q ?? '');
     if (terms) {
@@ -155,6 +176,7 @@ export class OrderListService {
         'o."createdAt" AS "createdAt"',
         'o."finishedAt" AS "finishedAt"',
         'w.code AS "warrantyOf"',
+        `(SELECT max(n."sentAt") FROM order_notices n WHERE n."serviceOrderId" = o.id) AS "lastNoticeAt"`,
       ])
       .offset((page - 1) * PAGE_SIZE)
       .limit(PAGE_SIZE)
@@ -162,6 +184,7 @@ export class OrderListService {
 
     const services = await this.servicesOf(raw.map((r) => r.id));
     const counts = await this.counts(base());
+    const views = await this.viewCounts(base());
     const now = Date.now();
     return {
       rows: raw.map((r) => toRow(r, services.get(r.id) ?? [], now)),
@@ -169,7 +192,25 @@ export class OrderListService {
       page,
       pageSize: PAGE_SIZE,
       counts,
+      views,
     };
+  }
+
+  /** How many open orders each quick view holds. */
+  private async viewCounts(
+    qb: SelectQueryBuilder<ServiceOrder>,
+  ): Promise<Record<OrderView, number>> {
+    const views = Object.keys(VIEW_SQL) as OrderView[];
+    qb.select([]);
+    for (const v of views) {
+      qb.addSelect(`count(*) FILTER (WHERE ${VIEW_SQL[v]})::int`, v);
+    }
+    const row = await qb
+      .andWhere('o.status IN (:...open)', { open: OPEN })
+      .getRawOne<Record<OrderView, number>>();
+    return Object.fromEntries(
+      views.map((v) => [v, Number(row?.[v] ?? 0)]),
+    ) as Record<OrderView, number>;
   }
 
   /** The service lines of each order, in their order on the ticket. */
@@ -233,5 +274,8 @@ function toRow(r: RawRow, services: string[], now: number): OrderRow {
     days,
     uncollected: finished,
     warrantyOf: r.warrantyOf ?? null,
+    lastNoticeAt: r.lastNoticeAt
+      ? new Date(r.lastNoticeAt).toISOString()
+      : null,
   };
 }
