@@ -40,6 +40,9 @@ export interface SupplierOrder {
   state: OrderState;
   linesReadAt: string | null;
   createdAt: string;
+  /** Set once received through «Revisar y recibir». */
+  receivedAt?: string | null;
+  receivedBy?: { id: string; fullName: string } | null;
   lines?: SupplierOrderLine[];
 }
 

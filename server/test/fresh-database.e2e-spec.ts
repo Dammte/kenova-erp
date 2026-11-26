@@ -73,6 +73,7 @@ describe('Migrations on an empty database', () => {
       'SupplierConnection1765300000000',
       'SupplierWebPages1765400000000',
       'SupplierOrders1765500000000',
+      'SupplierOrderReceived1765600000000',
     ]);
   });
 

@@ -10,6 +10,8 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { PurchaseInvoice } from '../../inventory/entities/purchase-invoice.entity';
+import { User } from '../../users/entities/user.entity';
 import { Supplier } from './supplier.entity';
 
 /**
@@ -98,6 +100,31 @@ export class SupplierOrder {
   /** When its lines were read; null = not yet (an ANTERIOR order). */
   @Column({ type: 'timestamptz', nullable: true })
   linesReadAt: Date | null;
+
+  /** The stock entry made when it was received (RECIBIDO). */
+  @ManyToOne(() => PurchaseInvoice, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({
+    name: 'purchaseInvoiceId',
+    foreignKeyConstraintName: 'FK_supplier_orders_invoice',
+  })
+  purchaseInvoice?: PurchaseInvoice | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  purchaseInvoiceId: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  receivedAt: Date | null;
+
+  /** Who checked the parcel and confirmed it. */
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({
+    name: 'receivedById',
+    foreignKeyConstraintName: 'FK_supplier_orders_received_by',
+  })
+  receivedBy?: User | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  receivedById: string | null;
 
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;

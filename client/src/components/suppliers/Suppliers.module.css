@@ -108,3 +108,14 @@
   font-weight: 600;
   font-size: var(--k-text-sm);
 }
+.primaryLink {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--k-space-2) var(--k-space-3);
+  border-radius: var(--k-radius-md);
+  background: var(--k-accent);
+  color: var(--k-surface);
+  font-weight: 600;
+  font-size: var(--k-text-sm);
+  text-decoration: none;
+}

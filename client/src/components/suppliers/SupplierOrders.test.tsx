@@ -145,6 +145,7 @@ describe("Pedidos al proveedor", () => {
     expect(card.getByRole("link", { name: "Batería X" }).getAttribute("href")).toBe("https://b2b.norte.test/busqueda?s=BT0001");
     expect(card.getByText("Suma de las líneas").nextSibling?.textContent).toMatch(/^41,04\s€$/);
     expect(card.getByRole("button", { name: "Descartar" })).toBeTruthy();
+    expect(card.getByRole("link", { name: "Revisar y recibir" }).getAttribute("href")).toBe("/inventario?vista=importar&pedidoProveedor=1");
   });
 
   it("an order from before the ERP can be made pending, which reads its lines", async () => {

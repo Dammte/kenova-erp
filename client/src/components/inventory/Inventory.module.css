@@ -784,3 +784,21 @@
     padding-bottom: calc(var(--k-bottom-bar-h) + var(--k-space-4));
   }
 }
+
+/* The visto bueno of a supplier order. */
+.checkLine {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--k-space-2);
+  padding: var(--k-space-3);
+  border: var(--k-border-w) solid var(--k-border-strong);
+  border-radius: var(--k-radius-md);
+  font-weight: 600;
+  cursor: pointer;
+}
+.checkLine input {
+  margin-top: 3px;
+  width: 18px;
+  height: 18px;
+  flex: none;
+}

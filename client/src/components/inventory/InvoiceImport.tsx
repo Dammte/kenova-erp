@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState, type DragEvent } from "react";
+import { useEffect, useRef, useState, type DragEvent } from "react";
 import { FileUp, X } from "lucide-react";
 import { Button } from "@/components/ui";
 import { API_URL, apiFetch, errorMessage } from "@/lib/api";
@@ -34,11 +34,18 @@ interface Head {
 
 const money = (s: string) => s.replace(".", ",");
 
+/** A supplier order (Proveedores › Pedidos) whose parcel has arrived: its lines instead of a file. */
+export interface FromOrder {
+  orderId: string;
+  head: Head;
+  lines: ReadLine[];
+}
+
 /**
  * Design 3.4 «Importar factura»: four visible steps, because it changes the
  * stock of many parts at once. Nothing enters stock before «Confirmar entrada».
  */
-export function InvoiceImport({ onDone }: { onDone: () => void }) {
+export function InvoiceImport({ onDone, fromOrder }: { onDone: () => void; fromOrder?: FromOrder }) {
   const [step, setStep] = useState(1);
   const [head, setHead] = useState<Head>({ provider: "", number: "", invoiceDate: null });
   const [lines, setLines] = useState<ReviewLine[]>([]);
@@ -47,6 +54,8 @@ export function InvoiceImport({ onDone }: { onDone: () => void }) {
   const [result, setResult] = useState<Confirmed | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // The visto bueno: someone checked the parcel against the supplier order.
+  const [checked, setChecked] = useState(false);
 
   /** Lines read or typed → their matches → «Revisar». */
   const review = async (h: Head, read: ReadLine[]) => {
@@ -88,6 +97,13 @@ export function InvoiceImport({ onDone }: { onDone: () => void }) {
     }
   };
 
+  // A supplier order starts at «Revisar» with its own lines.
+  useEffect(() => {
+    if (fromOrder) void review(fromOrder.head, fromOrder.lines);
+    // Only once, for the order it was opened with.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fromOrder?.orderId]);
+
   const confirm = async () => {
     setBusy(true);
     setProblem(null);
@@ -95,7 +111,10 @@ export function InvoiceImport({ onDone }: { onDone: () => void }) {
       const res = await apiFetch(`${API_URL}/purchase-invoices`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(confirmBody(head, lines, again)),
+        body: JSON.stringify({
+          ...confirmBody(head, lines, again),
+          ...(fromOrder && { supplierOrderId: fromOrder.orderId, checked }),
+        }),
       });
       if (!res.ok) {
         setProblem(await errorMessage(res, "No se ha podido dar entrada a la factura."));
@@ -128,7 +147,20 @@ export function InvoiceImport({ onDone }: { onDone: () => void }) {
         ))}
       </ol>
 
-      {step === 1 && <Upload busy={busy} onRead={review} problem={problem} setProblem={setProblem} />}
+      {step === 1 &&
+        (fromOrder ? (
+          <section className={styles.importCard} aria-label="Pedido del proveedor">
+            {problem ? (
+              <div role="alert" className={styles.error}>
+                {problem}
+              </div>
+            ) : (
+              <p className={styles.muted}>Comprobando las líneas del pedido {fromOrder.head.number}…</p>
+            )}
+          </section>
+        ) : (
+          <Upload busy={busy} onRead={review} problem={problem} setProblem={setProblem} />
+        ))}
 
       {step === 2 && (
         <Review
@@ -156,6 +188,7 @@ export function InvoiceImport({ onDone }: { onDone: () => void }) {
           problem={problem}
           onBack={() => setStep(2)}
           onConfirm={confirm}
+          check={fromOrder && { checked, setChecked }}
         />
       )}
 
@@ -187,9 +220,15 @@ export function InvoiceImport({ onDone }: { onDone: () => void }) {
             <Button variant="primary" onClick={onDone}>
               Ver inventario
             </Button>
-            <Button variant="ghost" onClick={restart}>
-              Importar otra factura
-            </Button>
+            {fromOrder ? (
+              <Link href={`/proveedores/pedidos?pedido=${fromOrder.orderId}`} className={styles.link}>
+                Volver al pedido del proveedor
+              </Link>
+            ) : (
+              <Button variant="ghost" onClick={restart}>
+                Importar otra factura
+              </Button>
+            )}
           </div>
         </section>
       )}
@@ -587,6 +626,7 @@ function Confirm({
   problem,
   onBack,
   onConfirm,
+  check,
 }: {
   head: Head;
   lines: ReviewLine[];
@@ -594,6 +634,8 @@ function Confirm({
   problem: string | null;
   onBack: () => void;
   onConfirm: () => void;
+  /** Set for a supplier order: confirming needs the visto bueno. */
+  check?: { checked: boolean; setChecked: (v: boolean) => void };
 }) {
   const s = summary(lines);
   // The units of each line cover its part orders oldest first, as the server does.
@@ -626,6 +668,12 @@ function Confirm({
           Esta factura cubre el pedido de <strong>{w.name}</strong> para {w.orderCode}. Se marcará como recibido.
         </p>
       ))}
+      {check && (
+        <label className={styles.checkLine}>
+          <input type="checkbox" checked={check.checked} onChange={(e) => check.setChecked(e.target.checked)} />
+          He comprobado que el paquete coincide con el pedido: los repuestos, las cantidades y los precios.
+        </label>
+      )}
       {problem && (
         <div role="alert" className={styles.error}>
           {problem}
@@ -635,7 +683,12 @@ function Confirm({
         <Button variant="ghost" onClick={onBack}>
           Volver a revisar
         </Button>
-        <Button variant="primary" loading={busy} onClick={onConfirm}>
+        <Button
+          variant="primary"
+          loading={busy}
+          disabledReason={check && !check.checked ? "Marca antes que has comprobado el paquete" : undefined}
+          onClick={onConfirm}
+        >
           Confirmar entrada
         </Button>
       </div>

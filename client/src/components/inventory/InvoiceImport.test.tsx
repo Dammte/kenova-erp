@@ -101,6 +101,37 @@ describe("invoice import helpers", () => {
 });
 
 describe("InvoiceImport", () => {
+  it("receives a supplier order: starts at «Revisar» with its lines and confirms only with the visto bueno", async () => {
+    const exact = { ...PREVIEW, lines: [PREVIEW.lines[0], { ...PREVIEW.lines[1], match: { kind: "match", reason: "ref", part: A54 } }, PREVIEW.lines[2]] };
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.endsWith("/preview")) return json(exact);
+      if (url.endsWith("/purchase-invoices")) return json(RESULT, 201);
+      return json({}, 404);
+    });
+    await act(async () => {
+      render(
+        <InvoiceImport
+          onDone={() => {}}
+          fromOrder={{ orderId: "so1", head: { provider: "MovilParts", number: "KQWERTYUA", invoiceDate: "2026-11-25" }, lines: READ.lines }}
+        />,
+      );
+    });
+    expect(screen.queryByLabelText("Archivo de la factura")).toBeNull();
+    expect(JSON.parse(sent("/preview")[0] as string)).toMatchObject({ provider: "MovilParts", number: "KQWERTYUA" });
+    fireEvent.click(screen.getByRole("button", { name: "Revisar entrada" }));
+
+    const go = () => screen.getByRole("button", { name: "Confirmar entrada" });
+    expect(go().hasAttribute("disabled")).toBe(true);
+    screen.getByText("Marca antes que has comprobado el paquete");
+    fireEvent.click(screen.getByRole("checkbox", { name: /He comprobado que el paquete coincide/ }));
+    expect(go().hasAttribute("disabled")).toBe(false);
+    await act(async () => {
+      fireEvent.click(go());
+    });
+    expect(JSON.parse(sent("/purchase-invoices")[0] as string)).toMatchObject({ supplierOrderId: "so1", checked: true, number: "KQWERTYUA" });
+    expect(screen.getByRole("link", { name: "Volver al pedido del proveedor" }).getAttribute("href")).toBe("/proveedores/pedidos?pedido=so1");
+  });
+
   it("reads the invoice, asks about the similar line, confirms and shows what changed", async () => {
     await readInvoice();
     expect(JSON.parse(sent("/preview")[0] as string)).toMatchObject({ provider: "MovilParts", number: "F-2026-1184" });
