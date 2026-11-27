@@ -26,6 +26,7 @@ import { Toast } from "@/components/feedback/Toast";
 import OrderPanel from "./OrderPanel";
 import { QUICK_STATUSES, StatusMenu } from "./StatusMenu";
 import { FinishDialog } from "./FinishDialog";
+import { shipmentFromOrders } from "@/components/shipments/shipments";
 import styles from "./OrderList.module.css";
 
 /** The order's own page, for what the panel cannot do yet. */
@@ -421,6 +422,9 @@ export default function OrderList() {
             onClick={() => router.push(`/ordenes/etiquetas?ids=${pickedRows.map((r) => r.id).join(",")}`)}
           >
             Imprimir etiquetas
+          </Button>
+          <Button size="sm" variant="secondary" onClick={() => router.push(shipmentFromOrders(pickedRows.map((r) => r.id)))}>
+            Crear envío
           </Button>
           <Button size="sm" variant="ghost" onClick={() => setPicked(new Set())}>
             Quitar selección

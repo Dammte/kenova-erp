@@ -303,13 +303,17 @@ describe("OrderList", () => {
     expect(screen.queryByRole("button", { name: "Deshacer" })).toBeNull();
   });
 
-  it("opens the labels of the picked orders to print them at once (B4)", async () => {
+  it("opens the labels or a new shipment with the picked orders (B4)", async () => {
     await show();
     fireEvent.click(screen.getByRole("checkbox", { name: "Seleccionar todas las de esta página" }));
     fireEvent.click(
       within(screen.getByRole("region", { name: "Acciones en lote" })).getByRole("button", { name: "Imprimir etiquetas" }),
     );
     expect(push).toHaveBeenCalledWith("/ordenes/etiquetas?ids=o1,o2");
+    fireEvent.click(
+      within(screen.getByRole("region", { name: "Acciones en lote" })).getByRole("button", { name: "Crear envío" }),
+    );
+    expect(push).toHaveBeenLastCalledWith("/envios?envio=nuevo&ordenes=o1,o2");
   });
 
   it("changes the status of the picked orders at once and says what did not move (B4)", async () => {

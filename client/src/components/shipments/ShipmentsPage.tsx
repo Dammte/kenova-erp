@@ -17,6 +17,7 @@ import {
   formatDay,
   lineState,
   listUrl,
+  NEW_SHIPMENT,
   readQuery,
   shipmentSummary,
   type Shipment,
@@ -26,7 +27,11 @@ import {
 import styles from "./Shipments.module.css";
 
 /** ?envio=nuevo opens the form to create one. */
-const NEW = "nuevo";
+const NEW = NEW_SHIPMENT;
+
+/** ?ordenes=a,b: the orders picked in the order list to ship (B4). */
+const readOrders = (params: URLSearchParams): string[] =>
+  (params.get("ordenes") ?? "").split(",").filter(Boolean);
 
 /** Design R2 3.14: the shipments and, apart, the partner stores' commissions. */
 export function ShipmentsPage() {
@@ -208,6 +213,7 @@ function ShipmentList() {
       {openId === NEW && user && (
         <NewShipment
           partner={user.role === "SUPER_ADMIN"}
+          preselect={readOrders(params)}
           onCreated={(id) => {
             setAttempt((a) => a + 1);
             go({ envio: id });
