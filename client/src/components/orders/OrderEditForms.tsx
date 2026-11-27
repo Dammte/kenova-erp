@@ -5,6 +5,8 @@ import { Plus, Trash2 } from "lucide-react";
 import { Button, MoneyInput } from "@/components/ui";
 import { formatEur } from "@/lib/format";
 import { RateSearch } from "@/components/quotes/QuoteForm";
+import PatternLock from "@/components/serviceOrders/PatternLock";
+import { DEVICE_TYPES, PATTERN_RE, cleanImei } from "@/components/intake/intake";
 import { API_URL, apiFetch, errorMessage } from "@/lib/api";
 import { FAULT_LABEL, PRIORITY_LABEL } from "./orderList";
 import { CONTACT_LABEL, type OrderDetail } from "./orderDetail";
@@ -538,6 +540,155 @@ export function LinesEditForm({
           La orden tenía un ajuste de {formatEur(adjustment / 100)}: al guardar, el total pasa a ser la suma de las líneas.
         </p>
       )}
+    </EditForm>
+  );
+}
+
+/** How the device unlocks after saving; «keep» leaves the stored secret as it is. */
+type UnlockChoice = "keep" | "none" | "code" | "pattern";
+const dots = (s: string) => s.replace(/[^1-9]/g, "").split("").slice(0, 9).join("-");
+
+/**
+ * The device block. The device belongs to the client, so a change shows on
+ * all their orders. The unlock secret is never shown here: a new one
+ * replaces it, «Sin código» removes it.
+ */
+export function DeviceEditForm({
+  order,
+  onDirty,
+  onSaved,
+  onCancel,
+}: {
+  order: OrderDetail;
+  onDirty: (dirty: boolean) => void;
+  onSaved: () => void;
+  onCancel: () => void;
+}) {
+  const device = order.device!;
+  const had = device.unlockSecretType;
+  const [draft, setDraft] = useState({
+    type: device.type,
+    brand: device.brand,
+    model: device.model,
+    imei: device.imei ?? "",
+    unlock: (had ? "keep" : "none") as UnlockChoice,
+    code: "",
+    pattern: "",
+  });
+  const [saving, setSaving] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  const set = (patch: Partial<typeof draft>) => {
+    setDraft((d) => ({ ...d, ...patch }));
+    onDirty(true);
+  };
+
+  const why = !draft.brand.trim() || !draft.model.trim()
+    ? "Escribe la marca y el modelo."
+    : draft.unlock === "code" && !draft.code.trim()
+      ? "Escribe el PIN o la contraseña."
+      : draft.unlock === "pattern" && !PATTERN_RE.test(draft.pattern)
+        ? "Dibuja el patrón: 4 puntos como mínimo."
+        : undefined;
+
+  const changes = () => {
+    const body: Record<string, string | boolean | null> = {};
+    if (draft.type !== device.type) body.type = draft.type;
+    if (draft.brand.trim() !== device.brand) body.brand = draft.brand.trim();
+    if (draft.model.trim() !== device.model) body.model = draft.model.trim();
+    const imei = cleanImei(draft.imei);
+    if (imei !== (device.imei ?? "")) body.imei = imei || null;
+    if (draft.unlock === "code") body.code = draft.code.trim();
+    if (draft.unlock === "pattern") body.pattern = draft.pattern;
+    if (draft.unlock === "none" && had) body.clearSecret = true;
+    return body;
+  };
+
+  const save = async () => {
+    if (why) return;
+    const body = changes();
+    if (Object.keys(body).length === 0) {
+      onDirty(false);
+      onCancel();
+      return;
+    }
+    setSaving(true);
+    setProblem(null);
+    try {
+      const res = await apiFetch(`${API_URL}/service-orders/${order.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ editedDevice: body }),
+      });
+      if (!res.ok) {
+        setProblem(await errorMessage(res, "No se ha guardado el equipo."));
+        return;
+      }
+      onDirty(false);
+      onSaved();
+    } catch {
+      setProblem("No se ha guardado el equipo. Comprueba la conexión.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const unlocks: [UnlockChoice, string][] = [
+    ...(had ? [["keep", had === "PATTERN" ? "Mantener el patrón" : "Mantener el código"] as [UnlockChoice, string]] : []),
+    ["none", "Sin código"],
+    ["code", "PIN o contraseña"],
+    ["pattern", "Patrón"],
+  ];
+
+  return (
+    <EditForm
+      label="Editar equipo"
+      saving={saving}
+      problem={problem}
+      disabledReason={why}
+      onCancel={() => {
+        onDirty(false);
+        onCancel();
+      }}
+      onSubmit={save}
+    >
+      <fieldset className={styles.group}>
+        <legend className={styles.label}>Tipo</legend>
+        <div className={styles.chips} role="radiogroup">
+          {DEVICE_TYPES.map(([type, label]) => (
+            <label key={type} className={styles.chip}>
+              <input type="radio" name="edit-device-type" checked={draft.type === type} onChange={() => set({ type })} />
+              {label}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+      <Text id="edit-device-brand" label="Marca" value={draft.brand} max={50} onChange={(brand) => set({ brand })} />
+      <Text id="edit-device-model" label="Modelo" value={draft.model} max={50} onChange={(model) => set({ model })} />
+      <Text id="edit-device-imei" label="IMEI / nº de serie" value={draft.imei} max={25} onChange={(imei) => set({ imei })} />
+      <fieldset className={styles.group}>
+        <legend className={styles.label}>
+          Desbloqueo <span className={styles.muted}>· se guarda cifrado</span>
+        </legend>
+        <div className={styles.chips} role="radiogroup">
+          {unlocks.map(([u, label]) => (
+            <label key={u} className={styles.chip}>
+              <input type="radio" name="edit-device-unlock" checked={draft.unlock === u} onChange={() => set({ unlock: u })} />
+              {label}
+            </label>
+          ))}
+        </div>
+        {draft.unlock === "code" && (
+          <Text id="edit-device-code" label="PIN o contraseña nuevo" value={draft.code} max={64} onChange={(code) => set({ code })} />
+        )}
+        {draft.unlock === "pattern" && (
+          <>
+            <PatternLock value={draft.pattern} onChange={(pattern) => set({ pattern })} />
+            <Text id="edit-device-pattern" label="O escribe los puntos, del 1 al 9" value={draft.pattern} max={17} onChange={(p) => set({ pattern: dots(p) })} />
+          </>
+        )}
+        {draft.unlock === "none" && had && <p className={styles.hint}>Al guardar se borra el {had === "PATTERN" ? "patrón" : "código"} guardado.</p>}
+      </fieldset>
+      <p className={styles.hint}>El equipo es del cliente: el cambio se verá en todas sus órdenes.</p>
     </EditForm>
   );
 }

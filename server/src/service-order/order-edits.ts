@@ -121,3 +121,42 @@ export function describeLineEdits(
   const text = `Edición · Servicios: ${parts.join(' · ') || 'sin cambios'} · Total: ${eur(totalBefore)} → ${eur(totalAfter)}`;
   return text.length > 500 ? `${text.slice(0, 499)}…` : text;
 }
+
+const DEVICE_TYPE: Record<string, string> = {
+  movil: 'Móvil',
+  smartphone: 'Móvil',
+  tablet: 'Tablet',
+  computador: 'Ordenador',
+  otro: 'Otro',
+};
+const DEVICE_LABEL = {
+  type: 'Tipo',
+  brand: 'Marca',
+  model: 'Modelo',
+  imei: 'IMEI',
+} as const;
+export type DeviceField = keyof typeof DEVICE_LABEL;
+export type SecretEdit = 'CODE' | 'PATTERN' | 'cleared' | null;
+
+/**
+ * «Edición · Equipo: Modelo: iPhone 13 → iPhone 13 Pro · Desbloqueo: PIN
+ * nuevo», or null. The unlock secret itself never goes into the history.
+ */
+export function describeDeviceEdits(
+  before: Partial<Record<DeviceField, string | null>>,
+  changes: Partial<Record<DeviceField, string | null>>,
+  secret: SecretEdit,
+): string | null {
+  const show = (f: DeviceField, v: string | null | undefined) =>
+    !v ? 'vacío' : f === 'type' ? (DEVICE_TYPE[v] ?? v) : v;
+  const parts = (Object.keys(DEVICE_LABEL) as DeviceField[])
+    .filter((f) => f in changes && !same(before[f], changes[f]))
+    .map(
+      (f) =>
+        `${DEVICE_LABEL[f]}: ${show(f, before[f])} → ${show(f, changes[f])}`,
+    );
+  if (secret === 'CODE') parts.push('Desbloqueo: PIN o contraseña nuevo');
+  if (secret === 'PATTERN') parts.push('Desbloqueo: patrón nuevo');
+  if (secret === 'cleared') parts.push('Desbloqueo: quitado');
+  return parts.length ? `Edición · Equipo: ${parts.join(' · ')}` : null;
+}

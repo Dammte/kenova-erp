@@ -299,6 +299,35 @@ describe("OrderPage", () => {
       expect(form.getByRole("button", { name: "Guardar" }).hasAttribute("disabled")).toBe(false);
     });
 
+    it("edits the device: only what changed, and a new unlock secret replaces the old one", async () => {
+      await open();
+      fireEvent.click(screen.getByRole("button", { name: "Editar el equipo" }));
+      const form = within(screen.getByRole("form", { name: "Editar equipo" }));
+      fireEvent.change(form.getByLabelText("Modelo"), { target: { value: "iPhone 13 Pro" } });
+      fireEvent.change(form.getByLabelText("IMEI / nº de serie"), { target: { value: "35 6789-104521 399" } });
+      fireEvent.click(form.getByLabelText("PIN o contraseña"));
+      expect(form.getByRole("button", { name: "Guardar" }).hasAttribute("disabled")).toBe(true);
+      fireEvent.change(form.getByLabelText("PIN o contraseña nuevo"), { target: { value: "2468" } });
+      fireEvent.click(form.getByRole("button", { name: "Guardar" }));
+      await act(async () => {});
+      expect(sent("PATCH")).toEqual([
+        ["/api/service-orders/o1", { editedDevice: { model: "iPhone 13 Pro", imei: "356789104521399", code: "2468" } }],
+      ]);
+    });
+
+    it("removes the stored unlock secret only when «Sin código» is chosen", async () => {
+      serve({ device: { ...ORDER.device!, unlockSecretType: "PATTERN" } } as Partial<OrderDetail>);
+      await open();
+      fireEvent.click(screen.getByRole("button", { name: "Editar el equipo" }));
+      const form = within(screen.getByRole("form", { name: "Editar equipo" }));
+      expect((form.getByLabelText("Mantener el patrón") as HTMLInputElement).checked).toBe(true);
+      fireEvent.click(form.getByLabelText("Sin código"));
+      form.getByText("Al guardar se borra el patrón guardado.");
+      fireEvent.click(form.getByRole("button", { name: "Guardar" }));
+      await act(async () => {});
+      expect(sent("PATCH")).toEqual([["/api/service-orders/o1", { editedDevice: { clearSecret: true } }]]);
+    });
+
     it("edits one block at a time: changes in one have to be saved or discarded first", async () => {
       await open();
       fireEvent.click(screen.getByRole("button", { name: "Editar la avería" }));
