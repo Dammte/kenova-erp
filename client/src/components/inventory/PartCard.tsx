@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { X } from "lucide-react";
+import { Trash2, X } from "lucide-react";
 import { formatDateTime } from "@/components/orders/orderDetail";
 import { Button } from "@/components/ui";
 import { API_URL, apiFetch } from "@/lib/api";
@@ -39,8 +39,22 @@ const MOVE_DETAIL: Record<StockLine["kind"], string> = {
 const statusOf = (stock: number, min: number): StockStatus => (stock === 0 ? "out" : stock < min ? "low" : "ok");
 
 /** A part's card: its data, prices and why its stock is what it is. */
-export function PartCard({ id, onEdit, onClose }: { id: string; onEdit: () => void; onClose: () => void }) {
+export function PartCard({
+  id,
+  onEdit,
+  onClose,
+  onDeleted,
+}: {
+  id: string;
+  onEdit: () => void;
+  onClose: () => void;
+  /** Sent to the Papelera, where it can be restored. */
+  onDeleted: () => void;
+}) {
   const [part, setPart] = useState<Part | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteProblem, setDeleteProblem] = useState(false);
   const [moves, setMoves] = useState<StockLine[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -85,6 +99,19 @@ export function PartCard({ id, onEdit, onClose }: { id: string; onEdit: () => vo
     );
   }
 
+  async function remove() {
+    setDeleting(true);
+    setDeleteProblem(false);
+    try {
+      const res = await apiFetch(`${API_URL}/inventory/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error(String(res.status));
+      onDeleted();
+    } catch {
+      setDeleteProblem(true);
+      setDeleting(false);
+    }
+  }
+
   const stock = part.stock ?? 0;
   const min = part.minimalStock ?? 0;
   const sale = part.salesPrice === null ? null : String(part.salesPrice);
@@ -109,7 +136,28 @@ export function PartCard({ id, onEdit, onClose }: { id: string; onEdit: () => vo
         <Button size="sm" onClick={onEdit}>
           Editar
         </Button>
+        {!confirmDelete && (
+          <Button variant="ghost" size="sm" icon={<Trash2 size={16} aria-hidden />} onClick={() => setConfirmDelete(true)}>
+            Eliminar
+          </Button>
+        )}
       </div>
+      {confirmDelete && (
+        <div className={styles.cardActions} role="group" aria-label="Confirmar eliminación">
+          <span>¿Enviar {part.name} a la papelera? Se puede recuperar desde Papelera.</span>
+          <Button variant="danger" size="sm" loading={deleting} loadingText="Eliminando…" onClick={remove}>
+            Sí, eliminar
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(false)}>
+            No
+          </Button>
+        </div>
+      )}
+      {deleteProblem && (
+        <p role="alert" className={styles.error}>
+          No se ha podido eliminar el repuesto. Nada ha cambiado; vuelve a intentarlo.
+        </p>
+      )}
 
       <dl className={styles.stats}>
         <div>

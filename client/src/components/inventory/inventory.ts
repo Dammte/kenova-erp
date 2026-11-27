@@ -99,3 +99,47 @@ export function arrival(p: Pick<PartOrderRow, "expectedAt" | "waitingDays" | "la
   if (!p.expectedAt) return `Sin fecha · ${days(p.waitingDays)}`;
   return p.late ? `${formatDate(p.expectedAt)} · retrasado` : formatDate(p.expectedAt);
 }
+
+/** GET /api/inventory: every part, for the Excel. */
+export interface PartExport {
+  sku: string;
+  name: string;
+  category: string | null;
+  brand: string | null;
+  model: string | null;
+  stock: number | null;
+  minimalStock: number | null;
+  salesPrice: string | number | null;
+  costPrice: string | null;
+  ubication: string | null;
+  provider: string | null;
+}
+
+const toNumber = (v: string | number | null) => (v === null || v === "" || Number.isNaN(Number(v)) ? "" : Number(v));
+
+/**
+ * «Exportar Excel», the same columns the old /inventory gave. Prices go as
+ * numbers so the sheet can add them up.
+ */
+export function partsSheet(parts: PartExport[]): (string | number)[][] {
+  return [
+    ["SKU", "Repuesto", "Categoría", "Marca", "Compatible", "Stock", "Mínimo", "Venta (€)", "Coste (€)", "Ubicación", "Proveedor"],
+    ...parts.map((p) => [
+      p.sku,
+      p.name,
+      p.category ?? "",
+      p.brand ?? "",
+      p.model ?? "",
+      p.stock ?? 0,
+      p.minimalStock ?? 0,
+      toNumber(p.salesPrice),
+      toNumber(p.costPrice),
+      p.ubication ?? "",
+      p.provider ?? "",
+    ]),
+  ];
+}
+
+/** «Inventario_2026-11-27.xlsx». */
+export const partsFileName = (today: Date) =>
+  `Inventario_${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}.xlsx`;

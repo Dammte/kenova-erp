@@ -13,7 +13,7 @@ import { InvoiceImport } from "./InvoiceImport";
 import { ReceiveSupplierOrder } from "./ReceiveSupplierOrder";
 import { PartOrders } from "./PartOrders";
 import { StockBadge } from "./StockBadge";
-import { skuTag, type PartPage } from "./inventory";
+import { partsFileName, partsSheet, skuTag, type PartExport, type PartPage } from "./inventory";
 import styles from "./Inventory.module.css";
 
 /**
@@ -81,6 +81,7 @@ function Header({ view, onNew }: { view: View; onNew?: () => void }) {
       <header className={styles.top}>
         <h1 className={styles.title}>Inventario</h1>
         <div className={styles.headActions}>
+          <ExportButton />
           <Button variant="primary" size="sm" onClick={startNew}>
             + Nuevo repuesto
           </Button>
@@ -100,6 +101,44 @@ function Header({ view, onNew }: { view: View; onNew?: () => void }) {
           </button>
         ))}
       </div>
+    </>
+  );
+}
+
+/** «Exportar Excel»: every part, as the old /inventory did. */
+function ExportButton() {
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState(false);
+  const exportXlsx = async () => {
+    setBusy(true);
+    setProblem(false);
+    try {
+      const res = await apiFetch(`${API_URL}/inventory`);
+      if (!res.ok) throw new Error(String(res.status));
+      const parts = (await res.json()) as PartExport[];
+      // Loaded on demand: the library is large and only this button needs it.
+      const XLSX = await import("xlsx");
+      const ws = XLSX.utils.aoa_to_sheet(partsSheet(parts));
+      ws["!cols"] = [16, 36, 14, 12, 22, 8, 8, 10, 10, 10, 16].map((wch) => ({ wch }));
+      const book = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(book, ws, "Inventario");
+      XLSX.writeFile(book, partsFileName(new Date()));
+    } catch {
+      setProblem(true);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <>
+      <Button variant="secondary" size="sm" loading={busy} loadingText="Preparando…" onClick={exportXlsx}>
+        Exportar Excel
+      </Button>
+      {problem && (
+        <span role="alert" className={styles.error}>
+          No se ha podido crear el Excel. Reintenta.
+        </span>
+      )}
     </>
   );
 }
@@ -377,6 +416,10 @@ function PartsList() {
           id={openId}
           onEdit={() => go({ editar: "1" })}
           onClose={() => go({ repuesto: null })}
+          onDeleted={() => {
+            go({ repuesto: null });
+            setAttempt((n) => n + 1);
+          }}
         />
       )}
     </div>
