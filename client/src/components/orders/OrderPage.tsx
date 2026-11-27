@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ArrowLeft, Pencil, Printer, Tag } from "lucide-react";
-import { ClientEditForm, FaultEditForm } from "./OrderEditForms";
+import { ClientEditForm, FaultEditForm, LinesEditForm } from "./OrderEditForms";
 import { Button, StatusChip } from "@/components/ui";
 import { PRIORITY_LABEL } from "./orderList";
 import { OrderActions } from "./OrderActions";
@@ -34,8 +34,8 @@ import styles from "./OrderPage.module.css";
 /** What the blocks cannot edit yet (services, device) opens the previous screen. */
 export const editHref = (id: string) => `/serviceOrders/${id}/edit`;
 
-type Block = "averia" | "cliente";
-const BLOCK_NAME: Record<Block, string> = { averia: "la avería", cliente: "el cliente" };
+type Block = "averia" | "servicios" | "cliente";
+const BLOCK_NAME: Record<Block, string> = { averia: "la avería", servicios: "los servicios", cliente: "el cliente" };
 
 const FILTERS: { id: HistoryKind | "todo"; label: string }[] = [
   { id: "todo", label: "Todo" },
@@ -199,9 +199,25 @@ function Loaded({ order, payments, notes, notices, onChanged }: LoadedOrder & { 
           <FlaggedNotes notes={notes} />
 
           <section className={panel.section}>
-            <h2 className={styles.blockTitle}>Servicios y trabajo</h2>
+            <div className={`${panel.blockHead} ${styles.sectionHead}`}>
+              <h2 className={styles.blockTitle}>{editing === "servicios" ? "Editar servicios y piezas" : "Servicios y trabajo"}</h2>
+              {editButton("servicios")}
+            </div>
             <div className={panel.tabPanel}>
-              <WorkBlock order={order} />
+              {editing === "servicios" ? (
+                <LinesEditForm
+                  order={order}
+                  onDirty={setDirty}
+                  onSaved={() => {
+                    done();
+                    onChanged();
+                  }}
+                  onCancel={done}
+                  onReload={onChanged}
+                />
+              ) : (
+                <WorkBlock order={order} />
+              )}
             </div>
           </section>
 

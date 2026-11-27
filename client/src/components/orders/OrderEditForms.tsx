@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
-import { Button } from "@/components/ui";
+import { Plus, Trash2 } from "lucide-react";
+import { Button, MoneyInput } from "@/components/ui";
+import { formatEur } from "@/lib/format";
+import { RateSearch } from "@/components/quotes/QuoteForm";
 import { API_URL, apiFetch, errorMessage } from "@/lib/api";
 import { FAULT_LABEL, PRIORITY_LABEL } from "./orderList";
 import { CONTACT_LABEL, type OrderDetail } from "./orderDetail";
@@ -27,11 +30,14 @@ function EditForm({
   onCancel,
   onSubmit,
   children,
+  disabledReason,
 }: {
   label: string;
   saving: boolean;
   problem: string | null;
   conflict?: boolean;
+  /** Why it cannot be saved yet, such as a missing price. */
+  disabledReason?: string;
   onReload?: () => void;
   onCancel: () => void;
   onSubmit: () => void;
@@ -74,7 +80,7 @@ function EditForm({
           type="submit"
           variant="primary"
           loading={saving}
-          disabledReason={conflict ? "Recarga primero para ver el otro cambio." : undefined}
+          disabledReason={conflict ? "Recarga primero para ver el otro cambio." : disabledReason}
         >
           Guardar
         </Button>
@@ -347,6 +353,191 @@ export function ClientEditForm({
         </div>
       </fieldset>
       <p className={styles.hint}>Cambia sus datos en todas sus órdenes. DNI y dirección, en la ficha del cliente.</p>
+    </EditForm>
+  );
+}
+
+interface DraftLine {
+  key: number;
+  serviceId: string | null;
+  description: string;
+  unitPrice: number | null;
+  quantity: number;
+}
+
+let nextLineKey = 1;
+const cents = (v: number | string | null | undefined) => Math.round(Number(v ?? 0) * 100);
+
+/**
+ * «Servicios y piezas»: price, quantity, removing, adding from Tarifas or a
+ * line by hand. The total becomes the sum of the lines.
+ */
+export function LinesEditForm({
+  order,
+  onDirty,
+  onSaved,
+  onCancel,
+  onReload,
+}: {
+  order: OrderDetail;
+  onDirty: (dirty: boolean) => void;
+  onSaved: () => void;
+  onCancel: () => void;
+  onReload: () => void;
+}) {
+  const adjustment = order.lines
+    .filter((l) => l.kind === "adjustment")
+    .reduce((sum, l) => sum + cents(l.unitPrice) * l.quantity, 0);
+  const [lines, setLines] = useState<DraftLine[]>(() =>
+    order.lines
+      .filter((l) => l.kind !== "adjustment")
+      .map((l) => ({
+        key: nextLineKey++,
+        serviceId: l.serviceId ?? null,
+        description: l.description,
+        unitPrice: Number(l.unitPrice),
+        quantity: l.quantity,
+      })),
+  );
+  const [state, setState] = useState<Save>("idle");
+  const [problem, setProblem] = useState<string | null>(null);
+  const update = (next: DraftLine[]) => {
+    setLines(next);
+    onDirty(true);
+  };
+  const change = (key: number, patch: Partial<DraftLine>) => update(lines.map((l) => (l.key === key ? { ...l, ...patch } : l)));
+
+  const total = lines.reduce((sum, l) => sum + cents(l.unitPrice) * l.quantity, 0);
+  const paid = cents(order.amountPaid);
+  const missing = lines.some((l) => !l.description.trim() || l.unitPrice === null);
+  const why = missing
+    ? "Cada línea necesita concepto e importe."
+    : total < paid
+      ? `Ya se han cobrado ${formatEur(paid / 100)}; el total no puede ser menor. Devuelve primero la diferencia.`
+      : undefined;
+
+  const save = async () => {
+    if (why) return;
+    setState("saving");
+    setProblem(null);
+    try {
+      const res = await apiFetch(`${API_URL}/service-orders/${order.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          editedLines: lines.map((l) => ({
+            ...(l.serviceId ? { serviceId: l.serviceId } : {}),
+            description: l.description.trim(),
+            unitPrice: l.unitPrice,
+            quantity: l.quantity,
+          })),
+          expectedUpdatedAt: order.updatedAt,
+        }),
+      });
+      if (res.status === 409) {
+        setProblem(await errorMessage(res, "Otra persona ha cambiado esta orden mientras la editabas."));
+        setState("conflict");
+        return;
+      }
+      if (!res.ok) {
+        setProblem(await errorMessage(res, "No se han guardado los servicios."));
+        setState("idle");
+        return;
+      }
+      onDirty(false);
+      onSaved();
+    } catch {
+      setProblem("No se han guardado los servicios. Comprueba la conexión.");
+      setState("idle");
+    }
+  };
+
+  return (
+    <EditForm
+      label="Editar servicios y piezas"
+      saving={state === "saving"}
+      problem={problem}
+      conflict={state === "conflict"}
+      disabledReason={why}
+      onReload={() => {
+        setState("idle");
+        setProblem(null);
+        onReload();
+      }}
+      onCancel={() => {
+        onDirty(false);
+        onCancel();
+      }}
+      onSubmit={save}
+    >
+      <RateSearch
+        onPick={(r) => {
+          const same = lines.find((l) => l.serviceId === r.id);
+          if (same) change(same.key, { quantity: Math.min(99, same.quantity + 1) });
+          else update([...lines, { key: nextLineKey++, serviceId: r.id, description: r.name, unitPrice: Number(r.price), quantity: 1 }]);
+        }}
+      />
+      {lines.length === 0 && <p className={styles.muted}>Sin líneas: el total será 0,00 €.</p>}
+      {lines.map((l, i) => (
+        <div key={l.key} className={styles.lineEdit}>
+          <span className={styles.lineDesc}>
+            <label className={styles.label} htmlFor={`line-${l.key}`}>
+              Concepto {i + 1}
+              {l.serviceId && <span className={styles.muted}> · de Tarifas</span>}
+            </label>
+            <input
+              id={`line-${l.key}`}
+              className={styles.input}
+              value={l.description}
+              maxLength={150}
+              onChange={(e) => change(l.key, { description: e.target.value })}
+            />
+          </span>
+          <span className={styles.lineQty}>
+            <label className={styles.label} htmlFor={`qty-${l.key}`}>
+              Cantidad {i + 1}
+            </label>
+            <input
+              id={`qty-${l.key}`}
+              className={styles.input}
+              type="number"
+              min={1}
+              max={99}
+              value={l.quantity}
+              onChange={(e) => change(l.key, { quantity: Math.max(1, Math.min(99, Math.trunc(Number(e.target.value) || 1))) })}
+            />
+          </span>
+          <span className={styles.linePrice}>
+            <MoneyInput label={`Precio ${i + 1}`} value={l.unitPrice} onChange={(v) => change(l.key, { unitPrice: v })} />
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-label={`Quitar ${l.description || `línea ${i + 1}`}`}
+            icon={<Trash2 size={16} aria-hidden />}
+            onClick={() => update(lines.filter((x) => x.key !== l.key))}
+          />
+        </div>
+      ))}
+      <p className={styles.actions}>
+        <Button
+          variant="ghost"
+          size="sm"
+          icon={<Plus size={16} aria-hidden />}
+          onClick={() => update([...lines, { key: nextLineKey++, serviceId: null, description: "", unitPrice: null, quantity: 1 }])}
+        >
+          Línea libre
+        </Button>
+      </p>
+      <p className={styles.lineTotalRow}>
+        <span>Total</span>
+        <strong aria-label="Total de la orden">{formatEur(total / 100)}</strong>
+      </p>
+      {adjustment !== 0 && (
+        <p className={styles.hint}>
+          La orden tenía un ajuste de {formatEur(adjustment / 100)}: al guardar, el total pasa a ser la suma de las líneas.
+        </p>
+      )}
     </EditForm>
   );
 }

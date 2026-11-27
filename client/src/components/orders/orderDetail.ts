@@ -54,6 +54,8 @@ export interface OrderDetail {
   lines: {
     id: string;
     kind: "service" | "adjustment";
+    /** The catalog service it comes from; a line written by hand has none. */
+    serviceId?: string | null;
     description: string;
     unitPrice: string;
     quantity: number;

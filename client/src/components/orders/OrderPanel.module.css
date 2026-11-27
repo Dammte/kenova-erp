@@ -824,3 +824,33 @@ button.chip:focus-visible {
 .blockHead > h3 {
   margin-bottom: 0;
 }
+
+/* Editing «Servicios y piezas»: concept, quantity, price and remove in a row. */
+.lineEdit {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--k-space-2);
+  padding-bottom: var(--k-space-2);
+  border-bottom: var(--k-border-w) solid var(--k-border);
+}
+.lineDesc {
+  display: flex;
+  flex: 1 1 220px;
+  flex-direction: column;
+  gap: var(--k-space-1);
+}
+.lineQty {
+  display: flex;
+  flex: 0 0 88px;
+  flex-direction: column;
+  gap: var(--k-space-1);
+}
+.linePrice {
+  flex: 0 0 140px;
+}
+.lineTotalRow {
+  display: flex;
+  justify-content: space-between;
+  font-variant-numeric: tabular-nums;
+}
