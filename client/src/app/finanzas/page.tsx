@@ -888,7 +888,7 @@ export default function FinanzasPage() {
                           {days === 0 ? "Hoy" : `${days}d`}
                         </span>
                       </td>
-                      <td><Link href={`/serviceOrders/${o.id}/edit`} className={styles.lBtn}>Ver</Link></td>
+                      <td><Link href={`/ordenes/${o.id}`} className={styles.lBtn}>Ver</Link></td>
                     </tr>
                   );
                 })}

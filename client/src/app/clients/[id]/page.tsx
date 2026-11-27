@@ -276,7 +276,7 @@ export default function ClientDetail() {
               return (
                 <Link
                   key={order.id}
-                  href={`/serviceOrders/${order.id}/edit`}
+                  href={`/ordenes/${order.id}`}
                   style={{
                     display: "flex",
                     alignItems: "center",

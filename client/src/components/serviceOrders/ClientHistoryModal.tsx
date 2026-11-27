@@ -292,7 +292,7 @@ export function ClientHistoryModal({
 
                     {/* Link a la orden */}
                     <div style={{ marginTop: 12 }}>
-                      <Link href={`/serviceOrders/${order.id}/edit`} style={viewOrderLink}>
+                      <Link href={`/ordenes/${order.id}`} style={viewOrderLink}>
                         <ExternalLink size={12} />
                         Ver orden completa
                       </Link>

@@ -4,8 +4,7 @@ import { useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 /**
- * The standalone view page has been merged into the edit page.
- * Redirect any direct access to /serviceOrders/[id] → /serviceOrders/[id]/edit
+ * The order's page is now /ordenes/[id] (design R3 3.4); old links land there.
  */
 export default function ServiceOrderRedirect() {
   const params = useParams();
@@ -13,7 +12,7 @@ export default function ServiceOrderRedirect() {
 
   useEffect(() => {
     const id = params?.id as string;
-    if (id) router.replace(`/serviceOrders/${id}/edit`);
+    if (id) router.replace(`/ordenes/${id}`);
   }, [params, router]);
 
   return null;

@@ -29,7 +29,7 @@ import { FinishDialog } from "./FinishDialog";
 import styles from "./OrderList.module.css";
 
 /** The order's own page, for what the panel cannot do yet. */
-export const orderHref = (id: string) => `/serviceOrders/${id}`;
+export const orderHref = (id: string) => `/ordenes/${id}`;
 export const NEW_ORDER_HREF = "/ordenes/nueva";
 
 const SEARCH_DELAY_MS = 300;
