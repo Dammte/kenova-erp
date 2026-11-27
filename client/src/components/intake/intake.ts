@@ -244,17 +244,17 @@ export function missing(s: IntakeState): { field: string; text: string }[] {
     if (digits(s.client.phoneNumber).length < 9)
       out.push({ field: "client-phone", text: "Cliente: teléfono de 9 cifras" });
   }
-  if (!s.device) out.push({ field: "device", text: "Dispositivo" });
+  if (!s.device) out.push({ field: "device", text: "Equipo" });
   else if (!isKnown(s.device)) {
-    if (!s.device.brand.trim()) out.push({ field: "device-brand", text: "Dispositivo: marca" });
-    if (!s.device.model.trim()) out.push({ field: "device-model", text: "Dispositivo: modelo" });
+    if (!s.device.brand.trim()) out.push({ field: "device-brand", text: "Equipo: marca" });
+    if (!s.device.model.trim()) out.push({ field: "device-model", text: "Equipo: modelo" });
     if (s.device.unlock === "code" && !s.device.code.trim())
       out.push({ field: "device-code", text: "Desbloqueo: PIN o contraseña" });
     if (s.device.unlock === "pattern" && !PATTERN_RE.test(s.device.pattern))
       out.push({ field: "device-pattern", text: "Desbloqueo: patrón de 4 puntos o más" });
   }
   // A symptom or the client's own words: either is enough.
-  if (s.faults.length === 0 && !s.faultNotes.trim()) out.push({ field: "faults", text: "Avería declarada" });
+  if (s.faults.length === 0 && !s.faultNotes.trim()) out.push({ field: "faults", text: "Avería (elige un síntoma)" });
   // Something written in the entry row that was not added would be lost.
   const draft = s.draft.description.trim();
   if (draft || s.draft.price !== null)
@@ -311,5 +311,19 @@ export function intakePayload(s: IntakeState) {
       ...(s.warrantyOf ? { warrantyOfId: s.warrantyOf.id } : {}),
     },
     ...(s.quote ? { quoteId: s.quote.id } : {}),
+  };
+}
+
+/**
+ * Design R3 3.5: a numbered block turns into ✓ when nothing is missing in it.
+ * Services are optional, so that block is done once it has a line.
+ */
+export function blocksDone(s: IntakeState, todo = missing(s)) {
+  const lacks = (test: (field: string) => boolean) => todo.some((t) => test(t.field));
+  return {
+    client: !!s.client && !lacks((f) => f.startsWith("client")),
+    device: !!s.device && !lacks((f) => f === "device" || f.startsWith("device-")),
+    faults: !lacks((f) => f === "faults"),
+    services: s.lines.length > 0 && !lacks((f) => f === "service-entry" || f === "deposit" || f === "method"),
   };
 }

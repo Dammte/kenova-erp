@@ -49,7 +49,6 @@ export function ServicePicker({
   };
 
   const total = orderTotal(value);
-  const pending = Math.max(0, total - (value.deposit ?? 0));
 
   return (
     <>
@@ -123,18 +122,6 @@ export function ServicePicker({
           Sin servicios todavía. Puedes crear la orden solo con la avería y presupuestar después.
         </p>
       )}
-
-      <p className={styles.totals}>
-        <span>
-          Total <strong>{formatEur(total)}</strong>
-        </span>
-        <span>
-          Anticipo <strong>{formatEur(Math.min(value.deposit ?? 0, total))}</strong>
-        </span>
-        <span>
-          Pendiente <strong>{formatEur(pending)}</strong>
-        </span>
-      </p>
 
       <MoneyInput
         name="deposit"
