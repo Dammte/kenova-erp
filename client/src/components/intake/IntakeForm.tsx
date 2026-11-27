@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui";
@@ -19,6 +19,7 @@ import {
   EMPTY_DRAFT,
   FAULTS,
   PRIORITIES,
+  STEPS,
   blocksDone,
   fromQuote,
   intakePayload,
@@ -26,6 +27,8 @@ import {
   missing,
   newLine,
   orderTotal,
+  shortName,
+  stepOf,
   suggestedServices,
   toggleWord,
   type FoundClient,
@@ -75,6 +78,7 @@ function Block({
   children,
   field,
   done = false,
+  hidden = false,
 }: {
   n: number;
   title: string;
@@ -82,10 +86,16 @@ function Block({
   field?: string;
   /** Design R3 3.5: the number turns into ✓ once the block is complete. */
   done?: boolean;
+  /** Mobile steps: a block of another step is hidden, but keeps what was typed. */
+  hidden?: boolean;
 }) {
   return (
-    <section className={styles.block} aria-labelledby={`intake-${n}`} data-field={field}>
-      <h2 id={`intake-${n}`} className={styles.blockTitle}>
+    <section
+      className={`${styles.block} ${hidden ? styles.offStep : ""}`}
+      aria-labelledby={`intake-${n}`}
+      data-field={field}
+    >
+      <h2 id={`intake-${n}`} className={styles.blockTitle} tabIndex={-1}>
         <span className={`${styles.step} ${done ? styles.stepDone : ""}`} aria-hidden>
           {done ? <Check size={14} /> : n}
         </span>
@@ -131,6 +141,9 @@ export function IntakeForm() {
   const [problem, setProblem] = useState<string | null>(null);
   // Design R3 3.5: rarely used in the intake, so folded; a quote asks to fill them.
   const [details, setDetails] = useState(false);
+  // Design R3 3.5: on the phone the intake goes one step at a time (CSS shows it only there).
+  const [step, setStep] = useState(0);
+  const formRef = useRef<HTMLFormElement>(null);
 
   const set = (patch: Partial<IntakeState>) => setS((prev) => ({ ...prev, ...patch }));
 
@@ -208,6 +221,7 @@ export function IntakeForm() {
   const summary = summaryOf(s);
   const total = orderTotal(s);
   const deposit = Math.min(s.deposit ?? 0, total);
+  const blocked = todo.length === 0 ? undefined : todo.length === 1 ? "Falta 1 dato" : `Faltan ${todo.length} datos`;
   const knownClientId = s.client && isKnown<FoundClient>(s.client) ? s.client.id : null;
 
   const submit = async (e?: FormEvent) => {
@@ -242,12 +256,67 @@ export function IntakeForm() {
     }
   };
 
+  /** Goes to a step and, by default, puts the focus on its title. */
+  const goTo = (next: number, focusTitle = true) => {
+    setStep(next);
+    formRef.current?.scrollIntoView?.({ block: "start" });
+    if (focusTitle)
+      requestAnimationFrame(() => document.getElementById(next === 4 ? "intake-summary" : `intake-${next + 1}`)?.focus());
+  };
+
+  /** A «Falta» line opens the step of its field (on the phone) and focuses it. */
+  const fix = (field: string) => {
+    setStep(stepOf(field));
+    requestAnimationFrame(() => focusField(field));
+  };
+
+  // What the earlier steps chose, as chips above the current one.
+  const chips = [
+    step > 0 && s.client ? { step: 0, label: shortName(s.client) || "Cliente nuevo" } : null,
+    step > 1 && (s.device?.model.trim() || s.device?.brand.trim())
+      ? { step: 1, label: s.device.model.trim() || s.device.brand.trim() }
+      : null,
+    step > 2 && summary.fault !== "—" ? { step: 2, label: summary.fault } : null,
+  ].filter((c): c is { step: number; label: string } => c !== null);
+
   const toggleFault = (f: string) =>
     set({ faults: s.faults.includes(f) ? s.faults.filter((x) => x !== f) : [...s.faults, f] });
 
   return (
-    <form className={styles.page} onSubmit={submit} onKeyDown={onKey} aria-label="Nueva orden">
-      <h1 className={styles.title}>Nueva orden</h1>
+    <form ref={formRef} className={styles.page} onSubmit={submit} onKeyDown={onKey} aria-label="Nueva orden">
+      <div className={styles.titleRow}>
+        <h1 className={styles.title}>Nueva orden</h1>
+        <span className={styles.stepCount}>
+          {step + 1} de {STEPS.length}
+        </span>
+      </div>
+      <nav className={styles.stepNav} aria-label="Pasos">
+        <ol className={styles.stepBar}>
+          {STEPS.map((label, i) => (
+            <li key={label}>
+              <button
+                type="button"
+                className={`${styles.stepTab} ${i <= step ? styles.stepTabReached : ""}`}
+                aria-current={i === step ? "step" : undefined}
+                onClick={() => goTo(i)}
+              >
+                {label}
+              </button>
+            </li>
+          ))}
+        </ol>
+        {chips.length > 0 && (
+          <ul className={styles.stepChips} aria-label="Elegido">
+            {chips.map((c) => (
+              <li key={c.step}>
+                <button type="button" className={styles.stepChip} onClick={() => goTo(c.step)}>
+                  {c.label}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </nav>
       {s.quote && (
         <p role="status" className={styles.fromQuote}>
           Desde el presupuesto {s.quote.code}: completa desbloqueo, accesorios y estado. Al crear la orden, el
@@ -256,11 +325,11 @@ export function IntakeForm() {
       )}
       <div className={styles.layout}>
         <div className={styles.blocks}>
-          <Block n={1} title="Cliente" done={done.client}>
+          <Block n={1} title="Cliente" done={done.client} hidden={step !== 0}>
             <ClientPicker value={s.client} onChange={(client) => setS((prev) => withClient(prev, client))} />
           </Block>
 
-          <Block n={2} title="Equipo" field="device" done={done.device}>
+          <Block n={2} title="Equipo" field="device" done={done.device} hidden={step !== 1}>
             <DevicePicker
               clientId={knownClientId}
               value={s.device}
@@ -285,7 +354,7 @@ export function IntakeForm() {
             )}
           </Block>
 
-          <Block n={3} title="Avería" field="faults" done={done.faults}>
+          <Block n={3} title="Avería" field="faults" done={done.faults} hidden={step !== 2}>
             <div className={styles.chips}>
               {FAULTS.map((f) => (
                 <label key={f} className={styles.chip}>
@@ -317,7 +386,7 @@ export function IntakeForm() {
             </label>
           </Block>
 
-          <Block n={4} title="Servicios y precio" done={done.services}>
+          <Block n={4} title="Servicios y precio" done={done.services} hidden={step !== 3}>
             <ServicePicker value={s} suggested={suggestedServices(s.faults)} onChange={set} />
             <label className={styles.check}>
               <input
@@ -331,7 +400,7 @@ export function IntakeForm() {
           </Block>
 
           <details
-            className={styles.more}
+            className={`${styles.more} ${step !== 4 ? styles.offStep : ""}`}
             open={details}
             onToggle={(e) => setDetails((e.currentTarget as HTMLDetailsElement).open)}
           >
@@ -416,8 +485,10 @@ export function IntakeForm() {
           </details>
         </div>
 
-        <aside className={styles.summary} aria-label="Resumen">
-          <h2 className={styles.summaryTitle}>Resumen</h2>
+        <aside className={`${styles.summary} ${step === 4 ? styles.review : ""}`} aria-label="Resumen">
+          <h2 id="intake-summary" className={styles.summaryTitle} tabIndex={-1}>
+            Resumen
+          </h2>
           <dl className={styles.summaryCards}>
             <div>
               <dt>Cliente</dt>
@@ -452,7 +523,7 @@ export function IntakeForm() {
               <ul className={styles.todo}>
                 {todo.map((t) => (
                   <li key={t.text}>
-                    <button type="button" className={styles.link} onClick={() => focusField(t.field)}>
+                    <button type="button" className={styles.link} onClick={() => fix(t.field)}>
                       {t.text}
                     </button>
                   </li>
@@ -476,7 +547,7 @@ export function IntakeForm() {
               variant="primary"
               loading={saving}
               loadingText="Creando…"
-              disabledReason={todo.length === 0 ? undefined : todo.length === 1 ? "Falta 1 dato" : `Faltan ${todo.length} datos`}
+              disabledReason={blocked}
             >
               Crear orden
             </Button>
@@ -485,6 +556,26 @@ export function IntakeForm() {
             Ctrl + Enter · entra en «En progreso» y se abre con «Imprimir resguardo».
           </p>
         </aside>
+      </div>
+
+      <div className={styles.stepFoot}>
+        <button
+          type="button"
+          className={styles.stepBack}
+          disabled={step === 0}
+          onClick={() => goTo(step - 1)}
+        >
+          Atrás
+        </button>
+        {step < STEPS.length - 1 ? (
+          <button type="button" className={styles.stepNext} onClick={() => goTo(step + 1)}>
+            Siguiente: {STEPS[step + 1]}
+          </button>
+        ) : (
+          <Button type="submit" variant="primary" loading={saving} loadingText="Creando…" disabledReason={blocked}>
+            Crear orden
+          </Button>
+        )}
       </div>
     </form>
   );

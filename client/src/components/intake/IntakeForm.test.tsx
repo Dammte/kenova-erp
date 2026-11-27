@@ -48,8 +48,9 @@ async function search(text: string) {
 describe("IntakeForm", () => {
   it("says what is missing and blocks creating until it is there", () => {
     render(<IntakeForm />);
-    expect(screen.getByRole("button", { name: "Cliente" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Avería (elige un síntoma)" })).toBeTruthy();
+    const summary = within(screen.getByRole("complementary", { name: "Resumen" }));
+    expect(summary.getByRole("button", { name: "Cliente" })).toBeTruthy();
+    expect(summary.getByRole("button", { name: "Avería (elige un síntoma)" })).toBeTruthy();
     expect((create() as HTMLButtonElement).disabled).toBe(true);
   });
 
@@ -65,6 +66,39 @@ describe("IntakeForm", () => {
     const details = screen.getByText("Más detalles").closest("details")!;
     expect(details.open).toBe(false);
     expect(details.textContent).toContain("estado físico y accesorios · prioridad media · observaciones");
+  });
+
+  it("goes step by step on the phone, with what was chosen as chips (design R3 3.5)", () => {
+    render(<IntakeForm />);
+    const steps = within(screen.getByRole("navigation", { name: "Pasos" }));
+    expect(screen.getByText("1 de 5")).toBeTruthy();
+    expect(steps.getByRole("button", { name: "Cliente" }).getAttribute("aria-current")).toBe("step");
+    expect(screen.queryByRole("button", { name: "Atrás" })).toHaveProperty("disabled", true);
+
+    fireEvent.click(screen.getByRole("button", { name: "Siguiente: Equipo" }));
+    fireEvent.click(screen.getByRole("button", { name: "Siguiente: Avería" }));
+    expect(screen.getByText("3 de 5")).toBeTruthy();
+    expect(steps.getByRole("button", { name: "Avería" }).getAttribute("aria-current")).toBe("step");
+    fireEvent.click(screen.getByLabelText("Pantalla"));
+    fireEvent.click(screen.getByRole("button", { name: "Siguiente: Precio" }));
+    // The fault chosen in the step before shows on top and goes back to it.
+    fireEvent.click(within(screen.getByRole("list", { name: "Elegido" })).getByRole("button", { name: "Pantalla" }));
+    expect(screen.getByText("3 de 5")).toBeTruthy();
+
+    fireEvent.click(steps.getByRole("button", { name: "Revisar" }));
+    expect(screen.queryByRole("button", { name: /^Siguiente/ })).toBeNull();
+    // «Revisar» ends in «Crear orden», blocked while something is missing.
+    const last = screen.getAllByRole("button", { name: "Crear orden" });
+    expect(last).toHaveLength(2);
+    expect(last.every((b) => (b as HTMLButtonElement).disabled)).toBe(true);
+
+    // A «Falta» line takes the phone back to the step of that field.
+    const summary = within(screen.getByRole("complementary", { name: "Resumen" }));
+    fireEvent.click(summary.getByRole("button", { name: "Cliente" }));
+    expect(screen.getByText("1 de 5")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Siguiente: Equipo" }));
+    fireEvent.click(screen.getByRole("button", { name: "Atrás" }));
+    expect(steps.getByRole("button", { name: "Cliente" }).getAttribute("aria-current")).toBe("step");
   });
 
   it("creates an order for a returning client's device in a few taps", async () => {

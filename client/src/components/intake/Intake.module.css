@@ -426,7 +426,167 @@ li[aria-selected="true"] > .result {
   }
 }
 
+/* Design R3 3.5: the intake in steps exists only on the phone (≤600 px). */
+.titleRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--k-space-3);
+}
+.stepCount,
+.stepNav,
+.stepFoot {
+  display: none;
+}
+.stepBar {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--k-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.stepTab {
+  display: grid;
+  gap: var(--k-space-1);
+  width: 100%;
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--k-text-muted);
+  font: var(--k-text-xs);
+  text-align: left;
+  cursor: pointer;
+}
+.stepTab::before {
+  content: "";
+  height: 4px;
+  border-radius: 2px;
+  background: var(--k-border);
+}
+.stepTabReached::before {
+  background: var(--k-accent);
+}
+.stepTab[aria-current="step"] {
+  color: var(--k-text);
+  font-weight: 600;
+}
+.stepChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--k-space-2);
+  margin: var(--k-space-3) 0 0;
+  padding: 0;
+  list-style: none;
+}
+.stepChip {
+  max-width: 100%;
+  overflow: hidden;
+  padding: 6px var(--k-space-3);
+  border: 0;
+  border-radius: var(--k-radius-full);
+  background: var(--k-subtle);
+  color: var(--k-text);
+  font: var(--k-text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+/* Pinned right above the bottom bar, also when the step is short. */
+.stepFoot {
+  position: fixed;
+  right: 0;
+  bottom: calc(var(--k-bottom-bar-h) + env(safe-area-inset-bottom));
+  left: 0;
+  z-index: 2;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: var(--k-space-2);
+  padding: var(--k-space-3) var(--k-space-4);
+  border-top: var(--k-border-w) solid var(--k-border);
+  background: var(--k-surface);
+  box-shadow: 0 -4px 12px rgb(0 0 0 / 0.06);
+}
+.stepFoot > *,
+.stepFoot > * > button {
+  min-height: 48px;
+  width: 100%;
+}
+.stepBack,
+.stepNext {
+  border-radius: var(--k-radius-md);
+  font: var(--k-text-base);
+  cursor: pointer;
+}
+.stepBack {
+  border: var(--k-border-w) solid var(--k-border-strong);
+  background: var(--k-surface);
+  color: var(--k-text);
+}
+.stepBack:disabled {
+  color: var(--k-text-muted);
+  cursor: default;
+}
+.stepNext {
+  border: 0;
+  background: var(--k-accent);
+  color: var(--k-surface);
+  font-weight: 600;
+}
+.stepNext:hover {
+  background: var(--k-accent-hover);
+}
+
 @media (max-width: 600px) {
+  /* Room for the fixed step bar under the last field. */
+  .page:has(.stepFoot) {
+    padding-bottom: calc(48px + 2 * var(--k-space-3) + var(--k-space-4));
+  }
+  .stepCount {
+    display: inline;
+    color: var(--k-text-muted);
+    font: var(--k-text-sm);
+  }
+  .stepNav {
+    display: block;
+  }
+  .stepFoot {
+    display: grid;
+  }
+  .offStep {
+    display: none;
+  }
+  /* Steps 1 to 4 end in «Siguiente»; the summary is the fifth, «Revisar». */
+  .summary:not(.review) {
+    display: none;
+  }
+  .summary.review {
+    position: static;
+    flex-direction: column;
+    align-items: stretch;
+    margin: 0;
+    padding: var(--k-space-4);
+    border-width: var(--k-border-w);
+    border-radius: var(--k-radius-lg);
+    box-shadow: none;
+  }
+  .review .summaryTitle {
+    display: block;
+  }
+  .review .summaryCards,
+  .review .missing,
+  .review .summaryMoney > div:not(.pending) {
+    display: flex;
+  }
+  .review .summaryMoney {
+    padding-bottom: var(--k-space-3);
+    border-bottom: var(--k-border-w) solid var(--k-border);
+  }
+  /* «Crear orden» sits in the step bar, next to «Atrás». */
+  .review .submit,
+  .review .summaryNote {
+    display: none;
+  }
   .page {
     padding: var(--k-space-4);
   }
