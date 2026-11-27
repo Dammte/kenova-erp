@@ -153,4 +153,118 @@ describe('Priced order lines', () => {
       ),
     ).rejects.toThrow(/CHK_order_lines_price_nonnegative/);
   });
+
+  describe('edited on the order page (design R3 3.4)', () => {
+    const edit = (id: string, body: object) =>
+      send('patch', `/api/service-orders/${id}`, body);
+    const updates = async (id: string) =>
+      (
+        (await t.http().get(`/api/service-orders/${id}`).set('Cookie', cookie))
+          .body.serviceHistory as { action: string; description: string }[]
+      )
+        .filter((h) => h.action === 'updated')
+        .map((h) => h.description);
+
+    it('keeps the lines as sent: price, quantity, a line by hand, and the total is their sum', async () => {
+      const o = (
+        await send('post', '/api/service-orders', {
+          clientId,
+          serviceIds: [screen],
+          totalPrice: 80,
+        })
+      ).body as { id: string };
+      const res = await edit(o.id, {
+        editedLines: [
+          {
+            serviceId: screen,
+            description: 'Pantalla',
+            unitPrice: 85,
+            quantity: 1,
+          },
+          {
+            serviceId: battery,
+            description: 'Batería',
+            unitPrice: 45,
+            quantity: 2,
+          },
+          { description: 'Funda', unitPrice: 9.5, quantity: 1 },
+        ],
+      });
+      expect(res.status).toBe(200);
+      expect(
+        (res.body.lines as Line[]).map((l) => [
+          l.description,
+          l.unitPrice,
+          l.quantity,
+          l.serviceId,
+        ]),
+      ).toEqual([
+        ['Pantalla', '85.00', 1, screen],
+        ['Batería', '45.00', 2, battery],
+        ['Funda', '9.50', 1, null],
+      ]);
+      expect(Number(res.body.totalPrice)).toBe(184.5);
+      expect(await updates(o.id)).toEqual([
+        'Edición · Servicios: Pantalla 89,90 € → 85,00 € · + Batería × 2 · + Funda · − Ajuste · Total: 80,00 € → 184,50 €',
+      ]);
+
+      // A later change elsewhere keeps the quantity.
+      const later = await edit(o.id, { totalPrice: 200 });
+      const battle = (later.body.lines as Line[]).find(
+        (l) => l.description === 'Batería',
+      );
+      expect(battle?.quantity).toBe(2);
+    });
+
+    it('will not go below what was already charged', async () => {
+      const o = (
+        await send('post', '/api/service-orders', {
+          clientId,
+          serviceIds: [screen],
+          amountPaid: 50,
+        })
+      ).body as { id: string };
+      const res = await edit(o.id, {
+        editedLines: [{ description: 'Revisión', unitPrice: 30, quantity: 1 }],
+      });
+      expect(res.status).toBe(400);
+      expect(res.body.message).toBe(
+        'Ya se han cobrado 50,00 €; el total no puede ser menor. Devuelve primero la diferencia.',
+      );
+    });
+
+    it('refuses the same service twice, a closed order and mixing with totalPrice', async () => {
+      const o = (await send('post', '/api/service-orders', { clientId }))
+        .body as { id: string };
+      const twice = await edit(o.id, {
+        editedLines: [
+          {
+            serviceId: screen,
+            description: 'Pantalla',
+            unitPrice: 1,
+            quantity: 1,
+          },
+          {
+            serviceId: screen,
+            description: 'Pantalla',
+            unitPrice: 1,
+            quantity: 1,
+          },
+        ],
+      });
+      expect(twice.body.message).toBe(
+        'Un servicio aparece dos veces: usa la cantidad',
+      );
+      const mixed = await edit(o.id, { editedLines: [], totalPrice: 10 });
+      expect(mixed.status).toBe(400);
+
+      await edit(o.id, { status: 'cancelado', cancelReason: 'No viene' });
+      const closed = await edit(o.id, {
+        editedLines: [{ description: 'Revisión', unitPrice: 10, quantity: 1 }],
+      });
+      expect(closed.body.message).toBe(
+        'La orden está cerrada: sus servicios ya no se cambian',
+      );
+    });
+  });
 });

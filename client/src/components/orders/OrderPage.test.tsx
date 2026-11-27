@@ -49,6 +49,11 @@ const NOTICES = [
   { id: "n1", trigger: "received", name: "Recibido", channel: "whatsapp", body: "Hola", sentAt: "2026-10-29T10:01:00Z", sentBy: { fullName: "Ana Rojo" } },
 ];
 
+const RATES = [
+  { id: "s-bat", name: "Batería iPhone 13", price: "45.00", quality: null, model: null },
+  { id: "s-pan", name: "Cambio de pantalla", price: "149.00", quality: null, model: null },
+];
+
 vi.mock("@/components/auth/AuthProvider", () => ({ useAuth: () => ({ user: { id: "u1", role: "STORE_ADMIN" } }) }));
 
 const fetchMock = vi.fn();
@@ -59,6 +64,7 @@ function serve(order: Partial<OrderDetail> = {}, status = 200) {
     if (url.endsWith("/payments")) return new Response(JSON.stringify(PAYMENTS));
     if (url.endsWith("/sticky-notes")) return new Response(JSON.stringify([]));
     if (url.endsWith("/notices")) return new Response(JSON.stringify(NOTICES));
+    if (url.includes("/services/rates")) return new Response(JSON.stringify(RATES));
     return new Response(JSON.stringify({ ...ORDER, ...order }), { status });
   });
 }
@@ -215,6 +221,82 @@ describe("OrderPage", () => {
           { firstName: "Lucía", lastName: "Fernández", phoneNumber: "699 000 111", email: null, preferredContact: "SMS" },
         ],
       ]);
+    });
+
+    it("edits the services: a rate, a line by hand, quantity and price, and the total is their sum", async () => {
+      serve({
+        lines: [
+          { id: "l1", kind: "service", description: "Cambio de pantalla", unitPrice: "149.00", quantity: 1, serviceId: "s-pan" },
+          { id: "l2", kind: "adjustment", description: "Ajuste", unitPrice: "-10.00", quantity: 1, serviceId: null },
+        ],
+        totalPrice: "139.00",
+      } as Partial<OrderDetail>);
+      await open();
+      fireEvent.click(screen.getByRole("button", { name: "Editar los servicios" }));
+      const form = within(screen.getByRole("form", { name: "Editar servicios y piezas" }));
+      // The adjustment is not a line to edit: the total becomes the sum.
+      form.getByText(/tenía un ajuste de -10,00/);
+      expect(form.queryByDisplayValue("Ajuste")).toBeNull();
+
+      fireEvent.change(form.getByLabelText("Añadir tarifa"), { target: { value: "bat" } });
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 300));
+      });
+      fireEvent.click(form.getByRole("button", { name: /Batería iPhone 13/ }));
+      fireEvent.change(form.getByLabelText("Cantidad 2"), { target: { value: "2" } });
+      fireEvent.change(form.getByLabelText("Precio 1"), { target: { value: "139,5" } });
+      fireEvent.click(form.getByRole("button", { name: "Línea libre" }));
+      fireEvent.change(form.getByLabelText("Concepto 3"), { target: { value: "Funda" } });
+      fireEvent.change(form.getByLabelText("Precio 3"), { target: { value: "9" } });
+      expect(form.getByLabelText("Total de la orden").textContent).toMatch(/^238,50\s€$/);
+
+      fireEvent.click(form.getByRole("button", { name: "Guardar" }));
+      await act(async () => {});
+      expect(sent("PATCH")).toEqual([
+        [
+          "/api/service-orders/o1",
+          {
+            editedLines: [
+              { serviceId: "s-pan", description: "Cambio de pantalla", unitPrice: 139.5, quantity: 1 },
+              { serviceId: "s-bat", description: "Batería iPhone 13", unitPrice: 45, quantity: 2 },
+              { description: "Funda", unitPrice: 9, quantity: 1 },
+            ],
+            expectedUpdatedAt: "2026-10-29T10:02:00.123Z",
+          },
+        ],
+      ]);
+    });
+
+    it("picking a rate already on the order adds one more instead of a second line", async () => {
+      serve({
+        lines: [{ id: "l1", kind: "service", description: "Cambio de pantalla", unitPrice: "149.00", quantity: 1, serviceId: "s-pan" }],
+      } as Partial<OrderDetail>);
+      await open();
+      fireEvent.click(screen.getByRole("button", { name: "Editar los servicios" }));
+      const form = within(screen.getByRole("form", { name: "Editar servicios y piezas" }));
+      fireEvent.change(form.getByLabelText("Añadir tarifa"), { target: { value: "pan" } });
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 300));
+      });
+      fireEvent.click(within(form.getByRole("list", { name: "Tarifas encontradas" })).getByRole("button", { name: /Cambio de pantalla/ }));
+      expect(form.getAllByLabelText(/^Concepto/)).toHaveLength(1);
+      expect((form.getByLabelText("Cantidad 1") as HTMLInputElement).value).toBe("2");
+    });
+
+    it("will not save a total below what was charged, nor a line without its price", async () => {
+      await open();
+      fireEvent.click(screen.getByRole("button", { name: "Editar los servicios" }));
+      const form = within(screen.getByRole("form", { name: "Editar servicios y piezas" }));
+      fireEvent.click(form.getByRole("button", { name: "Quitar Cambio de pantalla" }));
+      form.getByText(/Sin líneas/);
+      form.getByText("Ya se han cobrado 59,00 €; el total no puede ser menor. Devuelve primero la diferencia.");
+      expect(form.getByRole("button", { name: "Guardar" }).hasAttribute("disabled")).toBe(true);
+
+      fireEvent.click(form.getByRole("button", { name: "Línea libre" }));
+      fireEvent.change(form.getByLabelText("Concepto 1"), { target: { value: "Revisión" } });
+      form.getByText("Cada línea necesita concepto e importe.");
+      fireEvent.change(form.getByLabelText("Precio 1"), { target: { value: "60" } });
+      expect(form.getByRole("button", { name: "Guardar" }).hasAttribute("disabled")).toBe(false);
     });
 
     it("edits one block at a time: changes in one have to be saved or discarded first", async () => {

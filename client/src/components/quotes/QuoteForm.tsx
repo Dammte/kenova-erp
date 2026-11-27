@@ -19,7 +19,7 @@ interface DraftLine {
 }
 
 /** GET /api/services/rates: what the line search offers. */
-interface Rate {
+export interface Rate {
   id: string;
   name: string;
   price: string;
@@ -32,7 +32,7 @@ let nextKey = 1;
 const line = (l: Omit<DraftLine, "key">): DraftLine => ({ key: nextKey++, ...l });
 
 /** Finds a rate by repair and model and adds it as a line at its current price. */
-function RateSearch({ onPick }: { onPick: (rate: Rate) => void }) {
+export function RateSearch({ onPick }: { onPick: (rate: Rate) => void }) {
   const [q, setQ] = useState("");
   const [found, setFound] = useState<Rate[]>([]);
   const typed = q.trim();

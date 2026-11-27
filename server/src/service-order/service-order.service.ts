@@ -22,7 +22,10 @@ import {
 } from './entities/service-order.entity';
 import { Service } from '../services/entities/service.entity';
 import { CreateServiceOrderDto } from './dto/create-service-order.dto';
-import { UpdateServiceOrderDto } from './dto/update-service-order.dto';
+import {
+  OrderLineEditDto,
+  UpdateServiceOrderDto,
+} from './dto/update-service-order.dto';
 import { ANONYMIZED_CLIENT, Client } from '../clients/entities/client.entity';
 import { Device } from '../devices/entities/device.entity';
 import { Brand } from '../brands/entities/brand.entity';
@@ -36,7 +39,7 @@ import { OrderPaymentsService } from './order-payments.service';
 import { commissionFor, NO_COMMISSION } from './commission';
 import { derivePayment } from './payment-status';
 import { transitionProblem } from './status-transitions';
-import { describeEdits } from './order-edits';
+import { describeEdits, describeLineEdits, eur } from './order-edits';
 import { User, UserRole } from '../users/entities/user.entity';
 
 /** IMEI or serial as typed or scanned: no spaces or dashes, upper case. */
@@ -168,6 +171,109 @@ export class ServiceOrderService {
   }
 
   /**
+   * Checks the lines edited on the order page and applies them to the order
+   * (its services and total). Returns the history line, or null if nothing
+   * changed. The lines themselves are written by replaceLines.
+   */
+  private async applyEditedLines(
+    order: ServiceOrder,
+    lines: OrderLineEditDto[],
+    also: { serviceIds?: string[]; totalPrice?: number },
+  ): Promise<string | null> {
+    if (also.serviceIds !== undefined || also.totalPrice !== undefined) {
+      throw new BadRequestException(
+        'Las líneas se envían solas, sin serviceIds ni totalPrice',
+      );
+    }
+    if (
+      order.status === ServiceStatus.ENTREGADO ||
+      order.status === ServiceStatus.CANCELADO
+    ) {
+      throw new BadRequestException(
+        'La orden está cerrada: sus servicios ya no se cambian',
+      );
+    }
+    const ids = lines.flatMap((l) => l.serviceId ?? []);
+    if (new Set(ids).size !== ids.length) {
+      throw new BadRequestException(
+        'Un servicio aparece dos veces: usa la cantidad',
+      );
+    }
+    const services = ids.length
+      ? await this.serviceRepository.find({ where: { id: In(ids) } })
+      : [];
+    if (services.length !== ids.length) {
+      throw new NotFoundException('Alguno de los servicios ya no existe');
+    }
+    // A service already on the order may stay even if it is no longer offered.
+    const had = new Set((order.services ?? []).map((s) => s.id));
+    const unavailable = services.filter((s) => !s.available && !had.has(s.id));
+    if (unavailable.length) {
+      throw new BadRequestException(
+        `Servicios no disponibles: ${unavailable.map((s) => s.name).join(', ')}`,
+      );
+    }
+
+    const cents = (v: unknown) => Math.round(Number(v ?? 0) * 100);
+    const total = lines.reduce(
+      (sum, l) => sum + cents(l.unitPrice) * l.quantity,
+      0,
+    );
+    const paid = cents(order.amountPaid);
+    if (total < paid) {
+      throw new BadRequestException(
+        `Ya se han cobrado ${eur(paid)}; el total no puede ser menor. Devuelve primero la diferencia.`,
+      );
+    }
+
+    const before = order.lines ?? [];
+    const previousTotal = cents(order.totalPrice);
+    order.services = services;
+    order.totalPrice = total / 100;
+    Object.assign(
+      order,
+      derivePayment(order.totalPrice, Number(order.amountPaid ?? 0)),
+    );
+    return describeLineEdits(
+      before.map((l) => ({
+        description: l.description,
+        cents: cents(l.unitPrice),
+        quantity: l.quantity,
+      })),
+      lines.map((l) => ({
+        description: l.description,
+        cents: cents(l.unitPrice),
+        quantity: l.quantity,
+      })),
+      previousTotal,
+      total,
+    );
+  }
+
+  /** Writes the lines exactly as the order page sent them. */
+  private async replaceLines(
+    m: EntityManager,
+    orderId: string,
+    lines: OrderLineEditDto[],
+  ) {
+    const repo = m.getRepository(OrderLine);
+    await repo.delete({ orderId });
+    await repo.save(
+      lines.map((l, i) =>
+        repo.create({
+          orderId,
+          position: i + 1,
+          kind: OrderLineKind.SERVICE,
+          serviceId: l.serviceId ?? null,
+          description: l.description.slice(0, 150),
+          unitPrice: l.unitPrice.toFixed(2),
+          quantity: l.quantity,
+        }),
+      ),
+    );
+  }
+
+  /**
    * Rebuilds the order's lines: the lines written by hand (kept as they were,
    * or replaced by `typed`), one line per service (keeping the price it
    * already had on this order) and an "Ajuste" line for any difference, so
@@ -187,6 +293,12 @@ export class ServiceOrderService {
       previous
         .filter((l) => l.kind === OrderLineKind.SERVICE && l.serviceId)
         .map((l) => [l.serviceId, l.unitPrice]),
+    );
+    // A quantity set on the order page survives a later change elsewhere.
+    const quantityOf = new Map(
+      previous
+        .filter((l) => l.kind === OrderLineKind.SERVICE && l.serviceId)
+        .map((l) => [l.serviceId, l.quantity]),
     );
     const byHand =
       typed?.map((l) => ({
@@ -211,7 +323,7 @@ export class ServiceOrderService {
         serviceId: s.id,
         description: s.name.slice(0, 150),
         unitPrice: priceOf.get(s.id) ?? Number(s.price).toFixed(2),
-        quantity: 1,
+        quantity: quantityOf.get(s.id) ?? 1,
       })),
     ].map((l, i) =>
       repo.create({
@@ -639,6 +751,7 @@ export class ServiceOrderService {
       owedReason,
       parts,
       expectedUpdatedAt,
+      editedLines,
       ...updateData
     } = updateServiceOrderDto;
 
@@ -654,6 +767,12 @@ export class ServiceOrderService {
       });
     }
     const edits = describeEdits(serviceOrder, updateData);
+    const linesEdit = editedLines
+      ? await this.applyEditedLines(serviceOrder, editedLines, {
+          serviceIds,
+          totalPrice: updateData.totalPrice,
+        })
+      : null;
 
     if (clientId) {
       const client = await this.clientRepository.findOne({
@@ -798,7 +917,9 @@ export class ServiceOrderService {
       // the order is not finished either. After the save, which would detach
       // a history row it has not loaded.
       if (parts?.length) await this.takeParts(m, id, parts, actor);
-      if (
+      if (editedLines) {
+        await this.replaceLines(m, id, editedLines);
+      } else if (
         updateData.totalPrice !== undefined ||
         serviceIds !== undefined ||
         lines
@@ -835,13 +956,14 @@ export class ServiceOrderService {
         }),
       );
     }
-    if (edits) {
+    for (const description of [edits, linesEdit]) {
+      if (!description) continue;
       await this.serviceHistoryRepository.save(
         this.serviceHistoryRepository.create({
           serviceOrderId: id,
           performedBy: { id: actorUserId } as User,
           action: 'updated',
-          description: edits,
+          description,
         }),
       );
     }

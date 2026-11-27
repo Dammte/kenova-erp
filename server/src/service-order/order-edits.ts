@@ -77,3 +77,47 @@ export function describeEdits(
     );
   return parts.length ? `Edición · ${parts.join(' · ')}` : null;
 }
+
+/** «149,00 €» from cents. */
+export const eur = (cents: number): string =>
+  `${(cents / 100).toFixed(2).replace('.', ',')} €`;
+
+interface LineSummary {
+  description: string;
+  cents: number;
+  quantity: number;
+}
+
+const lineText = (l: LineSummary) =>
+  `${l.description}${l.quantity > 1 ? ` × ${l.quantity}` : ''}`;
+
+/**
+ * «Edición · Servicios: + Funda · − Ajuste · Pantalla 149,00 € → 139,00 € ·
+ * Total: 149,00 € → 139,00 €», or null if the lines did not change. Lines are
+ * matched by their text, as people read them.
+ */
+export function describeLineEdits(
+  before: LineSummary[],
+  after: LineSummary[],
+  totalBefore: number,
+  totalAfter: number,
+): string | null {
+  const left = [...before];
+  const parts: string[] = [];
+  for (const line of after) {
+    const i = left.findIndex((l) => l.description === line.description);
+    if (i === -1) {
+      parts.push(`+ ${lineText(line)}`);
+      continue;
+    }
+    const [old] = left.splice(i, 1);
+    if (old.cents !== line.cents)
+      parts.push(`${line.description} ${eur(old.cents)} → ${eur(line.cents)}`);
+    if (old.quantity !== line.quantity)
+      parts.push(`${line.description} × ${old.quantity} → × ${line.quantity}`);
+  }
+  for (const old of left) parts.push(`− ${lineText(old)}`);
+  if (!parts.length && totalBefore === totalAfter) return null;
+  const text = `Edición · Servicios: ${parts.join(' · ') || 'sin cambios'} · Total: ${eur(totalBefore)} → ${eur(totalAfter)}`;
+  return text.length > 500 ? `${text.slice(0, 499)}…` : text;
+}

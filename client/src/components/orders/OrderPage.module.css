@@ -80,6 +80,11 @@
   font: var(--k-text-md);
 }
 
+/* A section title with its «Editar»: the title's own margin is reset by blockHead. */
+.sectionHead {
+  margin-bottom: var(--k-space-3);
+}
+
 .payments {
   display: flex;
   flex-direction: column;

@@ -13,6 +13,11 @@ import {
   ValidateIf,
   ValidateNested,
   IsISO8601,
+  IsInt,
+  IsNumber,
+  Max,
+  Min,
+  MinLength,
 } from 'class-validator';
 import {
   ORDER_TESTS,
@@ -24,6 +29,36 @@ import { CreateServiceOrderDto } from './create-service-order.dto';
 
 const trimToNull = ({ value }: { value: unknown }) =>
   typeof value === 'string' ? value.trim() || null : value;
+
+/**
+ * Design R3 3.4: one line of «Servicios y piezas» as the order page edits it.
+ * A catalog service keeps its id; a line written by hand has none.
+ */
+export class OrderLineEditDto {
+  @IsUUID()
+  @IsOptional()
+  serviceId?: string | null;
+
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
+  @IsString()
+  @MinLength(1, { message: 'Cada línea necesita un concepto' })
+  @MaxLength(150)
+  description: string;
+
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2, allowNaN: false, allowInfinity: false })
+  @Min(0)
+  @Max(1_000_000)
+  unitPrice: number;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(99)
+  quantity: number;
+}
 
 export class UpdateServiceOrderDto extends PartialType(
   OmitType(CreateServiceOrderDto, [
@@ -106,4 +141,16 @@ export class UpdateServiceOrderDto extends PartialType(
   @IsISO8601({ strict: true })
   @IsOptional()
   expectedUpdatedAt?: string;
+
+  /**
+   * All the lines of the order, in order. The total becomes their sum (no
+   * «Ajuste» line); it cannot go below what was already charged. Not sent
+   * with serviceIds or totalPrice.
+   */
+  @IsArray()
+  @ArrayMaxSize(30)
+  @ValidateNested({ each: true })
+  @Type(() => OrderLineEditDto)
+  @IsOptional()
+  editedLines?: OrderLineEditDto[];
 }
