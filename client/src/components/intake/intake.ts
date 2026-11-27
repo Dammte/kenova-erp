@@ -327,3 +327,25 @@ export function blocksDone(s: IntakeState, todo = missing(s)) {
     services: s.lines.length > 0 && !lacks((f) => f === "service-entry" || f === "deposit" || f === "method"),
   };
 }
+
+/**
+ * Design R3 3.5, mobile only: the intake in steps. The fifth one, «Revisar»,
+ * is the summary with «Más detalles» and «Crear orden».
+ */
+export const STEPS = ["Cliente", "Equipo", "Avería", "Precio", "Revisar"] as const;
+
+/** The step that holds a field a «Falta» line names. */
+export function stepOf(field: string): number {
+  if (field.startsWith("client")) return 0;
+  if (field === "device" || field.startsWith("device-")) return 1;
+  if (field === "faults" || field === "faultNotes") return 2;
+  return 3;
+}
+
+/** «Lucía F.»: the chip the next steps show for the chosen client. */
+export function shortName(c: { firstName: string; lastName: string | null; phoneNumber?: string | null }): string {
+  const first = c.firstName.trim();
+  const initial = c.lastName?.trim().charAt(0);
+  if (!first) return c.phoneNumber?.trim() ?? "";
+  return initial ? `${first} ${initial.toUpperCase()}.` : first;
+}

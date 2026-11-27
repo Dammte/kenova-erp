@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  shortName,
+  stepOf,
   EMPTY_DEVICE,
   EMPTY_DRAFT,
   draftReady,
@@ -251,5 +253,19 @@ describe("fromQuote", () => {
   it("reuses the client found with the same phone", () => {
     const known = { id: "c1", firstName: "Aitor", lastName: "Etxeberria", phoneNumber: "688450117" };
     expect(fromQuote(EMPTY, QUOTE, known).client).toBe(known);
+  });
+});
+
+describe("mobile steps", () => {
+  it("knows the step of each missing field", () => {
+    expect(["client-search", "client-phone", "device", "device-model", "faults", "service-entry", "method"].map(stepOf)).toEqual([
+      0, 0, 1, 1, 2, 3, 3,
+    ]);
+  });
+
+  it("shortens the client for its chip", () => {
+    expect(shortName({ firstName: "Lucía", lastName: "fernández" })).toBe("Lucía F.");
+    expect(shortName({ firstName: "Lucía", lastName: null })).toBe("Lucía");
+    expect(shortName({ firstName: " ", lastName: "", phoneNumber: "612345678" })).toBe("612345678");
   });
 });
