@@ -303,6 +303,15 @@ describe("OrderList", () => {
     expect(screen.queryByRole("button", { name: "Deshacer" })).toBeNull();
   });
 
+  it("opens the labels of the picked orders to print them at once (B4)", async () => {
+    await show();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Seleccionar todas las de esta página" }));
+    fireEvent.click(
+      within(screen.getByRole("region", { name: "Acciones en lote" })).getByRole("button", { name: "Imprimir etiquetas" }),
+    );
+    expect(push).toHaveBeenCalledWith("/ordenes/etiquetas?ids=o1,o2");
+  });
+
   it("changes the status of the picked orders at once and says what did not move (B4)", async () => {
     await show();
     expect(screen.queryByRole("region", { name: "Acciones en lote" })).toBeNull();

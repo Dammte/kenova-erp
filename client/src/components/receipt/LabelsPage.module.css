@@ -1,0 +1,41 @@
+.count {
+  color: var(--k-text-muted);
+  font: var(--k-text-sm);
+}
+
+/* On screen the stickers sit side by side at real size, outlined like the roll. */
+.sheet {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4mm;
+  max-width: 210mm;
+  margin: 0 auto;
+  padding: 6mm;
+  list-style: none;
+  background: #fff;
+  box-shadow: var(--k-shadow-pop);
+}
+.one > * {
+  outline: 1px dashed var(--k-border-strong);
+}
+
+/* On paper each sticker is its own 62 × 29 mm page, so the printer cuts it. */
+@media print {
+  .sheet {
+    display: block;
+    max-width: none;
+    padding: 0;
+    gap: 0;
+    box-shadow: none;
+  }
+  .one {
+    break-after: page;
+  }
+  .one:last-child {
+    break-after: auto;
+  }
+  .one > * {
+    outline: none;
+  }
+}
