@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import OrderPage, { editHref } from "./OrderPage";
+import OrderPage from "./OrderPage";
 import type { OrderDetail } from "./orderDetail";
 
 const ORDER = {
@@ -90,7 +90,8 @@ describe("OrderPage", () => {
     await open();
     screen.getByRole("heading", { level: 1, name: "MP-0142" });
     expect(screen.getByRole("link", { name: "Órdenes" }).getAttribute("href")).toBe("/ordenes");
-    expect(screen.getByRole("link", { name: "Más cambios en la pantalla anterior" }).getAttribute("href")).toBe(editHref("o1"));
+    // Everything is edited here now: no link to the previous edit screen.
+    expect(screen.queryByRole("link", { name: /pantalla anterior/ })).toBeNull();
     screen.getByRole("button", { name: "Finalizar…" });
     expect(screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent)).toEqual([
       "Servicios y trabajo",

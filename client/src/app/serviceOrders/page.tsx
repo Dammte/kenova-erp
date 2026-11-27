@@ -103,7 +103,7 @@ export default function ServiceOrder() {
 
   // ── Handlers ───────────────────────────────────────────────────────────
   const handleEditOrder = (orderId: string) => {
-    router.push(`/serviceOrders/${orderId}/edit`);
+    router.push(`/ordenes/${orderId}`);
   };
 
   const handlePrintPDF = (orderId: string) => {

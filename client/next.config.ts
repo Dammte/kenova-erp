@@ -42,6 +42,10 @@ const nextConfig: NextConfig = {
       pathname: "/**"
     }],
   },
+  // Design R3 3.4: the order is edited block by block on its own page.
+  async redirects() {
+    return [{ source: "/serviceOrders/:id/edit", destination: "/ordenes/:id", permanent: true }];
+  },
   async rewrites() {
     if (!apiOrigin) return [];
     return [{ source: "/api/:path*", destination: `${apiOrigin.replace(/\/$/, "")}/api/:path*` }];

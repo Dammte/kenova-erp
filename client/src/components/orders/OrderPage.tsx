@@ -31,9 +31,6 @@ import {
 import panel from "./OrderPanel.module.css";
 import styles from "./OrderPage.module.css";
 
-/** What the blocks cannot edit yet (services, device) opens the previous screen. */
-export const editHref = (id: string) => `/serviceOrders/${id}/edit`;
-
 type Block = "averia" | "servicios" | "cliente" | "equipo";
 const BLOCK_NAME: Record<Block, string> = {
   averia: "la avería",
@@ -137,12 +134,6 @@ function Loaded({ order, payments, notes, notices, onChanged }: LoadedOrder & { 
           <StatusChip status={order.status} />
           {order.priority !== "medium" && order.priority !== "low" && (
             <span className={`${panel.priority} ${panel[`p_${order.priority}`]}`}>{PRIORITY_LABEL[order.priority]}</span>
-          )}
-          {!closed && (
-            <Link href={editHref(order.id)} className={styles.edit} title="Servicios, equipo y el resto, hasta que se editen aquí">
-              <Pencil size={14} aria-hidden />
-              Más cambios en la pantalla anterior
-            </Link>
           )}
         </div>
         {order.warrantyOf && (

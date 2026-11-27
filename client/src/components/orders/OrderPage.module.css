@@ -41,19 +41,6 @@
   font: 600 28px/34px var(--k-font-mono);
   white-space: nowrap;
 }
-.edit {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--k-space-1);
-  margin-left: auto;
-  color: var(--k-accent);
-  font: 500 14px/20px var(--k-font-sans);
-}
-.edit:focus-visible {
-  outline: none;
-  box-shadow: var(--k-focus-ring);
-}
-
 .columns {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 340px;
