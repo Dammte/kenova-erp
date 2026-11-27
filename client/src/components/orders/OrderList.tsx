@@ -24,7 +24,7 @@ import {
 } from "./orderList";
 import { Toast } from "@/components/feedback/Toast";
 import OrderPanel from "./OrderPanel";
-import { StatusMenu } from "./StatusMenu";
+import { QUICK_STATUSES, StatusMenu } from "./StatusMenu";
 import { FinishDialog } from "./FinishDialog";
 import styles from "./OrderList.module.css";
 
@@ -53,6 +53,24 @@ async function saveStatus(id: string, status: OrderStatus): Promise<string | nul
   } catch {
     return "Comprueba la conexión.";
   }
+}
+
+/** POST /service-orders/bulk-status: what happened to each order (design R3 B4). */
+export interface BulkResult {
+  changed: { id: string; code: string }[];
+  unchanged: { id: string; code: string }[];
+  failed: { id: string; code: string | null; reason: string }[];
+}
+
+/** «2 órdenes pasan a En progreso. MP-0141 no: está entregada…». */
+export function bulkMessage(r: BulkResult, label: string): string {
+  const n = r.changed.length;
+  const parts = [
+    n ? `${n} ${n === 1 ? "orden pasa" : "órdenes pasan"} a ${label}.` : `Ninguna orden ha cambiado.`,
+    r.unchanged.length ? `${r.unchanged.length} ya ${r.unchanged.length === 1 ? "estaba" : "estaban"} así.` : "",
+    ...r.failed.map((f) => `${f.code ?? "Una orden"} no: ${f.reason}.`.replace(/\.\.$/, ".")),
+  ];
+  return parts.filter(Boolean).join(" ");
 }
 
 /** Fetches one page for the query; while a new page loads the old one stays. */
@@ -207,6 +225,45 @@ export default function OrderList() {
 
   const [finishing, setFinishing] = useState<OrderRow | null>(null);
   const rows = data?.rows ?? [];
+
+  // Design R3 B4: orders picked in this page, for one action on all of them.
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState<OrderStatus | null>(null);
+  const listKey = queryString(query);
+  useEffect(() => setPicked(new Set()), [listKey]);
+  const pickedRows = rows.filter((r) => picked.has(r.id));
+  const allPicked = rows.length > 0 && pickedRows.length === rows.length;
+  const togglePick = (id: string) =>
+    setPicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const bulkStatus = async (to: OrderStatus) => {
+    if (bulkBusy) return;
+    setBulkBusy(to);
+    try {
+      const res = await apiFetch(`${API_URL}/service-orders/bulk-status`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: pickedRows.map((r) => r.id), status: to }),
+      });
+      if (!res.ok) {
+        setToast({ text: await errorMessage(res, "No se ha cambiado ninguna orden."), error: true });
+        return;
+      }
+      const result = (await res.json()) as BulkResult;
+      setToast({ text: bulkMessage(result, STATUS_LABEL[to]), error: result.failed.length > 0 });
+      // What did not move stays picked, to look at it or try something else.
+      setPicked(new Set(result.failed.map((f) => f.id)));
+      retry();
+    } catch {
+      setToast({ text: "No se ha cambiado ninguna orden. Comprueba la conexión.", error: true });
+    } finally {
+      setBulkBusy(null);
+    }
+  };
   const filtered = Boolean(query.q.trim()) || Boolean(query.view);
 
   return (
@@ -299,6 +356,17 @@ export default function OrderList() {
           <table className={`${styles.table} ${loading ? styles.stale : ""}`}>
             <thead>
               <tr>
+                <th scope="col" className={styles.pick}>
+                  <input
+                    type="checkbox"
+                    aria-label="Seleccionar todas las de esta página"
+                    checked={allPicked}
+                    ref={(el) => {
+                      if (el) el.indeterminate = pickedRows.length > 0 && !allPicked;
+                    }}
+                    onChange={() => setPicked(allPicked ? new Set() : new Set(rows.map((r) => r.id)))}
+                  />
+                </th>
                 <th scope="col">Nº</th>
                 <th scope="col">Cliente</th>
                 <th scope="col">Equipo · avería</th>
@@ -324,11 +392,30 @@ export default function OrderList() {
                   onOpen={() => openOrder(row.id)}
                   onStatus={(from, to) => void changeStatus(row, from, to)}
                   onFinish={() => setFinishing(row)}
+                  picked={picked.has(row.id)}
+                  onPick={() => togglePick(row.id)}
                 />
               ))}
             </tbody>
           </table>
           {data && <Pager data={data} onPage={(page) => go({ page })} />}
+        </div>
+      )}
+
+      {pickedRows.length > 0 && (
+        <div className={styles.bulkBar} role="region" aria-label="Acciones en lote">
+          <span className={styles.strong}>
+            {pickedRows.length} {pickedRows.length === 1 ? "seleccionada" : "seleccionadas"}
+          </span>
+          <span className={styles.muted}>Cambiar estado a</span>
+          {QUICK_STATUSES.map((st) => (
+            <Button key={st} size="sm" loading={bulkBusy === st} loadingText="Cambiando…" onClick={() => void bulkStatus(st)}>
+              {STATUS_LABEL[st]}
+            </Button>
+          ))}
+          <Button size="sm" variant="ghost" onClick={() => setPicked(new Set())}>
+            Quitar selección
+          </Button>
         </div>
       )}
 
@@ -376,8 +463,13 @@ function Row({
   onOpen,
   onStatus,
   onFinish,
+  picked,
+  onPick,
 }: {
   row: OrderRow;
+  /** Picked for a batch action (design R3 B4). */
+  picked: boolean;
+  onPick: () => void;
   /** Opens the order's panel; the number links there too, for the keyboard. */
   href: string;
   /** Its panel is open: the row stays marked. */
@@ -393,7 +485,10 @@ function Row({
     row.services.length === 0 ? "" : row.services.length === 1 ? row.services[0] : `${row.services.length} servicios`;
   const problem = [faults, services].filter(Boolean).join(" · ");
   return (
-    <tr className={`${styles.row} ${open ? styles.rowOpen : ""}`} onClick={onOpen}>
+    <tr className={`${styles.row} ${open ? styles.rowOpen : ""} ${picked ? styles.rowPicked : ""}`} onClick={onOpen}>
+      <td className={styles.pick} onClick={(e) => e.stopPropagation()}>
+        <input type="checkbox" aria-label={`Seleccionar ${row.code}`} checked={picked} onChange={onPick} />
+      </td>
       <td className={styles.code}>
         <Link
           href={href}

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import OrderList from "./OrderList";
+import OrderList, { bulkMessage } from "./OrderList";
 import { daysLevel, queryString, readQuery, type OrderListPage } from "./orderList";
 
 const push = vi.fn();
@@ -301,6 +301,54 @@ describe("OrderList", () => {
     );
     screen.getByRole("button", { name: /^En progreso: cambiar estado/ });
     expect(screen.queryByRole("button", { name: "Deshacer" })).toBeNull();
+  });
+
+  it("changes the status of the picked orders at once and says what did not move (B4)", async () => {
+    await show();
+    expect(screen.queryByRole("region", { name: "Acciones en lote" })).toBeNull();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Seleccionar todas las de esta página" }));
+    const bar = within(screen.getByRole("region", { name: "Acciones en lote" }));
+    bar.getByText("2 seleccionadas");
+    fireEvent.click(screen.getByRole("checkbox", { name: "Seleccionar MP-0097" }));
+    bar.getByText("1 seleccionada");
+    fireEvent.click(screen.getByRole("checkbox", { name: "Seleccionar MP-0097" }));
+    // Picking does not open the order.
+    expect(replace).not.toHaveBeenCalled();
+
+    fetchMock.mockReset();
+    fetchMock.mockImplementation(async (url: string) =>
+      url.endsWith("/bulk-status")
+        ? new Response(
+            JSON.stringify({
+              changed: [{ id: "o1", code: "MP-0142" }],
+              unchanged: [],
+              failed: [{ id: "o2", code: "MP-0097", reason: "Está finalizada: solo puede volver a «En progreso»" }],
+            }),
+          )
+        : new Response(JSON.stringify(PAGE)),
+    );
+    await act(async () => fireEvent.click(bar.getByRole("button", { name: "Pendiente de piezas" })));
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("/api/service-orders/bulk-status");
+    expect(JSON.parse(init.body as string)).toEqual({ ids: ["o1", "o2"], status: "pendiente_piezas" });
+    screen.getByText(
+      "1 orden pasa a Pendiente de piezas. MP-0097 no: Está finalizada: solo puede volver a «En progreso».",
+    );
+    // What did not move stays picked.
+    expect((screen.getByRole("checkbox", { name: "Seleccionar MP-0097" }) as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByRole("checkbox", { name: "Seleccionar MP-0142" }) as HTMLInputElement).checked).toBe(false);
+  });
+
+  it("writes what a batch did", () => {
+    expect(
+      bulkMessage({ changed: [], unchanged: [{ id: "a", code: "MP-1" }, { id: "b", code: "MP-2" }], failed: [] }, "En progreso"),
+    ).toBe("Ninguna orden ha cambiado. 2 ya estaban así.");
+    expect(
+      bulkMessage(
+        { changed: [{ id: "a", code: "MP-1" }, { id: "b", code: "MP-2" }], unchanged: [], failed: [{ id: "c", code: null, reason: "Orden no encontrada" }] },
+        "En progreso",
+      ),
+    ).toBe("2 órdenes pasan a En progreso. Una orden no: Orden no encontrada.");
   });
 
   it("pages 50 at a time", async () => {
