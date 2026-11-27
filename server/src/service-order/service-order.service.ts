@@ -5,7 +5,14 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, In, IsNull, Repository } from 'typeorm';
+import {
+  DataSource,
+  EntityManager,
+  In,
+  IsNull,
+  Not,
+  Repository,
+} from 'typeorm';
 import { AuditService } from '../audit/audit.service';
 import { Inventory } from '../inventory/entities/inventory.entity';
 import { StockMovementKind } from '../inventory/entities/stock-movement.entity';
@@ -23,6 +30,7 @@ import {
 import { Service } from '../services/entities/service.entity';
 import { CreateServiceOrderDto } from './dto/create-service-order.dto';
 import {
+  EditedDeviceDto,
   OrderLineEditDto,
   UpdateServiceOrderDto,
 } from './dto/update-service-order.dto';
@@ -39,7 +47,15 @@ import { OrderPaymentsService } from './order-payments.service';
 import { commissionFor, NO_COMMISSION } from './commission';
 import { derivePayment } from './payment-status';
 import { transitionProblem } from './status-transitions';
-import { describeEdits, describeLineEdits, eur } from './order-edits';
+import {
+  describeDeviceEdits,
+  describeEdits,
+  describeLineEdits,
+  eur,
+  type DeviceField,
+  type SecretEdit,
+} from './order-edits';
+import { DeviceSecretService } from '../devices/device-secret.service';
 import { User, UserRole } from '../users/entities/user.entity';
 
 /** IMEI or serial as typed or scanned: no spaces or dashes, upper case. */
@@ -114,6 +130,7 @@ export class ServiceOrderService {
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly audit: AuditService,
     private readonly payments: OrderPaymentsService,
+    private readonly secrets: DeviceSecretService,
   ) {}
 
   /**
@@ -168,6 +185,68 @@ export class ServiceOrderService {
         'Solo una orden de garantía puede marcarse como «garantía no procede»',
       );
     }
+  }
+
+  /**
+   * Checks the device edited on the order page. Returns what to write to the
+   * device row, the unlock secret change and the history line; nothing is
+   * written here.
+   */
+  private async planDeviceEdit(
+    order: ServiceOrder,
+    dto: EditedDeviceDto,
+    deviceId: string | null | undefined,
+  ) {
+    if (deviceId !== undefined) {
+      throw new BadRequestException(
+        'El equipo se edita o se cambia, no las dos cosas a la vez',
+      );
+    }
+    const device = order.device;
+    if (!device) throw new BadRequestException('La orden no tiene equipo');
+    const { code, pattern, clearSecret, ...fields } = dto;
+    const secret = DeviceSecretService.pick({ code, pattern });
+    if (secret && clearSecret) {
+      throw new BadRequestException(
+        'Indica un código nuevo o quita el que hay, no las dos cosas',
+      );
+    }
+    const changes: Partial<Record<DeviceField, string | null>> = {};
+    for (const f of ['type', 'brand', 'model'] as const) {
+      if (fields[f] !== undefined) changes[f] = fields[f];
+    }
+    if (fields.imei !== undefined) {
+      changes.imei = fields.imei ? normalizeImei(fields.imei) : null;
+      // One device per IMEI (unique index): say so instead of a bare 409,
+      // which the page reads as someone else's change.
+      if (
+        changes.imei &&
+        changes.imei !== device.imei &&
+        (await this.deviceRepository.exists({
+          where: { imei: changes.imei, id: Not(device.id) },
+        }))
+      ) {
+        throw new BadRequestException(
+          'Ese IMEI ya es de otro equipo registrado. Búscalo con el buscador antes de cambiarlo.',
+        );
+      }
+    }
+    const secretEdit: SecretEdit = secret
+      ? secret.type
+      : clearSecret && device.unlockSecretType
+        ? 'cleared'
+        : null;
+    const description = describeDeviceEdits(
+      {
+        type: device.type,
+        brand: device.brand,
+        model: device.model,
+        imei: device.imei ?? null,
+      },
+      changes,
+      secretEdit,
+    );
+    return { deviceId: device.id, changes, secret, secretEdit, description };
   }
 
   /**
@@ -752,6 +831,7 @@ export class ServiceOrderService {
       parts,
       expectedUpdatedAt,
       editedLines,
+      editedDevice,
       ...updateData
     } = updateServiceOrderDto;
 
@@ -772,6 +852,9 @@ export class ServiceOrderService {
           serviceIds,
           totalPrice: updateData.totalPrice,
         })
+      : null;
+    const deviceEdit = editedDevice
+      ? await this.planDeviceEdit(serviceOrder, editedDevice, deviceId)
       : null;
 
     if (clientId) {
@@ -917,6 +1000,14 @@ export class ServiceOrderService {
       // the order is not finished either. After the save, which would detach
       // a history row it has not loaded.
       if (parts?.length) await this.takeParts(m, id, parts, actor);
+      if (deviceEdit) {
+        const { deviceId: editedId, changes, secret, secretEdit } = deviceEdit;
+        if (Object.keys(changes).length)
+          await m.getRepository(Device).update(editedId, changes as never);
+        if (secret) await this.secrets.set(editedId, secret, actorUserId, m);
+        if (secretEdit === 'cleared')
+          await this.secrets.clear(editedId, actorUserId, m);
+      }
       if (editedLines) {
         await this.replaceLines(m, id, editedLines);
       } else if (
@@ -956,7 +1047,7 @@ export class ServiceOrderService {
         }),
       );
     }
-    for (const description of [edits, linesEdit]) {
+    for (const description of [edits, linesEdit, deviceEdit?.description]) {
       if (!description) continue;
       await this.serviceHistoryRepository.save(
         this.serviceHistoryRepository.create({

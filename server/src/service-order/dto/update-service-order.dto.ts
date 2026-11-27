@@ -1,9 +1,11 @@
 import { OmitType, PartialType } from '@nestjs/mapped-types';
 import { Transform, Type } from 'class-transformer';
+import { CreateDeviceDto } from '../../devices/dto/create-device.dto';
 import {
   ArrayMaxSize,
   ArrayUnique,
   IsArray,
+  IsBoolean,
   IsEnum,
   IsIn,
   IsOptional,
@@ -58,6 +60,24 @@ export class OrderLineEditDto {
   @Min(1)
   @Max(99)
   quantity: number;
+}
+
+/**
+ * Design R3 3.4: the device of the order, edited on its page. Only what
+ * changed; `code` or `pattern` replaces the unlock secret and `clearSecret`
+ * removes it.
+ */
+export class EditedDeviceDto extends PartialType(
+  OmitType(CreateDeviceDto, [
+    'clientId',
+    'inventoryCode',
+    'status',
+    'observations',
+  ] as const),
+) {
+  @IsBoolean()
+  @IsOptional()
+  clearSecret?: boolean;
 }
 
 export class UpdateServiceOrderDto extends PartialType(
@@ -153,4 +173,10 @@ export class UpdateServiceOrderDto extends PartialType(
   @Type(() => OrderLineEditDto)
   @IsOptional()
   editedLines?: OrderLineEditDto[];
+
+  /** The order's device as edited on the order page; see EditedDeviceDto. */
+  @ValidateNested()
+  @Type(() => EditedDeviceDto)
+  @IsOptional()
+  editedDevice?: EditedDeviceDto;
 }

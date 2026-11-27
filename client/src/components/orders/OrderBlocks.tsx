@@ -204,10 +204,18 @@ export function ClientCard({
   );
 }
 
-export function DeviceCard({ order, fullImei = false }: { order: OrderDetail; fullImei?: boolean }) {
+export function DeviceCard({
+  order,
+  fullImei = false,
+  action,
+}: {
+  order: OrderDetail;
+  fullImei?: boolean;
+  action?: ReactNode;
+}) {
   const { device } = order;
   return (
-    <Card title="Equipo">
+    <Card title="Equipo" action={device ? action : undefined}>
       {device ? (
         <>
           <p className={styles.strong}>

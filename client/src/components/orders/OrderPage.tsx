@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ArrowLeft, Pencil, Printer, Tag } from "lucide-react";
-import { ClientEditForm, FaultEditForm, LinesEditForm } from "./OrderEditForms";
+import { ClientEditForm, DeviceEditForm, FaultEditForm, LinesEditForm } from "./OrderEditForms";
 import { Button, StatusChip } from "@/components/ui";
 import { PRIORITY_LABEL } from "./orderList";
 import { OrderActions } from "./OrderActions";
@@ -34,8 +34,13 @@ import styles from "./OrderPage.module.css";
 /** What the blocks cannot edit yet (services, device) opens the previous screen. */
 export const editHref = (id: string) => `/serviceOrders/${id}/edit`;
 
-type Block = "averia" | "servicios" | "cliente";
-const BLOCK_NAME: Record<Block, string> = { averia: "la avería", servicios: "los servicios", cliente: "el cliente" };
+type Block = "averia" | "servicios" | "cliente" | "equipo";
+const BLOCK_NAME: Record<Block, string> = {
+  averia: "la avería",
+  servicios: "los servicios",
+  cliente: "el cliente",
+  equipo: "el equipo",
+};
 
 const FILTERS: { id: HistoryKind | "todo"; label: string }[] = [
   { id: "todo", label: "Todo" },
@@ -270,7 +275,22 @@ function Loaded({ order, payments, notes, notices, onChanged }: LoadedOrder & { 
               </p>
             </ClientCard>
           )}
-          <DeviceCard order={order} fullImei />
+          {editing === "equipo" && order.device ? (
+            <section className={panel.card}>
+              <h3 className={panel.cardTitle}>Equipo</h3>
+              <DeviceEditForm
+                order={order}
+                onDirty={setDirty}
+                onSaved={() => {
+                  done();
+                  onChanged();
+                }}
+                onCancel={done}
+              />
+            </section>
+          ) : (
+            <DeviceCard order={order} fullImei action={editButton("equipo")} />
+          )}
           <section className={panel.card} id="orden-dinero">
             <h3 className={panel.cardTitle}>Dinero</h3>
             <MoneyTotals order={order} />

@@ -114,20 +114,28 @@ export class DeviceSecretService implements OnModuleInit, OnModuleDestroy {
     return { type: device.unlockSecretType, value };
   }
 
-  async clear(deviceId: string, actorUserId: string): Promise<void> {
-    const result = await this.devices.update(deviceId, {
+  async clear(
+    deviceId: string,
+    actorUserId: string,
+    manager?: EntityManager,
+  ): Promise<void> {
+    const repo = manager ? manager.getRepository(Device) : this.devices;
+    const result = await repo.update(deviceId, {
       unlockSecretCiphertext: null,
       unlockSecretType: null,
       unlockSecretSetAt: null,
     });
     if (!result.affected)
       throw new NotFoundException('Dispositivo no encontrado');
-    await this.audit.record({
-      action: 'DEVICE_SECRET_CLEARED',
-      actorUserId,
-      entityType: 'device',
-      entityId: deviceId,
-    });
+    await this.audit.record(
+      {
+        action: 'DEVICE_SECRET_CLEARED',
+        actorUserId,
+        entityType: 'device',
+        entityId: deviceId,
+      },
+      manager,
+    );
   }
 
   /**
