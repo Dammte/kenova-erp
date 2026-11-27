@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
+import { Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui";
 import { API_URL, apiFetch, errorMessage } from "@/lib/api";
@@ -18,6 +19,7 @@ import {
   EMPTY_DRAFT,
   FAULTS,
   PRIORITIES,
+  blocksDone,
   fromQuote,
   intakePayload,
   isKnown,
@@ -67,18 +69,54 @@ export function withClient(prev: IntakeState, client: IntakeState["client"]): In
   return { ...prev, client, device };
 }
 
-function Block({ n, title, children, field }: { n: number; title: string; children: ReactNode; field?: string }) {
+function Block({
+  n,
+  title,
+  children,
+  field,
+  done = false,
+}: {
+  n: number;
+  title: string;
+  children: ReactNode;
+  field?: string;
+  /** Design R3 3.5: the number turns into ✓ once the block is complete. */
+  done?: boolean;
+}) {
   return (
     <section className={styles.block} aria-labelledby={`intake-${n}`} data-field={field}>
       <h2 id={`intake-${n}`} className={styles.blockTitle}>
-        <span className={styles.step} aria-hidden>
-          {n}
+        <span className={`${styles.step} ${done ? styles.stepDone : ""}`} aria-hidden>
+          {done ? <Check size={14} /> : n}
         </span>
         {title}
+        {done && <span className={styles.srOnly}> · completo</span>}
       </h2>
       {children}
     </section>
   );
+}
+
+const fullName = (c: { firstName: string; lastName: string | null }) =>
+  [c.firstName, c.lastName].filter(Boolean).join(" ").trim();
+
+/** One line per card of the summary, or «—» while it is still empty. */
+function summaryOf(s: IntakeState) {
+  const client = s.client ? fullName(s.client) || s.client.phoneNumber || "" : "";
+  const device = s.device ? `${s.device.brand} ${s.device.model}`.trim() : "";
+  const fault = s.faults.length ? s.faults.map((f) => FAULT_LABEL[f] ?? f).join(", ") : s.faultNotes.trim();
+  return { client: client || "—", device: device || "—", fault: fault || "—" };
+}
+
+/** «Más detalles» folded: what it holds, or what was filled in. */
+function detailsLine(s: IntakeState) {
+  const filled = [
+    s.physicalCondition.trim(),
+    s.accessories.trim(),
+    s.priority !== "medium" ? `prioridad ${PRIORITIES.find(([p]) => p === s.priority)?.[1].toLowerCase()}` : "",
+    s.observations.trim() ? "con observaciones" : "",
+  ].filter(Boolean);
+  return filled.length ? filled.join(" · ") : "estado físico y accesorios · prioridad media · observaciones";
 }
 
 /**
@@ -91,6 +129,8 @@ export function IntakeForm() {
   const [s, setS] = useState<IntakeState>(START);
   const [saving, setSaving] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+  // Design R3 3.5: rarely used in the intake, so folded; a quote asks to fill them.
+  const [details, setDetails] = useState(false);
 
   const set = (patch: Partial<IntakeState>) => setS((prev) => ({ ...prev, ...patch }));
 
@@ -157,12 +197,17 @@ export function IntakeForm() {
       const found = await get<FoundClient[]>(`${API_URL}/clients/search?q=${phone}`).catch(() => []);
       const same = found.filter((c) => (c.phoneNumber ?? "").replace(/\D/g, "") === phone);
       setS((prev) => fromQuote(prev, quote, same.length === 1 ? same[0] : null));
+      setDetails(true);
     })().catch(() => {
       if (!controller.signal.aborted) setProblem("No se ha podido cargar el presupuesto. Puedes dar de alta igualmente.");
     });
     return () => controller.abort();
   }, []);
   const todo = missing(s);
+  const done = blocksDone(s, todo);
+  const summary = summaryOf(s);
+  const total = orderTotal(s);
+  const deposit = Math.min(s.deposit ?? 0, total);
   const knownClientId = s.client && isKnown<FoundClient>(s.client) ? s.client.id : null;
 
   const submit = async (e?: FormEvent) => {
@@ -211,11 +256,11 @@ export function IntakeForm() {
       )}
       <div className={styles.layout}>
         <div className={styles.blocks}>
-          <Block n={1} title="Cliente">
+          <Block n={1} title="Cliente" done={done.client}>
             <ClientPicker value={s.client} onChange={(client) => setS((prev) => withClient(prev, client))} />
           </Block>
 
-          <Block n={2} title="Dispositivo" field="device">
+          <Block n={2} title="Equipo" field="device" done={done.device}>
             <DevicePicker
               clientId={knownClientId}
               value={s.device}
@@ -240,7 +285,7 @@ export function IntakeForm() {
             )}
           </Block>
 
-          <Block n={3} title="Avería declarada" field="faults">
+          <Block n={3} title="Avería" field="faults" done={done.faults}>
             <div className={styles.chips}>
               {FAULTS.map((f) => (
                 <label key={f} className={styles.chip}>
@@ -272,7 +317,7 @@ export function IntakeForm() {
             </label>
           </Block>
 
-          <Block n={4} title="Servicios y precio">
+          <Block n={4} title="Servicios y precio" done={done.services}>
             <ServicePicker value={s} suggested={suggestedServices(s.faults)} onChange={set} />
             <label className={styles.check}>
               <input
@@ -285,7 +330,15 @@ export function IntakeForm() {
             </label>
           </Block>
 
-          <Block n={5} title="Estado físico y accesorios">
+          <details
+            className={styles.more}
+            open={details}
+            onToggle={(e) => setDetails((e.currentTarget as HTMLDetailsElement).open)}
+          >
+            <summary className={styles.moreSummary}>
+              <span className={styles.blockTitle}>Más detalles</span>
+              <span className={styles.muted}>{detailsLine(s)}</span>
+            </summary>
             <div className={styles.grid2}>
               <div className={styles.group}>
                 <label className={styles.label} htmlFor="intake-condition">
@@ -340,9 +393,6 @@ export function IntakeForm() {
                 />
               </div>
             </div>
-          </Block>
-
-          <Block n={6} title="Prioridad y observaciones">
             <div className={styles.chips} role="radiogroup" aria-label="Prioridad">
               {PRIORITIES.map(([p, label]) => (
                 <label key={p} className={styles.chip}>
@@ -363,13 +413,42 @@ export function IntakeForm() {
                 onChange={(e) => set({ observations: e.target.value })}
               />
             </label>
-          </Block>
+          </details>
         </div>
 
         <aside className={styles.summary} aria-label="Resumen">
+          <h2 className={styles.summaryTitle}>Resumen</h2>
+          <dl className={styles.summaryCards}>
+            <div>
+              <dt>Cliente</dt>
+              <dd>{summary.client}</dd>
+            </div>
+            <div>
+              <dt>Equipo</dt>
+              <dd>{summary.device}</dd>
+            </div>
+            <div>
+              <dt>Avería</dt>
+              <dd>{summary.fault}</dd>
+            </div>
+          </dl>
+          <dl className={styles.summaryMoney}>
+            <div>
+              <dt>Total</dt>
+              <dd>{formatEur(total)}</dd>
+            </div>
+            <div>
+              <dt>Anticipo</dt>
+              <dd>{formatEur(deposit)}</dd>
+            </div>
+            <div className={styles.pending}>
+              <dt>Pendiente</dt>
+              <dd>{formatEur(total - deposit)}</dd>
+            </div>
+          </dl>
           {todo.length > 0 ? (
-            <>
-              <p className={styles.label}>Para crear la orden falta</p>
+            <div className={styles.missing}>
+              <p className={styles.missingTitle}>Falta</p>
               <ul className={styles.todo}>
                 {todo.map((t) => (
                   <li key={t.text}>
@@ -379,13 +458,10 @@ export function IntakeForm() {
                   </li>
                 ))}
               </ul>
-            </>
+            </div>
           ) : (
             <p className={styles.label}>Todo listo para crear la orden.</p>
           )}
-          <p className={styles.muted}>
-            Total {formatEur(orderTotal(s))} · Anticipo {formatEur(s.deposit ?? 0)}. Entra como En progreso.
-          </p>
           {problem && (
             <p className={styles.error} role="alert">
               {problem}{" "}
@@ -394,16 +470,20 @@ export function IntakeForm() {
               </button>
             </p>
           )}
-          <Button
-            type="submit"
-            variant="primary"
-            loading={saving}
-            loadingText="Creando…"
-            disabledReason={todo.length ? `Falta: ${todo.map((t) => t.text).join(", ")}.` : undefined}
-          >
-            Crear orden
-          </Button>
-          <p className={styles.muted}>Ctrl + Enter para crear.</p>
+          <div className={styles.submit}>
+            <Button
+              type="submit"
+              variant="primary"
+              loading={saving}
+              loadingText="Creando…"
+              disabledReason={todo.length === 0 ? undefined : todo.length === 1 ? "Falta 1 dato" : `Faltan ${todo.length} datos`}
+            >
+              Crear orden
+            </Button>
+          </div>
+          <p className={`${styles.muted} ${styles.summaryNote}`}>
+            Ctrl + Enter · entra en «En progreso» y se abre con «Imprimir resguardo».
+          </p>
         </aside>
       </div>
     </form>

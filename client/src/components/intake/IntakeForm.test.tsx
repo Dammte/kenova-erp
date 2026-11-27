@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { IntakeForm } from "./IntakeForm";
 import { SEARCH_DELAY_MS } from "./ClientPicker";
 
@@ -49,8 +49,22 @@ describe("IntakeForm", () => {
   it("says what is missing and blocks creating until it is there", () => {
     render(<IntakeForm />);
     expect(screen.getByRole("button", { name: "Cliente" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Avería declarada" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Avería (elige un síntoma)" })).toBeTruthy();
     expect((create() as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("marks a complete block and keeps the rarely used details folded (design R3 3.5)", () => {
+    render(<IntakeForm />);
+    const fault = screen.getByRole("heading", { name: /^Avería/ });
+    expect(fault.textContent).not.toContain("completo");
+    fireEvent.click(screen.getByLabelText("Pantalla"));
+    expect(fault.textContent).toContain("completo");
+    const summary = within(screen.getByRole("complementary", { name: "Resumen" }));
+    expect(summary.getByText("Avería").nextElementSibling?.textContent).toBe("Pantalla");
+
+    const details = screen.getByText("Más detalles").closest("details")!;
+    expect(details.open).toBe(false);
+    expect(details.textContent).toContain("estado físico y accesorios · prioridad media · observaciones");
   });
 
   it("creates an order for a returning client's device in a few taps", async () => {
@@ -101,7 +115,7 @@ describe("IntakeForm", () => {
     expect((screen.getByLabelText(/^Nombre/) as HTMLInputElement).value).toBe("Ana");
     expect((screen.getByLabelText(/^Teléfono/) as HTMLInputElement).value).toBe("612 345 678");
     expect(screen.getByLabelText(/^Marca/)).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Dispositivo: marca" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Equipo: marca" })).toBeTruthy();
   });
 
   it("keeps the data and offers a retry when the server refuses", async () => {
@@ -177,7 +191,7 @@ describe("IntakeForm", () => {
     fireEvent.change(screen.getByLabelText(/^Anticipo/), { target: { value: "59" } });
     expect(screen.getByRole("button", { name: "Forma de pago del anticipo" })).toBeTruthy();
     fireEvent.click(screen.getByLabelText("Tarjeta"));
-    expect(screen.getByText(/^Pendiente/).textContent).toMatch(/90,00\s€/);
+    expect(within(screen.getByRole("complementary", { name: "Resumen" })).getByText("Pendiente").nextElementSibling?.textContent).toMatch(/90,00\s€/);
 
     await act(async () => {
       fireEvent.click(create());

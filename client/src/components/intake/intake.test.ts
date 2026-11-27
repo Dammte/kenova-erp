@@ -53,7 +53,7 @@ describe("toggleWord", () => {
 
 describe("missing", () => {
   it("lists everything on an empty intake", () => {
-    expect(missing(BASE).map((m) => m.text)).toEqual(["Cliente", "Dispositivo", "Avería declarada"]);
+    expect(missing(BASE).map((m) => m.text)).toEqual(["Cliente", "Equipo", "Avería (elige un síntoma)"]);
   });
   it("checks the new client's name, phone and the new device's brand and model", () => {
     const s = { ...BASE, client: newClientFrom("61234"), device: EMPTY_DEVICE, faults: ["battery"] };
