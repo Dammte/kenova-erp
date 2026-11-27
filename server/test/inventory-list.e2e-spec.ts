@@ -8,7 +8,13 @@ interface Page {
     status: string;
     costPrice: string | null;
   }[];
-  counts: { all: number; low: number; byCategory: Record<string, number> };
+  counts: {
+    all: number;
+    low: number;
+    out: number;
+    byCategory: Record<string, number>;
+  };
+  summary: { parts: number; low: number; out: number; costValue: string };
   brands: string[];
   providers: string[];
 }
@@ -93,7 +99,15 @@ describe('Parts list (GET /api/inventory/list)', () => {
     expect(p.counts).toEqual({
       all: 5,
       low: 3,
+      out: 1,
       byCategory: { Pantallas: 2, Baterías: 2, Consumibles: 1 },
+    });
+    // (3 + 2 + 5 + 1) units at 72 €: what the stock cost.
+    expect(p.summary).toEqual({
+      parts: 5,
+      low: 3,
+      out: 1,
+      costValue: '792.00',
     });
     expect(p.brands).toEqual(['Apple', 'Samsung']);
     expect(p.providers).toEqual(['Amazon', 'MovilParts', 'RecambiosNorte']);
@@ -121,8 +135,12 @@ describe('Parts list (GET /api/inventory/list)', () => {
     expect(apple.counts).toEqual({
       all: 2,
       low: 1,
+      out: 1,
       byCategory: { Pantallas: 2 },
     });
+    // The line under the title is the whole inventory.
+    expect(apple.summary.parts).toBe(5);
+    expect(skus(await list('?out=true'))).toEqual(['PAN-IP13-OLED']);
     expect(skus(await list('?provider=Amazon'))).toEqual(['ADH-UNIV-01']);
   });
 

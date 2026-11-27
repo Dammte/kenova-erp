@@ -22,7 +22,9 @@ export interface PartPage {
   page: number;
   pageSize: number;
   rows: PartRow[];
-  counts: { all: number; low: number; byCategory: Record<string, number> };
+  counts: { all: number; low: number; out: number; byCategory: Record<string, number> };
+  /** The whole inventory, for the line under the title (design R3 3.7). */
+  summary: { parts: number; low: number; out: number; costValue: string };
   brands: string[];
   providers: string[];
 }
@@ -64,7 +66,8 @@ export const skuTag = (sku: string): string => sku.split("-")[0].slice(0, 3).toU
 /** Margin on the sale price, «52 %», or «—» without a sale price. */
 export function margin(sale: string | null, cost: string | null): string {
   const s = Number(sale);
-  if (!sale || !s) return "—";
+  // Without a cost the margin is unknown, not 100 %.
+  if (!sale || !s || cost === null || cost === "") return "—";
   return `${Math.round(((s - Number(cost ?? 0)) / s) * 100)} %`;
 }
 
@@ -143,3 +146,15 @@ export function partsSheet(parts: PartExport[]): (string | number)[][] {
 /** «Inventario_2026-11-27.xlsx». */
 export const partsFileName = (today: Date) =>
   `Inventario_${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}.xlsx`;
+
+/** «312 repuestos · 5 bajo mínimo · 3 agotados · valor de coste 6.214,30 €». */
+export function summaryLine(sum: PartPage["summary"], eur: (v: string) => string): string {
+  return [
+    `${sum.parts} ${sum.parts === 1 ? "repuesto" : "repuestos"}`,
+    sum.low ? `${sum.low} bajo mínimo` : "",
+    sum.out ? `${sum.out} ${sum.out === 1 ? "agotado" : "agotados"}` : "",
+    `valor de coste ${eur(sum.costValue)}`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}

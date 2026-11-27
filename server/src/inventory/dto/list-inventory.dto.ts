@@ -36,6 +36,12 @@ export class ListInventoryDto {
   @IsBoolean()
   low?: boolean;
 
+  /** Only parts with no stock left («Agotados»). */
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  out?: boolean;
+
   @IsOptional()
   @Type(() => Number)
   @IsInt()
