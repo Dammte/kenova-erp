@@ -36,6 +36,7 @@ import { OrderPaymentsService } from './order-payments.service';
 import { commissionFor, NO_COMMISSION } from './commission';
 import { derivePayment } from './payment-status';
 import { transitionProblem } from './status-transitions';
+import { describeEdits } from './order-edits';
 import { User, UserRole } from '../users/entities/user.entity';
 
 /** IMEI or serial as typed or scanned: no spaces or dashes, upper case. */
@@ -631,10 +632,28 @@ export class ServiceOrderService {
     lines?: { description: string; unitPrice: number }[],
   ): Promise<ServiceOrder> {
     const actorUserId = actor.id;
-    const { serviceIds, clientId, deviceId, owedReason, parts, ...updateData } =
-      updateServiceOrderDto;
+    const {
+      serviceIds,
+      clientId,
+      deviceId,
+      owedReason,
+      parts,
+      expectedUpdatedAt,
+      ...updateData
+    } = updateServiceOrderDto;
 
     const serviceOrder = await this.findOne(id, actor);
+    if (
+      expectedUpdatedAt &&
+      new Date(expectedUpdatedAt).getTime() !== serviceOrder.updatedAt.getTime()
+    ) {
+      throw new ConflictException({
+        message:
+          'Otra persona ha cambiado esta orden mientras la editabas. Recarga para ver su cambio; lo que has escrito se conserva.',
+        code: 'ORDER_CHANGED',
+      });
+    }
+    const edits = describeEdits(serviceOrder, updateData);
 
     if (clientId) {
       const client = await this.clientRepository.findOne({
@@ -813,6 +832,16 @@ export class ServiceOrderService {
           performedBy: { id: actorUserId } as any,
           action: 'cambio_estado',
           description: `Estado cambiado de "${STATUS_LABELS[previousStatus] ?? previousStatus}" a "${STATUS_LABELS[updateData.status] ?? updateData.status}"`,
+        }),
+      );
+    }
+    if (edits) {
+      await this.serviceHistoryRepository.save(
+        this.serviceHistoryRepository.create({
+          serviceOrderId: id,
+          performedBy: { id: actorUserId } as User,
+          action: 'updated',
+          description: edits,
         }),
       );
     }

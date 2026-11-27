@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowLeft, Pencil, Printer, Tag } from "lucide-react";
+import { ClientEditForm, FaultEditForm } from "./OrderEditForms";
 import { Button, StatusChip } from "@/components/ui";
 import { PRIORITY_LABEL } from "./orderList";
 import { OrderActions } from "./OrderActions";
@@ -30,8 +31,11 @@ import {
 import panel from "./OrderPanel.module.css";
 import styles from "./OrderPage.module.css";
 
-/** Until the blocks are edited in place, editing opens the previous screen. */
+/** What the blocks cannot edit yet (services, device) opens the previous screen. */
 export const editHref = (id: string) => `/serviceOrders/${id}/edit`;
+
+type Block = "averia" | "cliente";
+const BLOCK_NAME: Record<Block, string> = { averia: "la avería", cliente: "el cliente" };
 
 const FILTERS: { id: HistoryKind | "todo"; label: string }[] = [
   { id: "todo", label: "Todo" },
@@ -82,7 +86,39 @@ function Loaded({ order, payments, notes, notices, onChanged }: LoadedOrder & { 
   const [money, setMoney] = useState<MoneyStep>("idle");
   const [noticing, setNoticing] = useState(false);
   const [filter, setFilter] = useState<HistoryKind | "todo">("todo");
+  const [editing, setEditing] = useState<Block | null>(null);
+  const [dirty, setDirty] = useState(false);
+  const [blocked, setBlocked] = useState<string | null>(null);
   const closed = order.status === "entregado" || order.status === "cancelado";
+
+  // Leaving the page with something typed and not saved asks first.
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
+
+  // One block at a time: another one with changes has to be saved or discarded first.
+  const edit = (block: Block) => {
+    if (editing && editing !== block && dirty) {
+      setBlocked(`Guarda o descarta los cambios de ${BLOCK_NAME[editing]} antes de editar ${BLOCK_NAME[block]}.`);
+      return;
+    }
+    setBlocked(null);
+    setDirty(false);
+    setEditing(block);
+  };
+  const done = () => {
+    setEditing(null);
+    setBlocked(null);
+  };
+  const editButton = (block: Block) =>
+    !closed && editing !== block ? (
+      <Button size="sm" variant="ghost" icon={<Pencil size={14} aria-hidden />} aria-label={`Editar ${BLOCK_NAME[block]}`} onClick={() => edit(block)}>
+        Editar
+      </Button>
+    ) : null;
   const entries = historyEntries(order, notices, payments).filter((h) => filter === "todo" || h.kind === filter);
   const show = (target: string) =>
     // After the form renders, so the scroll lands on it.
@@ -98,9 +134,9 @@ function Loaded({ order, payments, notes, notices, onChanged }: LoadedOrder & { 
             <span className={`${panel.priority} ${panel[`p_${order.priority}`]}`}>{PRIORITY_LABEL[order.priority]}</span>
           )}
           {!closed && (
-            <Link href={editHref(order.id)} className={styles.edit}>
+            <Link href={editHref(order.id)} className={styles.edit} title="Servicios, equipo y el resto, hasta que se editen aquí">
               <Pencil size={14} aria-hidden />
-              Editar orden
+              Más cambios en la pantalla anterior
             </Link>
           )}
         </div>
@@ -138,7 +174,28 @@ function Loaded({ order, payments, notes, notices, onChanged }: LoadedOrder & { 
 
       <div className={styles.columns}>
         <div className={styles.main}>
-          <FaultBlock order={order} />
+          {blocked && (
+            <p className={panel.conflict} role="alert">
+              {blocked}
+            </p>
+          )}
+          {editing === "averia" ? (
+            <section className={panel.section}>
+              <h2 className={styles.blockTitle}>Editar avería</h2>
+              <FaultEditForm
+                order={order}
+                onDirty={setDirty}
+                onSaved={() => {
+                  done();
+                  onChanged();
+                }}
+                onCancel={done}
+                onReload={onChanged}
+              />
+            </section>
+          ) : (
+            <FaultBlock order={order} action={editButton("averia")} />
+          )}
           <FlaggedNotes notes={notes} />
 
           <section className={panel.section}>
@@ -175,13 +232,28 @@ function Loaded({ order, payments, notes, notices, onChanged }: LoadedOrder & { 
         </div>
 
         <aside className={styles.side} aria-label="Cliente, equipo y dinero">
-          <ClientCard order={order}>
-            <p className={panel.actions}>
-              <Link href={`/clients/${order.client.id}`} className={panel.action}>
-                Ficha del cliente
-              </Link>
-            </p>
-          </ClientCard>
+          {editing === "cliente" ? (
+            <section className={panel.card}>
+              <h3 className={panel.cardTitle}>Cliente</h3>
+              <ClientEditForm
+                order={order}
+                onDirty={setDirty}
+                onSaved={() => {
+                  done();
+                  onChanged();
+                }}
+                onCancel={done}
+              />
+            </section>
+          ) : (
+            <ClientCard order={order} action={editButton("cliente")}>
+              <p className={panel.actions}>
+                <Link href={`/clients/${order.client.id}`} className={panel.action}>
+                  Ficha del cliente
+                </Link>
+              </p>
+            </ClientCard>
+          )}
           <DeviceCard order={order} fullImei />
           <section className={panel.card} id="orden-dinero">
             <h3 className={panel.cardTitle}>Dinero</h3>

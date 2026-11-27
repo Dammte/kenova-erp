@@ -8,6 +8,8 @@ export interface OrderDetail {
   status: OrderStatus;
   priority: OrderRow["priority"];
   createdAt: string;
+  /** Design R3 B5: sent back with an edit, so a change made meanwhile is not overwritten. */
+  updatedAt?: string;
   finishedAt: string | null;
   deliveredAt: string | null;
   reportedFaults: string[];

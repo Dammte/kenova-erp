@@ -12,6 +12,7 @@ import {
   MaxLength,
   ValidateIf,
   ValidateNested,
+  IsISO8601,
 } from 'class-validator';
 import {
   ORDER_TESTS,
@@ -96,4 +97,13 @@ export class UpdateServiceOrderDto extends PartialType(
   @Type(() => ConsumedPartDto)
   @IsOptional()
   parts?: ConsumedPartDto[];
+
+  /**
+   * Design R3 B5: the order's updatedAt when the screen loaded it. If someone
+   * changed the order since, the edit is refused (409) instead of silently
+   * overwriting their change. Not a column.
+   */
+  @IsISO8601({ strict: true })
+  @IsOptional()
+  expectedUpdatedAt?: string;
 }

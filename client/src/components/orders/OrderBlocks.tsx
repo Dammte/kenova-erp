@@ -104,10 +104,28 @@ export function Message({ title, children }: { title: string; children: ReactNod
   );
 }
 
-export function Card({ title, children, className }: { title: string; children: ReactNode; className?: string }) {
+export function Card({
+  title,
+  children,
+  className,
+  action,
+}: {
+  title: string;
+  children: ReactNode;
+  className?: string;
+  /** A button beside the title, such as «Editar». */
+  action?: ReactNode;
+}) {
   return (
     <section className={`${styles.card} ${className ?? ""}`}>
-      <h3 className={styles.cardTitle}>{title}</h3>
+      {action ? (
+        <div className={styles.blockHead}>
+          <h3 className={styles.cardTitle}>{title}</h3>
+          {action}
+        </div>
+      ) : (
+        <h3 className={styles.cardTitle}>{title}</h3>
+      )}
       {children}
     </section>
   );
@@ -142,11 +160,19 @@ export function MenuLinks({ order }: { order: OrderDetail }) {
   );
 }
 
-export function ClientCard({ order, children }: { order: OrderDetail; children?: ReactNode }) {
+export function ClientCard({
+  order,
+  children,
+  action,
+}: {
+  order: OrderDetail;
+  children?: ReactNode;
+  action?: ReactNode;
+}) {
   const { client } = order;
   const name = [client.firstName, client.lastName].filter(Boolean).join(" ");
   return (
-    <Card title="Cliente">
+    <Card title="Cliente" action={action}>
       <p className={`${styles.strong} ${styles.clip}`} title={name}>
         {name}
       </p>
@@ -230,14 +256,24 @@ export function MoneyTotals({ order }: { order: OrderDetail }) {
 }
 
 /** The fault stands out: the technician reads it before anything. */
-export function FaultBlock({ order }: { order: OrderDetail }) {
+export function FaultBlock({ order, action }: { order: OrderDetail; action?: ReactNode }) {
   const faults = order.reportedFaults.map((f) => FAULT_LABEL[f] ?? f);
+  const title = (
+    <h3 className={styles.faultTitle}>
+      <AlertTriangle size={14} aria-hidden />
+      Avería declarada
+    </h3>
+  );
   return (
     <section className={styles.fault}>
-      <h3 className={styles.faultTitle}>
-        <AlertTriangle size={14} aria-hidden />
-        Avería declarada
-      </h3>
+      {action ? (
+        <div className={styles.blockHead}>
+          {title}
+          {action}
+        </div>
+      ) : (
+        title
+      )}
       <p className={styles.faultText}>{faults.length ? faults.join(" · ") : "Sin indicar"}</p>
       {order.faultNotes && <p>«{order.faultNotes}»</p>}
       {(order.physicalCondition || order.accessories) && (
