@@ -44,7 +44,14 @@ const nextConfig: NextConfig = {
   },
   // Design R3 3.4: the order is edited block by block on its own page.
   async redirects() {
-    return [{ source: "/serviceOrders/:id/edit", destination: "/ordenes/:id", permanent: true }];
+    return [
+      { source: "/serviceOrders/:id/edit", destination: "/ordenes/:id", permanent: true },
+      // The old inventory screens live on in /inventario: the card and the form open in its panel.
+      { source: "/inventory", destination: "/inventario", permanent: true },
+      { source: "/inventory/add-part", destination: "/inventario?repuesto=nuevo", permanent: true },
+      { source: "/inventory/:id/edit", destination: "/inventario?repuesto=:id&editar=1", permanent: true },
+      { source: "/inventory/:id", destination: "/inventario?repuesto=:id", permanent: true },
+    ];
   },
   async rewrites() {
     if (!apiOrigin) return [];

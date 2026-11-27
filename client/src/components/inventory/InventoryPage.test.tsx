@@ -1,7 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { InventoryPage } from "./InventoryPage";
-import { arrival, margin, signed, stockFill, stockLabel, type PartPage } from "./inventory";
+import { arrival, margin, partsFileName, partsSheet, signed, stockFill, stockLabel, type PartPage } from "./inventory";
+
+const written: { rows: unknown[][]; name: string }[] = [];
+vi.mock("xlsx", () => ({
+  utils: {
+    aoa_to_sheet: (rows: unknown[][]) => ({ rows }),
+    book_new: () => ({ sheets: [] as unknown[] }),
+    book_append_sheet: (book: { sheets: unknown[] }, sheet: unknown) => book.sheets.push(sheet),
+  },
+  writeFile: (book: { sheets: { rows: unknown[][] }[] }, name: string) => written.push({ rows: book.sheets[0].rows, name }),
+}));
 
 let params = new URLSearchParams();
 const replace = vi.fn((url: string) => {
@@ -137,6 +147,48 @@ describe("InventoryPage", () => {
     within(within(card).getByRole("row", { name: /Entrada/ })).getByText("+3");
     fireEvent.click(within(card).getByRole("button", { name: "Cerrar ficha" }));
     expect(replace).toHaveBeenLastCalledWith("/inventario", { scroll: false });
+  });
+
+  it("sends a part to the Papelera after asking, and closes its card", async () => {
+    params = new URLSearchParams("repuesto=BAT-IP13");
+    render(<InventoryPage />);
+    await act(async () => {});
+    const card = within(screen.getByRole("complementary", { name: "Repuesto Batería iPhone 13" }));
+    fireEvent.click(card.getByRole("button", { name: "Eliminar" }));
+    expect(fetchMock.mock.calls.some((c) => (c[1] as RequestInit | undefined)?.method === "DELETE")).toBe(false);
+    card.getByText(/Se puede recuperar desde Papelera/);
+
+    fetchMock.mockImplementationOnce(async () => new Response(null, { status: 500 }));
+    await act(async () => fireEvent.click(card.getByRole("button", { name: "Sí, eliminar" })));
+    card.getByRole("alert");
+    expect(replace).not.toHaveBeenCalled();
+
+    fetchMock.mockImplementationOnce(async () => new Response(null, { status: 204 }));
+    await act(async () => fireEvent.click(card.getByRole("button", { name: "Sí, eliminar" })));
+    const del = fetchMock.mock.calls.filter((c) => (c[1] as RequestInit | undefined)?.method === "DELETE");
+    expect(del.map((c) => c[0])).toEqual(["/api/inventory/BAT-IP13", "/api/inventory/BAT-IP13"]);
+    expect(replace).toHaveBeenLastCalledWith("/inventario", { scroll: false });
+  });
+
+  it("exports every part to Excel with numeric prices", async () => {
+    written.length = 0;
+    fetchMock.mockImplementation(async (url: string) =>
+      url === "/api/inventory"
+        ? json([{ ...PAGE.rows[0], salesPrice: "59", costPrice: "18.5", category: null }])
+        : url.startsWith("/api/inventory/list")
+          ? json(PAGE)
+          : json({}, 404),
+    );
+    render(<InventoryPage />);
+    await act(async () => {});
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Exportar Excel" })));
+    expect(written).toHaveLength(1);
+    expect(written[0].name).toMatch(/^Inventario_\d{4}-\d{2}-\d{2}\.xlsx$/);
+    expect(written[0].rows[1].slice(7, 9)).toEqual([59, 18.5]);
+    expect(partsSheet([{ ...PAGE.rows[0], salesPrice: "59", costPrice: null, category: null }])[1]).toEqual([
+      "BAT-IP13", "Batería iPhone 13", "", "Apple", "iPhone 13", 2, 3, 59, "", "Estante B2", "MovilParts",
+    ]);
+    expect(partsFileName(new Date(2026, 10, 27, 23, 30))).toBe("Inventario_2026-11-27.xlsx");
   });
 
   it("opens the new and edit forms in the side card, in the address", async () => {
