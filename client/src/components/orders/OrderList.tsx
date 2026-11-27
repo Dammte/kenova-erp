@@ -413,6 +413,15 @@ export default function OrderList() {
               {STATUS_LABEL[st]}
             </Button>
           ))}
+          {/* Printing is not one more status: keep it apart. */}
+          <span className={styles.bulkSep} aria-hidden />
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => router.push(`/ordenes/etiquetas?ids=${pickedRows.map((r) => r.id).join(",")}`)}
+          >
+            Imprimir etiquetas
+          </Button>
           <Button size="sm" variant="ghost" onClick={() => setPicked(new Set())}>
             Quitar selección
           </Button>

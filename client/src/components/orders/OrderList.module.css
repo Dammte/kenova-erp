@@ -371,6 +371,12 @@
   box-shadow: 0 4px 16px rgb(0 0 0 / 0.12);
 }
 
+.bulkSep {
+  align-self: stretch;
+  width: var(--k-border-w);
+  background: var(--k-border-strong);
+}
+
 /* Phone: each order is a card. */
 @media (max-width: 640px) {
   .page {
