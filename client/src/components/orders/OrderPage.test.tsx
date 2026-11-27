@@ -9,6 +9,7 @@ const ORDER = {
   status: "en_progreso",
   priority: "high",
   createdAt: "2026-10-29T09:57:00Z",
+  updatedAt: "2026-10-29T10:02:00.123Z",
   finishedAt: null,
   deliveredAt: null,
   reportedFaults: ["broken_screen"],
@@ -51,8 +52,10 @@ const NOTICES = [
 vi.mock("@/components/auth/AuthProvider", () => ({ useAuth: () => ({ user: { id: "u1", role: "STORE_ADMIN" } }) }));
 
 const fetchMock = vi.fn();
+let writes: Record<string, Response> = {};
 function serve(order: Partial<OrderDetail> = {}, status = 200) {
-  fetchMock.mockImplementation(async (url: string) => {
+  fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
+    if (init?.method && init.method !== "GET") return writes[`${init.method} ${url}`] ?? new Response("{}");
     if (url.endsWith("/payments")) return new Response(JSON.stringify(PAYMENTS));
     if (url.endsWith("/sticky-notes")) return new Response(JSON.stringify([]));
     if (url.endsWith("/notices")) return new Response(JSON.stringify(NOTICES));
@@ -61,6 +64,7 @@ function serve(order: Partial<OrderDetail> = {}, status = 200) {
 }
 
 beforeEach(() => {
+  writes = {};
   fetchMock.mockReset();
   serve();
   vi.stubGlobal("fetch", fetchMock);
@@ -80,7 +84,7 @@ describe("OrderPage", () => {
     await open();
     screen.getByRole("heading", { level: 1, name: "MP-0142" });
     expect(screen.getByRole("link", { name: "Órdenes" }).getAttribute("href")).toBe("/ordenes");
-    expect(screen.getByRole("link", { name: "Editar orden" }).getAttribute("href")).toBe(editHref("o1"));
+    expect(screen.getByRole("link", { name: "Más cambios en la pantalla anterior" }).getAttribute("href")).toBe(editHref("o1"));
     screen.getByRole("button", { name: "Finalizar…" });
     expect(screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent)).toEqual([
       "Servicios y trabajo",
@@ -129,7 +133,8 @@ describe("OrderPage", () => {
     serve({ status: "entregado" } as Partial<OrderDetail>);
     await open();
     screen.getByText("Entregada · solo lectura");
-    expect(screen.queryByRole("link", { name: "Editar orden" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Más cambios en la pantalla anterior" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Editar / })).toBeNull();
   });
 
   it("says when the order does not exist or is another store's", async () => {
@@ -137,5 +142,91 @@ describe("OrderPage", () => {
     await open();
     screen.getByText("No existe esta orden");
     expect(screen.getByRole("link", { name: "Volver a Órdenes" }).getAttribute("href")).toBe("/ordenes");
+  });
+
+  describe("editing block by block", () => {
+    const sent = (method: string) =>
+      fetchMock.mock.calls
+        .filter(([, init]) => (init as RequestInit | undefined)?.method === method)
+        .map(([url, init]) => [url, JSON.parse(String((init as RequestInit).body))]);
+
+    it("saves the fault with the version it was loaded at", async () => {
+      await open();
+      fireEvent.click(screen.getByRole("button", { name: "Editar la avería" }));
+      const form = within(screen.getByRole("form", { name: "Editar avería" }));
+      fireEvent.click(form.getByLabelText("Batería"));
+      fireEvent.change(form.getByLabelText("Accesorios que deja"), { target: { value: "  " } });
+      fireEvent.click(form.getByLabelText("Urgente"));
+      fireEvent.click(form.getByRole("button", { name: "Guardar" }));
+      await act(async () => {});
+      expect(sent("PATCH")).toEqual([
+        [
+          "/api/service-orders/o1",
+          // Only what was changed, so nothing else is overwritten.
+          {
+            reportedFaults: ["broken_screen", "battery"],
+            accessories: null,
+            priority: "urgent",
+            expectedUpdatedAt: "2026-10-29T10:02:00.123Z",
+          },
+        ],
+      ]);
+      expect(screen.queryByRole("form", { name: "Editar avería" })).toBeNull();
+    });
+
+    it("when someone changed the order meanwhile, keeps what was typed and saves after reloading", async () => {
+      writes["PATCH /api/service-orders/o1"] = new Response(
+        JSON.stringify({ message: "Otra persona ha cambiado esta orden mientras la editabas.", code: "ORDER_CHANGED" }),
+        { status: 409 },
+      );
+      await open();
+      fireEvent.click(screen.getByRole("button", { name: "Editar la avería" }));
+      const notes = () => screen.getByLabelText("Lo que cuenta el cliente") as HTMLInputElement;
+      fireEvent.change(notes(), { target: { value: "Pantalla negra" } });
+      fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+      await act(async () => {});
+      screen.getByText("Otra persona ha cambiado esta orden mientras la editabas.");
+      expect(screen.getByRole("button", { name: "Guardar" }).hasAttribute("disabled")).toBe(true);
+
+      // The reload brings the other change (urgent, Cargador) and its new version.
+      serve({ updatedAt: "2026-10-29T11:00:00.000Z", priority: "urgent", accessories: "Cargador" } as Partial<OrderDetail>);
+      writes = {};
+      fireEvent.click(screen.getByRole("button", { name: "Recargar y conservar lo mío" }));
+      await act(async () => {});
+      expect(notes().value).toBe("Pantalla negra");
+      // What was not touched shows the other person's change, and is not sent back.
+      expect((screen.getByLabelText("Accesorios que deja") as HTMLInputElement).value).toBe("Cargador");
+      expect((screen.getByLabelText("Urgente") as HTMLInputElement).checked).toBe(true);
+      fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+      await act(async () => {});
+      expect(sent("PATCH").at(-1)?.[1]).toEqual({ faultNotes: "Pantalla negra", expectedUpdatedAt: "2026-10-29T11:00:00.000Z" });
+    });
+
+    it("edits the client's contact data", async () => {
+      await open();
+      fireEvent.click(screen.getByRole("button", { name: "Editar el cliente" }));
+      fireEvent.change(screen.getByLabelText("Teléfono"), { target: { value: "699 000 111" } });
+      fireEvent.click(screen.getByLabelText("SMS"));
+      fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+      await act(async () => {});
+      expect(sent("PATCH")).toEqual([
+        [
+          "/api/clients/c1",
+          { firstName: "Lucía", lastName: "Fernández", phoneNumber: "699 000 111", email: null, preferredContact: "SMS" },
+        ],
+      ]);
+    });
+
+    it("edits one block at a time: changes in one have to be saved or discarded first", async () => {
+      await open();
+      fireEvent.click(screen.getByRole("button", { name: "Editar la avería" }));
+      fireEvent.change(screen.getByLabelText("Estado físico"), { target: { value: "Golpe" } });
+      fireEvent.click(screen.getByRole("button", { name: "Editar el cliente" }));
+      screen.getByText("Guarda o descarta los cambios de la avería antes de editar el cliente.");
+      expect(screen.queryByRole("form", { name: "Editar cliente" })).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+      fireEvent.click(screen.getByRole("button", { name: "Editar el cliente" }));
+      screen.getByRole("form", { name: "Editar cliente" });
+    });
   });
 });

@@ -795,3 +795,32 @@ button.chip:focus-visible {
 .field:last-child {
   flex: 0 0 88px;
 }
+
+/* Design R3 B5: someone else changed the order while this form was open. */
+.conflict {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--k-space-2) var(--k-space-3);
+  padding: var(--k-space-2) var(--k-space-3);
+  border-left: 3px solid var(--k-warning);
+  background: var(--k-status-pendiente-cliente-bg);
+  color: var(--k-status-pendiente-cliente);
+  font: var(--k-text-sm);
+}
+.conflict p {
+  flex: 1 1 240px;
+  margin: 0;
+}
+
+/* A block's title with its «Editar» on the right. */
+.blockHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--k-space-2);
+}
+.blockHead > h2,
+.blockHead > h3 {
+  margin-bottom: 0;
+}
