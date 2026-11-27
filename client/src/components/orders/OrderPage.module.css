@@ -1,0 +1,146 @@
+/* Design R3 3.4: the order's full page. */
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-4);
+  max-width: 1200px;
+  padding: var(--k-space-6);
+  color: var(--k-text);
+  font: var(--k-text-base);
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--k-space-1);
+  align-self: flex-start;
+  color: var(--k-text-muted);
+  font: var(--k-text-sm);
+  text-decoration: none;
+}
+.back:hover {
+  color: var(--k-text);
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-2);
+}
+.header p {
+  margin: 0;
+}
+.titleLine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--k-space-3);
+}
+.code {
+  margin: 0;
+  font: 600 28px/34px var(--k-font-mono);
+  white-space: nowrap;
+}
+.edit {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--k-space-1);
+  margin-left: auto;
+  color: var(--k-accent);
+  font: 500 14px/20px var(--k-font-sans);
+}
+.edit:focus-visible {
+  outline: none;
+  box-shadow: var(--k-focus-ring);
+}
+
+.columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  align-items: start;
+  gap: var(--k-space-4);
+}
+.main,
+.side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-4);
+  min-width: 0;
+}
+/* Client, device and money stay in view while the history scrolls. */
+.side {
+  position: sticky;
+  top: var(--k-space-4);
+  max-height: calc(100vh - 2 * var(--k-space-4));
+  overflow-y: auto;
+}
+
+.blockTitle {
+  margin: 0 0 var(--k-space-3);
+  font: var(--k-text-md);
+}
+
+.payments {
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-space-2);
+  margin-top: var(--k-space-3);
+  padding-top: var(--k-space-3);
+  border-top: var(--k-border-w) solid var(--k-border);
+  font: var(--k-text-sm);
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--k-space-2);
+  margin-bottom: var(--k-space-2);
+}
+.filter {
+  min-height: 32px;
+  padding: 0 var(--k-space-3);
+  border: var(--k-border-w) solid var(--k-border-strong);
+  border-radius: var(--k-radius-full);
+  background: var(--k-surface);
+  color: var(--k-text);
+  font: var(--k-text-sm);
+  cursor: pointer;
+}
+.filter[aria-pressed="true"] {
+  border-color: var(--k-accent);
+  background: var(--k-accent-subtle);
+  font-weight: 500;
+}
+.filter:focus-visible {
+  outline: none;
+  box-shadow: var(--k-focus-ring);
+}
+
+/* Tablet and phone: one column, the side blocks first. */
+@media (max-width: 1024px) {
+  .columns {
+    grid-template-columns: 1fr;
+  }
+  .side {
+    position: static;
+    order: -1;
+    max-height: none;
+    overflow: visible;
+  }
+}
+@media (max-width: 640px) {
+  .page {
+    padding: var(--k-space-4);
+  }
+}
+/* The panel's phone bar is for the panel; on the page the actions stay in the header. */
+@media (max-width: 640px) {
+  .header > section {
+    position: static !important;
+    order: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: none !important;
+  }
+}

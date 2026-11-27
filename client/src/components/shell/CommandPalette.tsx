@@ -114,7 +114,7 @@ export default function CommandPalette({ role, onClose }: Props) {
       detail: [o.device, STATUS_LABEL[o.status as OrderStatus] ?? o.status]
         .filter(Boolean)
         .join(" · "),
-      href: `/serviceOrders/${o.id}`,
+      href: `/ordenes/${o.id}`,
       icon: ClipboardList,
     }));
     const clients: Item[] = (result?.clients ?? []).slice(0, PER_GROUP).map((c) => ({
