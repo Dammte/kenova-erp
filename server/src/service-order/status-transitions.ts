@@ -27,3 +27,21 @@ export function transitionProblem(
   }
   return null;
 }
+
+/**
+ * Why a move cannot be done in a batch (design R3 B4: only the moves the
+ * list makes on the spot), or null. A finished order only goes back to work;
+ * a delivered or cancelled one is reopened from its own page, with a reason.
+ */
+export function bulkProblem(
+  from: ServiceStatus,
+  to: ServiceStatus,
+): string | null {
+  if (CLOSED.includes(from))
+    return from === ServiceStatus.ENTREGADO
+      ? 'Está entregada: se reabre desde su ficha'
+      : 'Está cancelada: se reabre desde su ficha';
+  if (from === ServiceStatus.FINALIZADO && to !== ServiceStatus.EN_PROGRESO)
+    return 'Está finalizada: solo puede volver a «En progreso»';
+  return null;
+}

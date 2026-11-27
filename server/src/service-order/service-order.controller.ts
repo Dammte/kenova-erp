@@ -23,6 +23,7 @@ import { IntakeService } from './intake.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { OrderPaymentsService } from './order-payments.service';
 import { ListOrdersDto } from './dto/list-orders.dto';
+import { BulkStatusDto } from './dto/bulk-status.dto';
 import { OrderListService } from './order-list.service';
 
 @Controller('service-orders')
@@ -82,6 +83,13 @@ export class ServiceOrderController {
     @CurrentUser() user: AuthUser,
   ) {
     return this.serviceOrderService.findOne(id, user);
+  }
+
+  /** Design R3 B4: the same status for the orders picked in the list. */
+  @Post('bulk-status')
+  @HttpCode(200)
+  bulkStatus(@Body() dto: BulkStatusDto, @CurrentUser() user: AuthUser) {
+    return this.serviceOrderService.bulkStatus(dto, user);
   }
 
   @Patch(':id')

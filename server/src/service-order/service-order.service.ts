@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   ConflictException,
+  HttpException,
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import {
@@ -46,7 +47,8 @@ import { CREDIT, OrderPayment } from './entities/order-payment.entity';
 import { OrderPaymentsService } from './order-payments.service';
 import { commissionFor, NO_COMMISSION } from './commission';
 import { derivePayment } from './payment-status';
-import { transitionProblem } from './status-transitions';
+import { bulkProblem, transitionProblem } from './status-transitions';
+import type { BulkStatusDto } from './dto/bulk-status.dto';
 import {
   describeDeviceEdits,
   describeEdits,
@@ -66,6 +68,14 @@ export function normalizeImei(value: string): string {
 /** Whole days since `date`. */
 function daysSince(date: Date): number {
   return Math.floor((Date.now() - date.getTime()) / 86_400_000);
+}
+
+/** What a batch did, order by order (design R3 B4). */
+export interface BulkStatusResult {
+  changed: { id: string; code: string }[];
+  unchanged: { id: string; code: string }[];
+  /** code is null when the order was not found (or is another store's). */
+  failed: { id: string; code: string | null; reason: string }[];
 }
 
 export interface ImeiLookup {
@@ -1075,6 +1085,46 @@ export class ServiceOrderService {
   }
 
   /** Soft delete: the order and its history stay in the database. */
+  /**
+   * Design R3 B4: one status for several orders. Each goes through `update`,
+   * so store scope, history and the transition rules are the same as one by
+   * one; one that cannot move is reported and the others still change.
+   */
+  async bulkStatus(
+    dto: BulkStatusDto,
+    actor: AuthUser,
+  ): Promise<BulkStatusResult> {
+    const result: BulkStatusResult = { changed: [], unchanged: [], failed: [] };
+    for (const id of dto.ids) {
+      let code: string | null = null;
+      try {
+        const order = await this.findOne(id, actor);
+        code = order.code;
+        if (order.status === dto.status) {
+          result.unchanged.push({ id, code });
+          continue;
+        }
+        const problem = bulkProblem(order.status, dto.status);
+        if (problem) {
+          result.failed.push({ id, code, reason: problem });
+          continue;
+        }
+        await this.update(id, { status: dto.status }, actor);
+        result.changed.push({ id, code });
+      } catch (e) {
+        result.failed.push({
+          id,
+          code,
+          reason:
+            e instanceof HttpException
+              ? e.message
+              : 'No se ha podido cambiar el estado',
+        });
+      }
+    }
+    return result;
+  }
+
   async remove(id: string, actorUserId: string): Promise<void> {
     await this.findOne(id);
     await this.serviceOrderRepository.softDelete(id);
