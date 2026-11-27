@@ -31,7 +31,17 @@ export interface InventoryPage {
   pageSize: number;
   rows: InventoryRow[];
   /** For the filter chips; they ignore the chip filters themselves. */
-  counts: { all: number; low: number; byCategory: Record<string, number> };
+  counts: {
+    all: number;
+    low: number;
+    out: number;
+    byCategory: Record<string, number>;
+  };
+  /**
+   * Design R3 3.7, the line under the title: the whole inventory, whatever
+   * is filtered. costValue is what the stock cost, «12.34».
+   */
+  summary: { parts: number; low: number; out: number; costValue: string };
   /** For the «Marca» and «Proveedor» menus. */
   brands: string[];
   providers: string[];
@@ -73,10 +83,11 @@ export class InventoryListService {
     const chips: string[] = [];
     if (dto.category) chips.push(`i.category = ${p(dto.category)}`);
     if (dto.low) chips.push(LOW);
+    if (dto.out) chips.push(`${STOCK} = 0`);
     const listWhere = [where, ...chips].join(' AND ');
 
     const page = dto.page ?? 1;
-    const [rows, [{ total }], counts, menus] = await Promise.all([
+    const [rows, [{ total }], counts, menus, [summary]] = await Promise.all([
       this.db.query<InventoryRow[]>(
         `SELECT i.id, i.sku, i.name, i.category, i.brand, i.model, i.ubication, i.provider,
                 ${STOCK} AS stock, ${MIN} AS "minimalStock",
@@ -93,8 +104,11 @@ export class InventoryListService {
         `SELECT count(*)::int AS total FROM inventory i WHERE ${listWhere}`,
         params,
       ),
-      this.db.query<{ category: string | null; n: number; low: number }[]>(
-        `SELECT i.category, count(*)::int AS n, count(*) FILTER (WHERE ${LOW})::int AS low
+      this.db.query<
+        { category: string | null; n: number; low: number; out: number }[]
+      >(
+        `SELECT i.category, count(*)::int AS n, count(*) FILTER (WHERE ${LOW})::int AS low,
+                count(*) FILTER (WHERE ${STOCK} = 0)::int AS out
            FROM inventory i WHERE ${where} GROUP BY i.category`,
         baseParams,
       ),
@@ -103,14 +117,23 @@ export class InventoryListService {
                 array_agg(DISTINCT i.provider ORDER BY i.provider) FILTER (WHERE i.provider <> '') AS providers
            FROM inventory i WHERE i."deletedAt" IS NULL`,
       ),
+      this.db.query<InventoryPage['summary'][]>(
+        `SELECT count(*)::int AS parts,
+                count(*) FILTER (WHERE ${LOW})::int AS low,
+                count(*) FILTER (WHERE ${STOCK} = 0)::int AS out,
+                coalesce(sum(greatest(${STOCK}, 0) * coalesce(i."costPrice", 0)), 0)::numeric(14,2)::text AS "costValue"
+           FROM inventory i WHERE i."deletedAt" IS NULL`,
+      ),
     ]);
 
     const byCategory: Record<string, number> = {};
     let all = 0;
     let low = 0;
+    let out = 0;
     for (const c of counts) {
       all += c.n;
       low += c.low;
+      out += c.out;
       if (c.category) byCategory[c.category] = c.n;
     }
     return {
@@ -118,7 +141,8 @@ export class InventoryListService {
       page,
       pageSize: INVENTORY_PAGE_SIZE,
       rows,
-      counts: { all, low, byCategory },
+      counts: { all, low, out, byCategory },
+      summary,
       brands: menus[0]?.brands ?? [],
       providers: menus[0]?.providers ?? [],
     };

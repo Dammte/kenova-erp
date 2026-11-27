@@ -13,7 +13,7 @@ import { InvoiceImport } from "./InvoiceImport";
 import { ReceiveSupplierOrder } from "./ReceiveSupplierOrder";
 import { PartOrders } from "./PartOrders";
 import { StockBadge } from "./StockBadge";
-import { partsFileName, partsSheet, skuTag, type PartExport, type PartPage } from "./inventory";
+import { margin, partsFileName, partsSheet, summaryLine, type PartExport, type PartPage } from "./inventory";
 import styles from "./Inventory.module.css";
 
 /**
@@ -40,10 +40,11 @@ export function InventoryPage() {
 }
 
 type View = "repuestos" | "importar" | "pedidos";
+// Design R3 3.7: «Importar factura» is «Recibir» (an order, an invoice or by hand).
 const VIEWS: [View, string][] = [
   ["repuestos", "Repuestos"],
-  ["importar", "Importar factura"],
-  ["pedidos", "Pedidos"],
+  ["importar", "Recibir"],
+  ["pedidos", "Pedidos de piezas"],
 ];
 
 function Inventory() {
@@ -57,7 +58,7 @@ function Inventory() {
   if (view === "repuestos") return <PartsList />;
   return (
     <div className={styles.page}>
-      <section className={styles.listPane} aria-label={view === "pedidos" ? "Pedidos de piezas" : "Importar factura"}>
+      <section className={styles.listPane} aria-label={view === "pedidos" ? "Pedidos de piezas" : "Recibir"}>
         <Header view={view} />
         {view === "pedidos" ? (
           <PartOrders />
@@ -72,14 +73,17 @@ function Inventory() {
 }
 
 /** Title, actions and the tabs; switching starts clean. */
-function Header({ view, onNew }: { view: View; onNew?: () => void }) {
+function Header({ view, onNew, summary }: { view: View; onNew?: () => void; summary?: string }) {
   const router = useRouter();
   const pathname = usePathname();
   const startNew = onNew ?? (() => router.replace(`${pathname}?repuesto=nuevo`, { scroll: false }));
   return (
     <>
       <header className={styles.top}>
-        <h1 className={styles.title}>Inventario</h1>
+        <div>
+          <h1 className={styles.title}>Inventario</h1>
+          {summary && <p className={styles.muted}>{summary}</p>}
+        </div>
         <div className={styles.headActions}>
           <ExportButton />
           <Button variant="primary" size="sm" onClick={startNew}>
@@ -150,6 +154,8 @@ function PartsList() {
   const q = params.get("q") ?? "";
   const category = params.get("categoria");
   const low = params.get("bajo") === "1";
+  // «Agotados» and «Stock bajo» are two quick views: one at a time.
+  const out = !low && params.get("agotados") === "1";
   const brand = params.get("marca");
   const provider = params.get("proveedor");
   const page = Math.max(1, Number(params.get("pagina")) || 1);
@@ -189,6 +195,7 @@ function PartsList() {
     if (q.trim()) qs.set("q", q.trim());
     if (category) qs.set("category", category);
     if (low) qs.set("low", "true");
+    if (out) qs.set("out", "true");
     if (brand) qs.set("brand", brand);
     if (provider) qs.set("provider", provider);
     if (page > 1) qs.set("page", String(page));
@@ -201,16 +208,21 @@ function PartsList() {
     return () => {
       live = false;
     };
-  }, [q, category, low, brand, provider, page, attempt]);
+  }, [q, category, low, out, brand, provider, page, attempt]);
 
   const pages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
-  const filtered = Boolean(q.trim() || category || low || brand || provider);
+  const filtered = Boolean(q.trim() || category || low || out || brand || provider);
   const categories = data ? Object.entries(data.counts.byCategory).sort(([a], [b]) => a.localeCompare(b, "es")) : [];
 
   return (
     <div className={`${styles.page} ${openId ? styles.withCard : ""}`}>
       <section className={styles.listPane} aria-label="Repuestos">
-        <Header view="repuestos" onNew={() => go({ repuesto: "nuevo" })} />
+        <Header
+          view="repuestos"
+          onNew={() => go({ repuesto: "nuevo" })}
+          // A server not yet updated sends no summary: the line just waits for it.
+          summary={data?.summary ? summaryLine(data.summary, formatEur) : undefined}
+        />
 
         <input
           type="search"
@@ -222,36 +234,41 @@ function PartsList() {
         />
 
         <div className={styles.filters}>
-          <div className={styles.chips} role="group" aria-label="Categoría">
+          <div className={styles.chips} role="group" aria-label="Vista rápida">
             <button
               type="button"
               className={styles.chip}
-              aria-pressed={!category}
-              onClick={() => go({ categoria: null })}
+              aria-pressed={!low && !out}
+              onClick={() => go({ bajo: null, agotados: null })}
             >
-              Todas
+              Todos <span className={styles.count}>{data?.counts.all ?? "–"}</span>
             </button>
-            {categories.map(([c, n]) => (
-              <button
-                key={c}
-                type="button"
-                className={styles.chip}
-                aria-pressed={category === c}
-                onClick={() => go({ categoria: category === c ? null : c })}
-              >
-                {c} <span className={styles.count}>{n}</span>
-              </button>
-            ))}
             <button
               type="button"
               className={`${styles.chip} ${styles.lowChip}`}
               aria-pressed={low}
-              onClick={() => go({ bajo: low ? null : "1" })}
+              onClick={() => go({ bajo: low ? null : "1", agotados: null })}
             >
-              Stock bajo · {data?.counts.low ?? "…"}
+              Stock bajo <span className={styles.count}>{data?.counts.low ?? "–"}</span>
+            </button>
+            <button
+              type="button"
+              className={`${styles.chip} ${styles.outChip}`}
+              aria-pressed={out}
+              onClick={() => go({ agotados: out ? null : "1", bajo: null })}
+            >
+              Agotados <span className={styles.count}>{data?.counts.out ?? "–"}</span>
             </button>
           </div>
           <div className={styles.menus}>
+            <select aria-label="Categoría" value={category ?? ""} onChange={(e) => go({ categoria: e.target.value || null })}>
+              <option value="">Categoría</option>
+              {categories.map(([c, n]) => (
+                <option key={c} value={c}>
+                  {c} ({n})
+                </option>
+              ))}
+            </select>
             <select aria-label="Marca" value={brand ?? ""} onChange={(e) => go({ marca: e.target.value || null })}>
               <option value="">Marca</option>
               {data?.brands.map((b) => (
@@ -311,15 +328,15 @@ function PartsList() {
             <table className={styles.table}>
               <thead>
                 <tr>
-                  <th aria-label="Categoría" />
                   <th className={styles.wide}>SKU</th>
-                  <th>Repuesto</th>
-                  <th className={styles.wide}>Compatible</th>
-                  <th className={styles.wide}>Ubicación</th>
+                  <th>Repuesto · compatible con</th>
+                  <th className={styles.wide}>Categoría</th>
                   <th>Stock</th>
-                  <th className={styles.wide}>Proveedor</th>
-                  <th className={`${styles.num} ${styles.wide}`}>Venta</th>
                   <th className={`${styles.num} ${styles.cost}`}>Coste</th>
+                  <th className={`${styles.num} ${styles.wide}`}>Venta</th>
+                  <th className={`${styles.num} ${styles.wide}`}>Margen</th>
+                  <th className={styles.wide}>Ubic.</th>
+                  <th className={styles.wide}>Proveedor</th>
                 </tr>
               </thead>
               <tbody>
@@ -329,11 +346,6 @@ function PartsList() {
                     className={p.id === openId ? styles.selected : undefined}
                     onClick={() => go({ repuesto: p.id })}
                   >
-                    <td>
-                      <span className={styles.tag} aria-hidden>
-                        {skuTag(p.sku)}
-                      </span>
-                    </td>
                     <td className={`${styles.sku} ${styles.wide}`}>{p.sku}</td>
                     <td>
                       <button
@@ -346,22 +358,24 @@ function PartsList() {
                       >
                         {p.name}
                       </button>
+                      {p.model && <span className={`${styles.muted} ${styles.compat}`}>{p.model}</span>}
                       <span className={`${styles.muted} ${styles.narrow}`}>
                         {[p.sku, p.ubication].filter(Boolean).join(" · ")}
                       </span>
                     </td>
-                    <td className={styles.wide}>{p.model ?? "—"}</td>
-                    <td className={styles.wide}>{p.ubication ?? "—"}</td>
+                    <td className={styles.wide}>{p.category ?? "—"}</td>
                     <td>
                       <StockBadge part={p} />
-                    </td>
-                    <td className={styles.wide}>{p.provider ?? "—"}</td>
-                    <td className={`${styles.num} ${styles.wide}`}>
-                      {Number(p.salesPrice) ? formatEur(p.salesPrice) : "—"}
                     </td>
                     <td className={`${styles.num} ${styles.cost}`}>
                       {p.costPrice !== null ? formatEur(p.costPrice) : "—"}
                     </td>
+                    <td className={`${styles.num} ${styles.wide}`}>
+                      {Number(p.salesPrice) ? formatEur(p.salesPrice) : "—"}
+                    </td>
+                    <td className={`${styles.num} ${styles.wide}`}>{margin(p.salesPrice, p.costPrice)}</td>
+                    <td className={styles.wide}>{p.ubication ?? "—"}</td>
+                    <td className={styles.wide}>{p.provider ?? "—"}</td>
                   </tr>
                 ))}
               </tbody>

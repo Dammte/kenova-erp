@@ -322,6 +322,17 @@
   border-color: var(--k-warning);
   background: var(--k-status-pendiente-cliente-bg);
 }
+.outChip {
+  border-color: var(--k-danger);
+  color: var(--k-danger);
+}
+.outChip[aria-pressed="true"] {
+  background: var(--k-danger-subtle);
+}
+/* «Compatible con», under the part's name. */
+.compat {
+  display: block;
+}
 .menus select {
   height: 32px;
   padding: 0 var(--k-space-2);

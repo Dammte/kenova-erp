@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { InventoryPage } from "./InventoryPage";
-import { arrival, margin, partsFileName, partsSheet, signed, stockFill, stockLabel, type PartPage } from "./inventory";
+import { arrival, margin, partsFileName, partsSheet, signed, stockFill, stockLabel, summaryLine, type PartPage } from "./inventory";
 
 const written: { rows: unknown[][]; name: string }[] = [];
 vi.mock("xlsx", () => ({
@@ -47,7 +47,8 @@ const PAGE: PartPage = {
   page: 1,
   pageSize: 50,
   rows: [row("BAT-IP13", "Batería iPhone 13", 2, 3, "low"), row("PAN-IP13", "Pantalla iPhone 13", 0, 1, "out")],
-  counts: { all: 9, low: 5, byCategory: { Pantallas: 4, Baterías: 3, Consumibles: 2 } },
+  counts: { all: 9, low: 5, out: 2, byCategory: { Pantallas: 4, Baterías: 3, Consumibles: 2 } },
+  summary: { parts: 312, low: 5, out: 3, costValue: "6214.30" },
   brands: ["Apple", "Samsung"],
   providers: ["Amazon", "MovilParts"],
 };
@@ -77,6 +78,14 @@ afterEach(() => {
 });
 
 describe("inventory helpers", () => {
+  it("writes the line under the title, leaving out what is zero", () => {
+    const eur = (v: string) => `${v} €`;
+    expect(summaryLine({ parts: 1, low: 0, out: 1, costValue: "0.00" }, eur)).toBe(
+      "1 repuesto · 1 agotado · valor de coste 0.00 €",
+    );
+    expect(summaryLine({ parts: 0, low: 0, out: 0, costValue: "0.00" }, eur)).toBe("0 repuestos · valor de coste 0.00 €");
+  });
+
   it("says the stock in words, fills the bar and writes the margin", () => {
     expect(stockLabel({ status: "out", minimalStock: 2 })).toBe("Sin stock");
     expect(stockLabel({ status: "low", minimalStock: 3 })).toBe("Bajo · mín. 3");
@@ -84,6 +93,7 @@ describe("inventory helpers", () => {
     expect([stockFill(2, 3), stockFill(9, 3), stockFill(1, 0), stockFill(0, 0)]).toEqual([33, 100, 100, 0]);
     expect(margin("59.00", "18.50")).toBe("69 %");
     expect(margin(null, "0.90")).toBe("—");
+    expect(margin("149.00", null)).toBe("—");
     expect([signed(4), signed(-1)]).toEqual(["+4", "−1"]);
     expect(arrival({ expectedAt: null, waitingDays: 9, late: true })).toBe("Sin fecha · 9 días");
     expect(arrival({ expectedAt: "2026-10-31", waitingDays: 1, late: false })).toBe("31/10/2026");
@@ -98,16 +108,22 @@ describe("InventoryPage", () => {
     const low = screen.getByRole("row", { name: /Batería iPhone 13/ });
     within(low).getByText("Bajo · mín. 3");
     within(screen.getByRole("row", { name: /Pantalla iPhone 13/ })).getByText("Sin stock");
-    screen.getByRole("button", { name: "Baterías 3" });
-    screen.getByRole("button", { name: "Stock bajo · 5" });
+    // Design R3 3.7: the whole inventory under the title, then the quick views.
+    screen.getByText(/^312 repuestos · 5 bajo mínimo · 3 agotados · valor de coste 6\.?214,30\s€$/);
+    const views = within(screen.getByRole("group", { name: "Vista rápida" }));
+    expect(views.getAllByRole("button").map((b) => b.textContent)).toEqual(["Todos 9", "Stock bajo 5", "Agotados 2"]);
+    screen.getByRole("option", { name: "Baterías (3)" });
+    within(screen.getByRole("row", { name: /Batería iPhone 13/ })).getByText("69 %");
     screen.getByText("2 repuestos");
   });
 
   it("keeps the filters in the address and sends them to the server", async () => {
     render(<InventoryPage />);
     await act(async () => {});
-    fireEvent.click(screen.getByRole("button", { name: "Stock bajo · 5" }));
+    fireEvent.click(screen.getByRole("button", { name: "Stock bajo 5" }));
     expect(replace).toHaveBeenLastCalledWith("/inventario?bajo=1", { scroll: false });
+    fireEvent.click(screen.getByRole("button", { name: "Agotados 2" }));
+    expect(replace).toHaveBeenLastCalledWith("/inventario?agotados=1", { scroll: false });
     fireEvent.change(screen.getByRole("combobox", { name: "Marca" }), { target: { value: "Apple" } });
     // The address is not re-read here, so each change starts from the first one.
     expect(replace).toHaveBeenLastCalledWith("/inventario?marca=Apple", { scroll: false });
@@ -119,7 +135,14 @@ describe("InventoryPage", () => {
     expect(fetchMock.mock.calls.at(-1)?.[0]).toBe(
       "/api/inventory/list?category=Bater%C3%ADas&low=true&provider=MovilParts",
     );
-    expect(screen.getByRole("button", { name: "Baterías 3" }).getAttribute("aria-pressed")).toBe("true");
+    expect((screen.getByRole("combobox", { name: "Categoría" }) as HTMLSelectElement).value).toBe("Baterías");
+    expect(screen.getByRole("button", { name: "Stock bajo 5" }).getAttribute("aria-pressed")).toBe("true");
+
+    cleanup();
+    params = new URLSearchParams("agotados=1");
+    render(<InventoryPage />);
+    await act(async () => {});
+    expect(fetchMock.mock.calls.at(-1)?.[0]).toBe("/api/inventory/list?out=true");
   });
 
   it("searches once the user stops typing", async () => {
@@ -268,7 +291,7 @@ describe("InventoryPage", () => {
     });
     render(<InventoryPage />);
     await act(async () => {});
-    expect(screen.getByRole("tab", { name: "Pedidos" }).getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByRole("tab", { name: "Pedidos de piezas" }).getAttribute("aria-selected")).toBe("true");
     const row = screen.getByRole("row", { name: /Batería Galaxy A54/ });
     within(row).getByText("Para Javier M.");
     within(row).getByText("Sin fecha · 11 días");
