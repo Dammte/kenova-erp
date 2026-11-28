@@ -181,3 +181,32 @@ a.stat {
   box-shadow: var(--k-focus-ring);
 }
 
+
+/* Design R3, phone: the figures go two by two and each list row is a 56px tap target. */
+@media (max-width: 600px) {
+  .page {
+    padding: var(--k-space-4);
+  }
+  .stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--k-space-2);
+  }
+  .stat {
+    padding: var(--k-space-2) var(--k-space-3);
+  }
+  .statValue {
+    font-size: 22px;
+    line-height: 28px;
+  }
+  .stat .muted,
+  .stat .late {
+    font: var(--k-text-xs);
+  }
+  .row {
+    min-height: 56px;
+    padding: var(--k-space-1) 0;
+  }
+  .action {
+    min-height: 40px;
+  }
+}
