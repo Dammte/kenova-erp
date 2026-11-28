@@ -4,7 +4,12 @@ import { Brackets, DataSource, In, SelectQueryBuilder } from 'typeorm';
 import type { AuthUser } from '../auth/auth.types';
 import { Brand } from '../brands/entities/brand.entity';
 import { scopedStoreId } from '../common/store-scope';
-import { digitsSql, foldSql, likeTerms } from '../common/text-search';
+import {
+  digitsSql,
+  everyWordSql,
+  foldSql,
+  likeTerms,
+} from '../common/text-search';
 import type { ListOrdersDto, OrderTab, OrderView } from './dto/list-orders.dto';
 import { OrderLine, OrderLineKind } from './entities/order-line.entity';
 import { ServiceOrder, ServiceStatus } from './entities/service-order.entity';
@@ -128,23 +133,24 @@ export class OrderListService {
 
     const terms = likeTerms(query.q ?? '');
     if (terms) {
+      const each = everyWordSql(
+        [
+          foldSql('o.code'),
+          `${foldSql('c."firstName"')} || ' ' || ${foldSql('c."lastName"')}`,
+          `${foldSql('coalesce(b.name, d.brand)')} || ' ' || ${foldSql('d.model')}`,
+        ],
+        terms.words,
+      );
       qb.andWhere(
         new Brackets((w) => {
-          w.where(`${foldSql('o.code')} LIKE :term`)
-            .orWhere(
-              `${foldSql('c."firstName"')} || ' ' || ${foldSql('c."lastName"')} LIKE :term`,
-            )
-            .orWhere(
-              `${foldSql('coalesce(b.name, d.brand)')} || ' ' || ${foldSql('d.model')} LIKE :term`,
-            )
-            .orWhere(`${foldSql('d.model')} LIKE :term`);
+          w.where(each.sql);
           if (terms.numeric) {
             w.orWhere(`${digitsSql('c."phoneNumber"')} LIKE :numeric`).orWhere(
               `${digitsSql('d.imei')} LIKE :numeric`,
             );
           }
         }),
-        terms,
+        { ...each.params, numeric: terms.numeric },
       );
     }
 
