@@ -7,6 +7,7 @@ import { Button } from "@/components/ui";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { API_URL, apiFetch } from "@/lib/api";
 import { formatEur } from "@/lib/format";
+import { formatMoneyInput, parseMoney } from "@/lib/money";
 import {
   buildMatrix,
   cellRate,
@@ -117,6 +118,65 @@ const QUALITIES: [Quality, string][] = [
   ["original", "Original"],
 ];
 
+type CellState = "idle" | "saving" | "bad" | "failed";
+
+/**
+ * Design R3 decision 08: in «Editar matriz» a cell is the price field itself.
+ * Tab moves on and saves, Intro saves, Esc puts the price back.
+ */
+function PriceCell({ rate, label, onSaved }: { rate: RateRow; label: string; onSaved: (price: string) => void }) {
+  const saved = formatMoneyInput(Number(rate.price));
+  const [text, setText] = useState(saved);
+  const [state, setState] = useState<CellState>("idle");
+
+  const save = async () => {
+    if (text === saved) return setState("idle");
+    const price = parseMoney(text);
+    if (price === null) return setState("bad");
+    setState("saving");
+    try {
+      const res = await apiFetch(`${API_URL}/services/${rate.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ price }),
+      });
+      if (!res.ok) throw new Error(String(res.status));
+      setState("idle");
+      onSaved(price.toFixed(2));
+    } catch {
+      setState("failed");
+    }
+  };
+
+  const problem = state === "bad" ? "Precio no válido" : state === "failed" ? "No se ha guardado" : null;
+  return (
+    <span className={styles.editCell}>
+      <input
+        className={styles.priceInput}
+        inputMode="decimal"
+        aria-label={`Precio ${label}`}
+        aria-invalid={problem ? true : undefined}
+        value={text}
+        onChange={(e) => {
+          setText(e.target.value);
+          if (state !== "saving") setState("idle");
+        }}
+        onBlur={() => void save()}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") void save();
+          if (e.key === "Escape") {
+            setText(saved);
+            setState("idle");
+          }
+        }}
+      />
+      <span className={problem ? styles.out : styles.muted} role={problem ? "alert" : undefined}>
+        {problem ?? (state === "saving" ? "Guardando…" : "\u00a0")}
+      </span>
+    </span>
+  );
+}
+
 /** The chosen repair for one model: its prices, the time and the WhatsApp text. */
 function RateCard({
   group,
@@ -190,6 +250,7 @@ export function RatesPage() {
   const [recent, setRecent] = useState<string[]>([]);
   const [editing, setEditing] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
+  const [editMatrix, setEditMatrix] = useState(false);
   const { user } = useAuth();
   // Decision: the partners keep the price list; stores only read it.
   const onEdit = user?.role === "SUPER_ADMIN" ? setEditing : undefined;
@@ -263,6 +324,11 @@ export function RatesPage() {
             </label>
           ))}
         </div>
+        {onEdit && (
+          <Button size="sm" variant={editMatrix ? "primary" : "secondary"} onClick={() => setEditMatrix((on) => !on)}>
+            {editMatrix ? "Terminar edición" : "Editar matriz"}
+          </Button>
+        )}
       </div>
 
       {recent.length > 0 && (
@@ -324,13 +390,29 @@ export function RatesPage() {
                       const key = cellKey(row.key, repair);
                       const price = rate ? formatEur(Number(rate.price)) : "—";
                       const stock = rate?.stock;
+                      const label = `${repair} ${row.model?.name ?? "general"}`;
+                      // Only the price of the quality shown; a fallback is another rate.
+                      if (editMatrix && onEdit && rate && !fallback) {
+                        return (
+                          <td key={repair}>
+                            <PriceCell
+                              key={`${rate.id}-${rate.price}`}
+                              rate={rate}
+                              label={label}
+                              onSaved={(next) =>
+                                setRows((all) => all && all.map((r) => (r.id === rate.id ? { ...r, price: next } : r)))
+                              }
+                            />
+                          </td>
+                        );
+                      }
                       return (
                         <td key={repair}>
                           <button
                             type="button"
                             className={styles.cell}
                             aria-pressed={picked === key}
-                            aria-label={`${repair} ${row.model?.name ?? "general"}: ${price}`}
+                            aria-label={`${label}: ${price}`}
                             onClick={() => pick(key)}
                           >
                             <strong>{price}</strong>
