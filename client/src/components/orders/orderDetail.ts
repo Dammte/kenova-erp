@@ -1,6 +1,27 @@
 import type { OrderStatus } from "@/components/ui";
 import type { OrderRow } from "./orderList";
 
+/** Where a device received at a partner store is, apart from its status (server OrderLocation). */
+export type OrderLocation = "at_store" | "to_workshop" | "at_workshop" | "to_store" | "ready_at_store";
+
+export const LOCATION_LABEL: Record<OrderLocation, string> = {
+  at_store: "En tienda (recepción)",
+  to_workshop: "Enviado al taller",
+  at_workshop: "En el taller",
+  to_store: "Enviado a tienda",
+  ready_at_store: "En tienda (listo para entregar)",
+};
+
+/**
+ * Why a partner store's order cannot be handed back yet: its device is not
+ * back at the store. Null when it is, or for workshop orders.
+ */
+export function awayReason(order: Pick<OrderDetail, "location">): string | null {
+  const where = order.location;
+  if (!where || where === "ready_at_store" || where === "at_store") return null;
+  return `El equipo aún no ha vuelto a la tienda (${LOCATION_LABEL[where]})`;
+}
+
 /** GET /api/service-orders/:id, the fields the order panel reads. */
 export interface OrderDetail {
   id: string;
@@ -29,6 +50,8 @@ export interface OrderDetail {
   /** A warranty claim that turned out not to be covered, and why. */
   warrantyRejectedReason?: string | null;
   storeId?: string;
+  /** Where a partner store's device is; null for orders taken in at the workshop. */
+  location?: OrderLocation | null;
   /** Its quote: the one it came from, or the one made for it in the workshop. */
   quote?: { id: string; code: string; status: string } | null;
   /** The customer waived a written quote; prints skip "presupuesto válido". */

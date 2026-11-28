@@ -7,7 +7,7 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { API_URL, apiFetch, errorMessage } from "@/lib/api";
 import { DeliverForm } from "./DeliverForm";
 import { CancelForm } from "./CancelForm";
-import type { OrderDetail, OrderPayment } from "./orderDetail";
+import { awayReason, type OrderDetail, type OrderPayment } from "./orderDetail";
 import { FinishForm } from "./FinishForm";
 import { PartOrderForm, PartOrderList, usePartOrders } from "./PartOrderSection";
 import styles from "./OrderPanel.module.css";
@@ -117,7 +117,13 @@ export function OrderActions({
         </Button>
       );
   } else if (status === "finalizado") {
-    body =
+    // A partner store's device must be back at the store before telling the client or handing it over.
+    const away = awayReason(order);
+    body = away ? (
+      <Button variant="primary" icon={<PackageOpen size={16} aria-hidden />} disabledReason={away}>
+        Entregar…
+      </Button>
+    ) :
       step === "deliver" ? (
         <DeliverForm order={order} onCancel={() => setStep("idle")} onDone={onChanged} />
       ) : !notified && onNotify ? (

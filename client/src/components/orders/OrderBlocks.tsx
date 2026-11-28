@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
-import { AlertTriangle, Banknote, Eye, EyeOff, FileText, MessageCircle, Phone, Printer, Send, Tag, Undo2 } from "lucide-react";
+import { AlertTriangle, Banknote, Eye, EyeOff, FileText, MapPin, MessageCircle, Phone, Printer, Send, Tag, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { API_URL, apiFetch, errorMessage } from "@/lib/api";
@@ -10,6 +10,7 @@ import { formatEur } from "@/lib/format";
 import {
   CONTACT_LABEL,
   DEVICE_TYPE_LABEL,
+  LOCATION_LABEL,
   METHOD_LABEL,
   canQuote,
   formatDateTime,
@@ -77,6 +78,17 @@ export function useOrder(id: string) {
   }, [id, attempt]);
 
   return { data, error, retry: () => setAttempt((n) => n + 1) };
+}
+
+/** Design R2 «Tiendas aliadas»: where a partner store's device is, apart from its status. */
+export function LocationBadge({ order }: { order: OrderDetail }) {
+  if (!order.location) return null;
+  return (
+    <span className={styles.location} aria-label={`Ubicación: ${LOCATION_LABEL[order.location]}`}>
+      <MapPin size={12} aria-hidden />
+      {LOCATION_LABEL[order.location]}
+    </span>
+  );
 }
 
 /** «3 días en taller · entrada 29/11/2026 09:57». */

@@ -151,9 +151,11 @@ export class TodayService {
     const partsSince = `coalesce((SELECT max(h."performedAt") FROM service_history h
         WHERE h."serviceOrderId" = o.id AND h.action = 'cambio_estado'
           AND h.description LIKE '%a "Pendiente Piezas"'), o."createdAt")`;
-    const readyNotice = `EXISTS (SELECT 1 FROM order_notices n
+    // A partner store's device is only ready for its client back at the store.
+    const notifiedOrAway = `(EXISTS (SELECT 1 FROM order_notices n
         WHERE n."serviceOrderId" = o.id AND n.trigger = 'ready'
-          AND n."sentAt" >= o."finishedAt")`;
+          AND n."sentAt" >= o."finishedAt")
+        OR coalesce(o.location::text, 'ready_at_store') NOT IN ('at_store', 'ready_at_store'))`;
 
     const [counts] = await this.db.query<Record<string, string>[]>(
       `SELECT
@@ -165,7 +167,7 @@ export class TodayService {
          count(*) FILTER (WHERE o.status = 'pendiente_piezas'
                             AND ${partsSince} <= now() - make_interval(days => ${LATE_PART_DAYS})) AS "waitingPartsLate",
          count(*) FILTER (WHERE o.status = 'finalizado') AS ready,
-         count(*) FILTER (WHERE o.status = 'finalizado' AND NOT ${readyNotice}) AS "readyNotNotified",
+         count(*) FILTER (WHERE o.status = 'finalizado' AND NOT ${notifiedOrAway}) AS "readyNotNotified",
          coalesce(sum(o.balance) FILTER (WHERE o.status <> 'cancelado' AND o.balance > 0), 0)::numeric(12,2)::text AS "pendingBalance"
        FROM service_orders o WHERE ${orders}`,
       p,
@@ -199,7 +201,7 @@ export class TodayService {
               floor(extract(epoch FROM now() - o."finishedAt") / 86400)::int AS days,
               count(*) OVER () AS total
          ${from}
-        WHERE ${orders} AND o.status = 'finalizado' AND NOT ${readyNotice}
+        WHERE ${orders} AND o.status = 'finalizado' AND NOT ${notifiedOrAway}
         ORDER BY o."finishedAt" ASC LIMIT ${LIST_LIMIT}`,
     );
     const lateParts = await list<TodaySummary['lateParts']['rows'][number]>(
