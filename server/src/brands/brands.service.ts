@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { normalizeProductName } from '../common/product-name';
 import { CreateBrandDto } from './dto/create-brand.dto';
 import { UpdateBrandDto } from './dto/update-brand.dto';
@@ -17,8 +21,22 @@ export class BrandsService {
   async create(createBrandDto: CreateBrandDto): Promise<Brand> {
     const dto = { ...createBrandDto };
     if (typeof dto.name === 'string') dto.name = normalizeProductName(dto.name);
+    // The same name, in any case, is the brand already there: creating it again
+    // hands it back, so forms that create a brand by name keep its one id.
+    const existing = await this.sameName(dto.name);
+    if (existing) return existing;
     const brand = this.brandRepository.create(dto);
     return await this.brandRepository.save(brand);
+  }
+
+  /** The oldest brand with this name, ignoring case. */
+  private sameName(name: string | undefined): Promise<Brand | null> {
+    if (!name) return Promise.resolve(null);
+    return this.brandRepository
+      .createQueryBuilder('b')
+      .where('lower(b.name) = lower(:name)', { name })
+      .orderBy('b.createdAt', 'ASC')
+      .getOne();
   }
 
   async findAll(): Promise<Brand[]> {
@@ -45,7 +63,12 @@ export class BrandsService {
     updateBrandDto: Partial<UpdateBrandDto>,
   ): Promise<void> {
     const dto = { ...updateBrandDto };
-    if (typeof dto.name === 'string') dto.name = normalizeProductName(dto.name);
+    if (typeof dto.name === 'string') {
+      dto.name = normalizeProductName(dto.name);
+      const other = await this.sameName(dto.name);
+      if (other && other.id !== id)
+        throw new ConflictException(`Ya existe la marca «${other.name}»`);
+    }
     await this.brandRepository.update(id, dto);
   }
 
