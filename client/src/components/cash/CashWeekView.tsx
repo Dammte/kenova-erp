@@ -111,6 +111,8 @@ export function CashWeekView({
                 ))}
                 <th className={styles.num}>Total cobrado</th>
                 <th className={styles.num}>Entradas y salidas</th>
+                <th className={styles.num}>Equipos recibidos</th>
+                <th className={styles.num}>Equipos entregados</th>
                 <th>Estado</th>
               </tr>
             </thead>
@@ -142,6 +144,8 @@ export function CashWeekView({
                   >
                     {formatEur(d.manual)}
                   </td>
+                  <td className={styles.num}>{d.received}</td>
+                  <td className={styles.num}>{d.delivered}</td>
                   <td className={styles.muted}>{weekDayState(d)}</td>
                 </tr>
               ))}
@@ -158,6 +162,8 @@ export function CashWeekView({
                   {formatEur(data.total)}
                 </td>
                 <td className={styles.num}>{formatEur(data.manual)}</td>
+                <td className={styles.num}>{data.received}</td>
+                <td className={styles.num}>{data.delivered}</td>
                 <td />
               </tr>
             </tfoot>

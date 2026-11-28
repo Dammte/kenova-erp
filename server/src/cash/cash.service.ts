@@ -6,6 +6,7 @@ import {
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import type { AuthUser } from '../auth/auth.types';
+import { madridOfUtcNaive } from '../common/madrid-time';
 import { scopedStoreId } from '../common/store-scope';
 import { Store } from '../stores/entities/store.entity';
 import { OrderPayment } from '../service-order/entities/order-payment.entity';
@@ -115,6 +116,9 @@ export interface CashWeekDay {
   /** Payments plus entries and exits. */
   movements: number;
   counted: boolean;
+  /** Devices taken in and handed back that (Spain) calendar day. */
+  received: number;
+  delivered: number;
 }
 
 /** Design 3.2 «Semana»: Monday to Sunday, one row per cash day up to today's. */
@@ -126,6 +130,8 @@ export interface CashWeek {
   byMethod: Record<CashMethod, string>;
   total: string;
   manual: string;
+  received: number;
+  delivered: number;
 }
 
 /**
@@ -317,6 +323,8 @@ export class CashService {
         manual: string;
         movements: number;
         counted: boolean;
+        received: number;
+        delivered: number;
       }[]
     >(
       `WITH bounds AS (
@@ -338,7 +346,13 @@ export class CashService {
               (SELECT coalesce(sum(amount), 0) FROM man WHERE man.d = days.d)::numeric(12,2)::text AS manual,
               ((SELECT count(*) FROM pay WHERE pay.d = days.d)
                 + (SELECT count(*) FROM man WHERE man.d = days.d))::int AS movements,
-              EXISTS (SELECT 1 FROM cash_counts k WHERE k."storeId" = $1 AND k.date = days.d) AS counted
+              EXISTS (SELECT 1 FROM cash_counts k WHERE k."storeId" = $1 AND k.date = days.d) AS counted,
+              (SELECT count(*)::int FROM service_orders o
+                WHERE o."storeId" = $1 AND o."deletedAt" IS NULL
+                  AND ${madridOfUtcNaive('o."createdAt"')}::date = days.d) AS received,
+              (SELECT count(*)::int FROM service_orders o
+                WHERE o."storeId" = $1 AND o."deletedAt" IS NULL AND o.status = 'entregado'
+                  AND (o."deliveredAt" AT TIME ZONE 'Europe/Madrid')::date = days.d) AS delivered
          FROM days
          LEFT JOIN LATERAL (
            SELECT pay.method, sum(pay.amount) AS amount FROM pay
@@ -379,6 +393,8 @@ export class CashService {
         manual: e.row.manual,
         movements: e.row.movements,
         counted: e.row.counted,
+        received: e.row.received,
+        delivered: e.row.delivered,
       };
     });
     const [{ from }] = await this.db.query<{ from: string }[]>(
@@ -400,6 +416,8 @@ export class CashService {
       ) as Record<CashMethod, string>,
       total: eur(CASH_METHODS.reduce((t, m) => t + week[m], 0)),
       manual: eur(manual),
+      received: days.reduce((n, d) => n + d.received, 0),
+      delivered: days.reduce((n, d) => n + d.delivered, 0),
     };
   }
 
