@@ -31,6 +31,17 @@ export interface TodaySummary {
   }>;
   expiringQuotes: List<{ id: string; code: string; clientName: string; validUntil: string; daysLeft: number }>;
   lowStock: List<{ id: string; sku: string; name: string; stock: number; minimalStock: number }> | null;
+  /** Shipments on their way here: to the workshop for partners, to its store for a store. */
+  incoming?: List<{ id: string; code: string; fromStore: string; devices: number; sentAt: string }>;
+  /** Partners only: supplier orders to check and receive; null for a store. */
+  supplierOrders?: List<{
+    id: string;
+    reference: string;
+    supplier: string;
+    lines: number;
+    amount: string | null;
+    supplierStatus: string | null;
+  }> | null;
   week: { day: string; received: number; delivered: number }[];
   openByStatus: Record<"en_progreso" | "pendiente_cliente" | "pendiente_piezas" | "finalizado", number>;
 }
@@ -63,3 +74,11 @@ export const ago = (days: number) => (days <= 0 ? "hoy" : days === 1 ? "ayer" : 
 /** «Caduca hoy», «Caduca mañana», «Caduca en 3 días». */
 export const expiresIn = (days: number) =>
   days <= 0 ? "Caduca hoy" : days === 1 ? "Caduca mañana" : `Caduca en ${days} días`;
+
+/** «Salió el 30/11» from the shipment's date. */
+export function sentOn(iso: string): string {
+  const d = new Date(iso);
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  return `Salió el ${dd}/${mm}`;
+}

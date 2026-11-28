@@ -9,7 +9,7 @@ import { PickupReminders } from "@/components/notices/PickupReminders";
 import { Button, STATUS_LABEL } from "@/components/ui";
 import { API_URL, apiFetch } from "@/lib/api";
 import { formatEur } from "@/lib/format";
-import { ago, dayLabel, expiresIn, longDate, versusLastWeek, type TodaySummary } from "./today";
+import { ago, dayLabel, expiresIn, longDate, sentOn, versusLastWeek, type TodaySummary } from "./today";
 import styles from "./Today.module.css";
 
 interface StoreOption {
@@ -188,6 +188,55 @@ export function TodayPage() {
                     action={
                       <Link href={`/presupuestos?presupuesto=${r.id}`} className={styles.action}>
                         Ver presupuesto
+                      </Link>
+                    }
+                  />
+                ))}
+              </Card>
+            )}
+            {data.incoming && data.incoming.total > 0 && (
+              <Card
+                title={isPartner ? "Por recibir de tiendas" : "Por recibir del taller"}
+                total={data.incoming.total}
+                empty=""
+                more="/envios?estado=sent"
+              >
+                {data.incoming.rows.map((r) => (
+                  <Row
+                    key={r.id}
+                    head={`${r.code} · ${r.fromStore} · ${r.devices} ${r.devices === 1 ? "equipo" : "equipos"}`}
+                    sub={sentOn(r.sentAt)}
+                    action={
+                      <Link href={`/envios?envio=${r.id}`} className={styles.action}>
+                        Recibir
+                      </Link>
+                    }
+                  />
+                ))}
+              </Card>
+            )}
+            {data.supplierOrders && data.supplierOrders.total > 0 && (
+              <Card
+                title="Pedidos al proveedor por recibir"
+                total={data.supplierOrders.total}
+                empty=""
+                more="/proveedores/pedidos?estado=PENDIENTE"
+              >
+                {data.supplierOrders.rows.map((r) => (
+                  <Row
+                    key={r.id}
+                    head={[
+                      r.reference,
+                      r.supplier,
+                      `${r.lines} ${r.lines === 1 ? "línea" : "líneas"}`,
+                      r.amount ? formatEur(r.amount) : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                    sub={r.supplierStatus ?? "Pendiente de revisar"}
+                    action={
+                      <Link href={`/proveedores/pedidos?pedido=${r.id}`} className={styles.action}>
+                        Revisar y recibir
                       </Link>
                     }
                   />

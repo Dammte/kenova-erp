@@ -13,6 +13,19 @@ interface Summary {
     rows: { id: string; code: string; validUntil: string; daysLeft: number }[];
   };
   lowStock: { total: number; rows: { sku: string; stock: number }[] } | null;
+  incoming: {
+    total: number;
+    rows: { code: string; fromStore: string; devices: number }[];
+  };
+  supplierOrders: {
+    total: number;
+    rows: {
+      reference: string;
+      supplier: string;
+      lines: number;
+      amount: string | null;
+    }[];
+  } | null;
   week: { day: string; received: number; delivered: number }[];
   openByStatus: Record<string, number>;
 }
@@ -169,6 +182,47 @@ describe('Panel «Hoy» (GET /api/today)', () => {
       (await today(vc)).counts.received,
     );
   });
+  it('lists the shipments on their way and, for the partners, the supplier orders to receive', async () => {
+    const order = await intake(vc);
+    const shipped = await send('post', vc, '/api/shipments', {
+      orderIds: [order],
+    });
+    expect(shipped.status).toBe(201);
+    const all = await today(sa);
+    expect(all.incoming.rows).toEqual([
+      expect.objectContaining({
+        code: shipped.body.code,
+        fromStore: 'Villarcayo',
+        devices: 1,
+      }),
+    ]);
+    expect((await today(sa, `?storeId=${vcStore}`)).incoming.total).toBe(1);
+    // The store sent it: nothing is coming its way.
+    expect((await today(vc)).incoming.total).toBe(0);
+
+    const [supplier] = await t.db.query<{ id: string }[]>(
+      `INSERT INTO suppliers (name) VALUES ('RPhone B2B') RETURNING id`,
+    );
+    await t.db.query(
+      `INSERT INTO supplier_orders ("supplierId", "externalId", reference, total, "detailUrl", state)
+       VALUES ($1, '1', 'KQWERTY', 293.6, 'https://example.test/1', 'PENDIENTE'),
+              ($1, '2', 'OLD', 10, 'https://example.test/2', 'RECIBIDO')`,
+      [supplier.id],
+    );
+    expect((await today(sa)).supplierOrders).toEqual({
+      total: 1,
+      rows: [
+        expect.objectContaining({
+          reference: 'KQWERTY',
+          supplier: 'RPhone B2B',
+          lines: 0,
+          amount: '293.60',
+        }),
+      ],
+    });
+    expect((await today(vc)).supplierOrders).toBeNull();
+  });
+
   it('counts an order taken in just after midnight in Madrid as today', async () => {
     const before = (await today(vc)).counts.received;
     // service_orders."createdAt" holds UTC wall-clock time. 00:30 in Madrid
