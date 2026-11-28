@@ -109,6 +109,24 @@ describe('Price list (tarifas)', () => {
     expect(await rates('  ')).toEqual([]);
   });
 
+  it('lists every available rate for the matrix, stock for SUPER_ADMIN only', async () => {
+    const all = async (cookie: string) =>
+      (await t.http().get('/api/services/rates/all').set('Cookie', cookie))
+        .body as Rate[];
+    const bySa = await all(sa);
+    expect(bySa.map(brief)).toEqual([
+      ['Batería Galaxy A54', 'compatible', 'Galaxy A54'],
+      ['Batería Galaxy A54', 'original', 'Galaxy A54'],
+      ['Conector de carga Galaxy A54', null, 'Galaxy A54'],
+      // The seeded check-up: a general rate, for no model.
+      ['Revisión', null, null],
+    ]);
+    expect(bySa[0].stock).toEqual({ units: 2, low: true });
+    const byStore = await all(store);
+    expect(byStore.map(brief)).toEqual(bySa.map(brief));
+    expect(byStore.every((r) => r.stock === null)).toBe(true);
+  });
+
   it('shows the linked part stock to SUPER_ADMIN only', async () => {
     const [compatible, original] = await rates('bateria a54');
     expect(compatible.stock).toEqual({ units: 2, low: true });

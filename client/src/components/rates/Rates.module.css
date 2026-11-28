@@ -2,7 +2,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--k-space-4);
-  max-width: 880px;
+  max-width: 1440px;
   padding: var(--k-space-6);
   font: var(--k-text-base);
   color: var(--k-text);
@@ -88,14 +88,6 @@ button.chip:focus-visible {
   color: var(--k-danger);
 }
 
-.results {
-  display: flex;
-  flex-direction: column;
-  gap: var(--k-space-3);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
 .card {
   display: flex;
   flex-direction: column;
@@ -104,12 +96,6 @@ button.chip:focus-visible {
   border: var(--k-border-w) solid var(--k-border);
   border-radius: var(--k-radius-lg);
   background: var(--k-surface);
-}
-.head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--k-space-3);
 }
 .model {
   font: var(--k-text-md);
@@ -170,6 +156,7 @@ button.chip:focus-visible {
 }
 .copyRow {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--k-space-3);
 }
@@ -241,10 +228,159 @@ button.chip:focus-visible {
   color: var(--k-accent);
   font: var(--k-text-sm);
   font-weight: 500;
+  white-space: nowrap;
 }
 .intake:focus-visible {
   outline: none;
   box-shadow: var(--k-focus-ring);
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--k-space-3);
+}
+.toolbar .searchBox {
+  flex: 1 1 320px;
+  max-width: 480px;
+}
+.segmented {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: var(--k-radius-md);
+  background: var(--k-subtle);
+}
+.segment {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 var(--k-space-3);
+  border-radius: var(--k-radius-sm);
+  font: var(--k-text-sm);
+  cursor: pointer;
+}
+.segment input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.segment:has(input:checked) {
+  background: var(--k-surface);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.12);
+  font-weight: 600;
+}
+.segment:has(input:focus-visible) {
+  outline: 2px solid var(--k-accent);
+  outline-offset: 1px;
+}
+
+/* Design R3: the matrix beside the chosen cell; stacked on narrow screens. */
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 400px;
+  gap: var(--k-space-4);
+  align-items: start;
+}
+.side {
+  position: sticky;
+  top: var(--k-space-4);
+}
+.matrixWrap {
+  width: fit-content;
+  max-width: 100%;
+  max-height: 70vh;
+  overflow: auto;
+  border: var(--k-border-w) solid var(--k-border);
+  border-radius: var(--k-radius-lg);
+  background: var(--k-surface);
+}
+.matrix {
+  border-collapse: separate;
+  border-spacing: 0;
+  font: var(--k-text-sm);
+}
+.matrix th,
+.matrix td {
+  padding: 0;
+  border-bottom: var(--k-border-w) solid var(--k-border);
+  text-align: right;
+}
+.matrix thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: var(--k-space-2) var(--k-space-3);
+  background: var(--k-subtle);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.matrix th:first-child {
+  position: sticky;
+  left: 0;
+  text-align: left;
+}
+.matrix thead th:first-child {
+  z-index: 2;
+}
+.matrix tbody th {
+  min-width: 150px;
+  padding: var(--k-space-2) var(--k-space-3);
+  background: var(--k-surface);
+  font-weight: 400;
+}
+.rowName {
+  display: grid;
+}
+.cell {
+  display: grid;
+  justify-items: end;
+  width: 100%;
+  min-width: 96px;
+  min-height: 48px;
+  padding: var(--k-space-2) var(--k-space-3);
+  border: 0;
+  border-left: var(--k-border-w) solid var(--k-border);
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.cell strong {
+  font: var(--k-text-base);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.cell span {
+  font: var(--k-text-xs);
+  white-space: nowrap;
+}
+.cell:hover {
+  background: var(--k-subtle);
+}
+.cell[aria-pressed="true"] {
+  background: var(--k-accent-subtle);
+  outline: 2px solid var(--k-accent);
+  outline-offset: -2px;
+}
+.cell:focus-visible {
+  outline: 2px solid var(--k-accent);
+  outline-offset: -2px;
+}
+.matrix .empty {
+  padding: var(--k-space-2) var(--k-space-3);
+  border-left: var(--k-border-w) solid var(--k-border);
+  color: var(--k-text-muted);
+}
+
+@media (max-width: 1100px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .side {
+    position: static;
+  }
 }
 
 @media (max-width: 600px) {

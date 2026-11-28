@@ -81,8 +81,12 @@ describe("rates helpers", () => {
 
 describe("RatesPage", () => {
   const fetchMock = vi.fn();
+  const IPHONE = { id: "m2", name: "iPhone 13", brand: "Apple" };
+  const SCREEN = row({ id: "r4", name: "Pantalla iPhone 13", category: "Pantalla", price: "149.00", model: IPHONE, quality: "compatible" });
+  const CHECKUP = row({ id: "r5", name: "Revisión", category: null, price: "20.00", model: null });
+  const ALL = [COMPATIBLE, ORIGINAL, CONNECTOR, SCREEN, CHECKUP];
+
   beforeEach(() => {
-    vi.useFakeTimers();
     fetchMock.mockReset();
     vi.stubGlobal("fetch", fetchMock);
     localStorage.clear();
@@ -90,62 +94,74 @@ describe("RatesPage", () => {
   });
   afterEach(() => {
     cleanup();
-    vi.useRealTimers();
     vi.unstubAllGlobals();
   });
 
-  const type = async (text: string) => {
-    fireEvent.change(screen.getByRole("searchbox", { name: "Buscar tarifa" }), { target: { value: text } });
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(300);
-    });
-  };
-
-  it("searches once typing stops and shows each repair with its prices and stock", async () => {
-    fetchMock.mockResolvedValue(new Response(JSON.stringify([COMPATIBLE, ORIGINAL])));
+  const show = async (rows: RateRow[] = ALL) => {
+    if (!fetchMock.getMockImplementation()) fetchMock.mockResolvedValue(new Response(JSON.stringify(rows)));
     render(<RatesPage />);
-    await type("bateria a54");
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(String(fetchMock.mock.calls[0][0])).toContain("/services/rates?q=bateria%20a54");
-    const card = screen.getByRole("listitem");
-    expect(card.textContent).toContain("Galaxy A54");
-    expect(card.textContent).toMatch(/55,00\s€En stock 4/);
-    expect(card.textContent).toContain("Sin stock: se pide");
-    expect(screen.getByRole("button", { name: "bateria a54" })).toBeTruthy();
+    await act(async () => {});
+  };
+  const filter = (text: string) =>
+    fireEvent.change(screen.getByRole("searchbox", { name: "Filtrar tarifas" }), { target: { value: text } });
+  const matrix = () => screen.getByRole("table", { name: "Tarifas por modelo y reparación" });
+  const header = () => within(matrix()).getAllByRole("columnheader").map((h) => h.textContent);
+  const models = () => within(matrix()).getAllByRole("rowheader").map((h) => h.textContent);
+
+  it("shows the whole price list as models × repairs, with the stock for partners", async () => {
+    await show();
+    expect(String(fetchMock.mock.calls[0][0])).toContain("/services/rates/all");
+    expect(header()).toEqual(["Modelo", "Batería", "Conector de carga", "Pantalla", "Revisión"]);
+    expect(models()).toEqual(["Galaxy A54Samsung", "iPhone 13Apple", "General"]);
+    const battery = within(matrix()).getByRole("button", { name: /^Batería Galaxy A54: 55,00/ });
+    expect(battery.textContent).toMatch(/55,00\s€stock 4/);
+    // «Original» shows the other price, and its stock.
+    fireEvent.click(screen.getByRole("radio", { name: "Original" }));
+    expect(within(matrix()).getByRole("button", { name: /^Batería Galaxy A54: 79,00/ }).textContent).toContain("sin stock");
+    // The screen has no original: it says so and keeps the compatible price.
+    expect(within(matrix()).getByRole("button", { name: /^Pantalla iPhone 13: 149,00/ }).textContent).toContain("solo compatible");
+    expect(within(matrix()).getAllByLabelText("No se hace").length).toBe(8);
   });
 
-  it("opens the WhatsApp text and copies the chosen price", async () => {
+  it("filters the models by name or brand and the repairs by their name, without accents", async () => {
+    await show();
+    filter("bateria a54");
+    expect(header()).toEqual(["Modelo", "Batería"]);
+    expect(models()).toEqual(["Galaxy A54Samsung"]);
+    filter("apple");
+    expect(models()).toEqual(["iPhone 13Apple"]);
+    filter("zzz");
+    expect(screen.getByText(/Ninguna tarifa coincide con «zzz»/)).toBeTruthy();
+  });
+
+  it("opens the chosen cell with the WhatsApp text, the intake and the quote", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     vi.stubGlobal("navigator", { clipboard: { writeText } });
-    fetchMock.mockResolvedValue(new Response(JSON.stringify([COMPATIBLE, ORIGINAL])));
-    render(<RatesPage />);
-    await type("bateria a54");
-    fireEvent.click(screen.getByRole("button", { name: "Copiar" }));
-    const panel = screen.getByRole("region", { name: "Texto para WhatsApp" });
+    await show();
+    filter("a54");
+    const cell = within(matrix()).getByRole("button", { name: /^Batería Galaxy A54/ });
+    fireEvent.click(cell);
+    expect(cell.getAttribute("aria-pressed")).toBe("true");
+    const chosen = screen.getByRole("region", { name: "Tarifa elegida" });
+    expect(chosen.textContent).toContain("Batería · Galaxy A54");
+    expect(chosen.textContent).toMatch(/55,00\s€En stock 4/);
+    expect(chosen.textContent).toContain("Sin stock: se pide");
+    const panel = within(chosen).getByRole("region", { name: "Texto para WhatsApp" });
     fireEvent.click(within(panel).getByRole("radio", { name: "Original" }));
     await act(async () => {
       fireEvent.click(within(panel).getByRole("button", { name: "Copiar para WhatsApp" }));
     });
     expect(writeText.mock.calls[0][0]).toMatch(/79,00\s€ con pieza original/);
-    expect(screen.getByRole("status").textContent).toBe("Copiado.");
-    expect(within(panel).getByRole("link", { name: "Dar de alta" }).getAttribute("href")).toBe(
-      "/ordenes/nueva?servicio=r2",
-    );
+    expect(within(panel).getByRole("status").textContent).toBe("Copiado.");
+    expect(within(panel).getByRole("link", { name: "Dar de alta" }).getAttribute("href")).toBe("/ordenes/nueva?servicio=r2");
     expect(within(panel).getByRole("link", { name: "Crear presupuesto" }).getAttribute("href")).toBe(
       "/presupuestos?presupuesto=nuevo&servicio=r2",
     );
+    // The filter that found it is remembered.
+    expect(screen.getByRole("button", { name: "a54" })).toBeTruthy();
   });
 
-  it("says when nothing matches and does not search one letter", async () => {
-    fetchMock.mockResolvedValue(new Response("[]"));
-    render(<RatesPage />);
-    await type("x");
-    expect(fetchMock).not.toHaveBeenCalled();
-    await type("zzz");
-    expect(screen.getByText(/Ninguna tarifa coincide con «zzz»/)).toBeTruthy();
-  });
-
-  it("lets a partner give a rate its model and quality, then searches again", async () => {
+  it("lets a partner give a rate its model and quality, then loads the list again", async () => {
     const detail = { id: "r3", name: "Conector de carga Galaxy A54", category: "Conector de carga", price: "45.00", estimatedTime: "1 h", modelId: null, quality: null, inventoryId: null };
     fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
       if (init?.method === "PATCH") return new Response(JSON.stringify(detail));
@@ -155,8 +171,8 @@ describe("RatesPage", () => {
       if (url.endsWith("/inventory")) return new Response("[]");
       return new Response(JSON.stringify([{ ...CONNECTOR, model: null }]));
     });
-    render(<RatesPage />);
-    await type("conector");
+    await show();
+    fireEvent.click(within(matrix()).getByRole("button", { name: /^Conector de carga general/ }));
     fireEvent.click(screen.getByRole("button", { name: "Editar Conector de carga Galaxy A54" }));
     await act(async () => {});
     const form = screen.getByRole("form", { name: "Editar Conector de carga Galaxy A54" });
@@ -173,18 +189,14 @@ describe("RatesPage", () => {
       inventoryId: null,
       price: 45,
     });
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(300);
-    });
     expect(screen.queryByRole("form")).toBeNull();
-    expect(fetchMock.mock.calls.filter((c) => String(c[0]).includes("/services/rates")).length).toBe(2);
+    expect(fetchMock.mock.calls.filter((c) => String(c[0]).includes("/services/rates/all")).length).toBe(2);
   });
 
   it("does not offer editing to a partner store", async () => {
     role = "STORE_ADMIN";
-    fetchMock.mockResolvedValue(new Response(JSON.stringify([CONNECTOR])));
-    render(<RatesPage />);
-    await type("conector");
+    await show([CONNECTOR]);
+    fireEvent.click(within(matrix()).getByRole("button", { name: /^Conector de carga/ }));
     expect(screen.queryByRole("button", { name: /^Editar/ })).toBeNull();
   });
 });
