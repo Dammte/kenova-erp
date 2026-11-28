@@ -71,7 +71,6 @@ export function navFor(role: Role, shipments = false): NavSections {
  */
 const ALSO_UNDER: Record<string, string[]> = {
   "/ordenes": ["/serviceOrders"],
-  "/panel": ["/dashboard"],
   "/clientes": ["/clients"],
   "/inventario": ["/inventory"],
   "/servicios": ["/services"],
