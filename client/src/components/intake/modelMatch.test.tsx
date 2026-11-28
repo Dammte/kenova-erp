@@ -53,6 +53,11 @@ describe("ModelMatch", () => {
     expect(match.modelNames("Nokia")).toEqual([]);
   });
 
+  it("lists a brand the catalogue repeats only once", () => {
+    const twice = new ModelMatch([...BRANDS, { ...BRANDS[0], id: "b9" }], MODELS);
+    expect(twice.brandNames()).toEqual(["Apple", "Samsung"]);
+  });
+
   it("offers the catalogue's spelling of a look-alike, and nothing for an exact name", () => {
     expect(match.brandLookalike("APPLE ")).toBe("Apple");
     expect(match.brandLookalike("Apple")).toBeNull();

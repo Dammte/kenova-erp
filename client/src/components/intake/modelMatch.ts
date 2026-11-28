@@ -33,10 +33,9 @@ export class ModelMatch {
     return b ? this.models.filter((m) => m.brandId === b.id) : [];
   }
 
-  /** Brand names to pick from. */
+  /** Brand names to pick from, each once even if the catalogue repeats one. */
   brandNames(): string[] {
-    return this.brands
-      .map((b) => b.name)
+    return [...new Set(this.brands.map((b) => b.name))]
       .sort((a, b) => a.localeCompare(b, "es"));
   }
 
