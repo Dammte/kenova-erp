@@ -95,15 +95,17 @@ const WEEK: CashWeek = {
   from: "2026-10-26",
   to: "2026-10-30",
   days: [
-    { date: "2026-10-26", status: "closed", byMethod: { ...zero, cash: "35.00", card: "129.00" }, total: "164.00", manual: "0.00", movements: 2, counted: true },
-    { date: "2026-10-27", status: "closed", byMethod: zero, total: "0.00", manual: "0.00", movements: 0, counted: false },
-    { date: "2026-10-28", status: "closed", byMethod: { ...zero, cash: "-20.00" }, total: "-20.00", manual: "-12.50", movements: 2, counted: false },
-    { date: "2026-10-29", status: "closed", byMethod: zero, total: "0.00", manual: "0.00", movements: 0, counted: false },
-    { date: "2026-10-30", status: "open", byMethod: { ...zero, transfer: "50.00" }, total: "50.00", manual: "0.00", movements: 1, counted: false },
+    { date: "2026-10-26", status: "closed", byMethod: { ...zero, cash: "35.00", card: "129.00" }, total: "164.00", manual: "0.00", movements: 2, counted: true, received: 2, delivered: 0 },
+    { date: "2026-10-27", status: "closed", byMethod: zero, total: "0.00", manual: "0.00", movements: 0, counted: false, received: 1, delivered: 0 },
+    { date: "2026-10-28", status: "closed", byMethod: { ...zero, cash: "-20.00" }, total: "-20.00", manual: "-12.50", movements: 2, counted: false, received: 0, delivered: 1 },
+    { date: "2026-10-29", status: "closed", byMethod: zero, total: "0.00", manual: "0.00", movements: 0, counted: false, received: 3, delivered: 2 },
+    { date: "2026-10-30", status: "open", byMethod: { ...zero, transfer: "50.00" }, total: "50.00", manual: "0.00", movements: 1, counted: false, received: 0, delivered: 1 },
   ],
   byMethod: { cash: "15.00", card: "129.00", transfer: "50.00", other: "0.00" },
   total: "194.00",
   manual: "-12.50",
+  received: 6,
+  delivered: 4,
 };
 
 beforeEach(() => {
@@ -222,6 +224,13 @@ describe("CashPage", () => {
     within(week).getByRole("heading", { name: "Semana del 26/10 al 30/10" });
     const total = within(week).getByRole("rowheader", { name: "Semana" }).parentElement!;
     expect(total.textContent).toMatch(/194,00\s€/);
+    // Decision 09: the week's devices, which used to be the Panel's chart.
+    const headers = within(week).getAllByRole("columnheader").map((h) => h.textContent);
+    const col = (name: string) => headers.indexOf(name);
+    const thursday = within(week).getByRole("button", { name: "Jue 29/10" }).closest("tr")!;
+    expect(thursday.children[col("Equipos recibidos")].textContent).toBe("3");
+    expect(thursday.children[col("Equipos entregados")].textContent).toBe("2");
+    expect(total.children[col("Equipos recibidos")].textContent).toBe("6");
     expect(within(week).getByRole("button", { name: "Semana siguiente" }).hasAttribute("disabled")).toBe(true);
 
     await act(async () => {

@@ -41,10 +41,15 @@ export interface CashWeek {
     manual: string;
     movements: number;
     counted: boolean;
+    /** Devices taken in and handed back that day (decision 09). */
+    received: number;
+    delivered: number;
   }[];
   byMethod: Record<CashMethod, string>;
   total: string;
   manual: string;
+  received: number;
+  delivered: number;
 }
 
 export const METHOD_LABEL: Record<CashMethod, string> = {

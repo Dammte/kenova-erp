@@ -11,10 +11,14 @@ interface Week {
     manual: string;
     movements: number;
     counted: boolean;
+    received: number;
+    delivered: number;
   }[];
   byMethod: Record<string, string>;
   total: string;
   manual: string;
+  received: number;
+  delivered: number;
 }
 
 /** Design 3.2 «Semana»: a week of cash days, one row per day. */
@@ -186,5 +190,28 @@ describe('Movimientos de dinero · semana (GET /api/cash/week)', () => {
     ).toBe(400);
     const own = await week(sa, `?storeId=${vcStore}&date=2026-10-28`);
     expect(own.total).toBe('194.00');
+  });
+
+  it('counts the devices taken in and handed back each day (decision 09)', async () => {
+    // Taken in on Tuesday, handed back on Thursday (local times).
+    await t.db.query(
+      `UPDATE service_orders
+          SET "createdAt" = ('2026-10-27 10:00'::timestamp AT TIME ZONE 'Europe/Madrid') AT TIME ZONE 'UTC',
+              status = 'entregado',
+              "deliveredAt" = ('2026-10-29 19:30'::timestamp AT TIME ZONE 'Europe/Madrid')
+        WHERE id = $1`,
+      [order],
+    );
+    const w = await week(vc, '?date=2026-10-28');
+    expect(w.days.map((d) => [d.received, d.delivered])).toEqual([
+      [0, 0],
+      [1, 0],
+      [0, 0],
+      [0, 1],
+      [0, 0],
+      [0, 0],
+      [0, 0],
+    ]);
+    expect([w.received, w.delivered]).toEqual([1, 1]);
   });
 });
