@@ -140,3 +140,10 @@ export function listUrl(q: ShipmentQuery): string {
   const s = p.toString();
   return `/api/shipments${s ? `?${s}` : ""}`;
 }
+
+/** ?envio= value that opens the new-shipment form. */
+export const NEW_SHIPMENT = "nuevo";
+
+/** The new-shipment form with the orders picked in the order list (B4). */
+export const shipmentFromOrders = (ids: string[]) =>
+  `/envios?envio=${NEW_SHIPMENT}&ordenes=${ids.join(",")}`;

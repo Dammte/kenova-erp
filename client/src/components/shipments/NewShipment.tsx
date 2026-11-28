@@ -11,6 +11,8 @@ interface Props {
   partner: boolean;
   onCreated: (id: string) => void;
   onCancel: () => void;
+  /** Orders picked in the order list (B4): marked as soon as the devices load. */
+  preselect?: string[];
 }
 
 interface StoreOption {
@@ -24,7 +26,12 @@ interface StoreOption {
  * Design R2 3.14 «Envío por lotes»: tick the devices, create the shipment,
  * then print its sheet. Without devices «Crear envío» stays disabled.
  */
-export function NewShipment({ partner, onCreated, onCancel }: Props) {
+export function NewShipment({
+  partner,
+  onCreated,
+  onCancel,
+  preselect = [],
+}: Props) {
   const [stores, setStores] = useState<StoreOption[]>([]);
   const [toStoreId, setToStoreId] = useState("");
   const [candidates, setCandidates] = useState<ShipmentCandidate[] | null>(
@@ -56,6 +63,9 @@ export function NewShipment({ partner, onCreated, onCancel }: Props) {
   }, [partner]);
 
   const ready = !partner || toStoreId !== "";
+  // A stable key, so a new array from the parent does not reload the devices.
+  const wantedKey = preselect.join(",");
+  const wanted = wantedKey ? wantedKey.split(",") : [];
   useEffect(() => {
     if (!ready) return;
     let live = true;
@@ -74,7 +84,12 @@ export function NewShipment({ partner, onCreated, onCancel }: Props) {
           return;
         }
         const list = (await res.json()) as ShipmentCandidate[];
-        if (live) setCandidates(list);
+        if (!live) return;
+        setCandidates(list);
+        if (wantedKey) {
+          const ids = new Set(list.map((c) => c.orderId));
+          setPicked(new Set(wantedKey.split(",").filter((id) => ids.has(id))));
+        }
       })
       .catch(
         () => live && setLoadProblem("No se han podido cargar los equipos."),
@@ -82,7 +97,7 @@ export function NewShipment({ partner, onCreated, onCancel }: Props) {
     return () => {
       live = false;
     };
-  }, [ready, partner, toStoreId]);
+  }, [ready, partner, toStoreId, wantedKey]);
 
   const toggle = (id: string) =>
     setPicked((prev) => {
@@ -123,6 +138,12 @@ export function NewShipment({ partner, onCreated, onCancel }: Props) {
     }
   };
 
+  // Picked in the order list but not shippable from here (wrong store or place).
+  const left =
+    candidates === null
+      ? 0
+      : wanted.filter((id) => !candidates.some((c) => c.orderId === id)).length;
+
   const destination = partner
     ? (stores.find((s) => s.id === toStoreId)?.name ?? "la tienda")
     : "el taller";
@@ -162,6 +183,13 @@ export function NewShipment({ partner, onCreated, onCancel }: Props) {
           </label>
         )}
 
+        {left > 0 && (
+          <p className={styles.sub} role="status">
+            {left === 1
+              ? "Una de las órdenes elegidas no puede ir en este envío: es de otra tienda, ya viaja o está cerrada."
+              : `${left} de las órdenes elegidas no pueden ir en este envío: son de otra tienda, ya viajan o están cerradas.`}
+          </p>
+        )}
         {!ready ? null : loadProblem ? (
           <p className={styles.error} role="alert">
             {loadProblem}

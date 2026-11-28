@@ -90,6 +90,30 @@ describe("NewShipment", () => {
     expect(onCreated).toHaveBeenCalledWith("e15");
   });
 
+  it("comes with the orders picked in the order list already ticked (B4)", async () => {
+    render(
+      <NewShipment
+        partner={false}
+        onCreated={onCreated}
+        onCancel={onCancel}
+        preselect={["o37", "gone"]}
+      />,
+    );
+    await act(async () => {});
+    screen.getByText("1 de 2 equipos marcados");
+    expect(
+      (screen.getByRole("checkbox", { name: /VC-0037/ }) as HTMLInputElement)
+        .checked,
+    ).toBe(true);
+    screen.getByText(
+      "Una de las órdenes elegidas no puede ir en este envío: es de otra tienda, ya viaja o está cerrada.",
+    );
+    fireEvent.click(create());
+    await act(async () => {});
+    const [, init] = fetchMock.mock.calls.at(-1) as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({ orderIds: ["o37"] });
+  });
+
   it("«Marcar todos» ticks and unticks every device", async () => {
     await show(false);
     const all = screen.getByRole("checkbox", { name: "Marcar todos" });
@@ -134,7 +158,10 @@ describe("NewShipment", () => {
     cleanup();
 
     fetchMock.mockImplementation(async () =>
-      json({ message: "Los envíos desde el taller los crea el administrador" }, 400),
+      json(
+        { message: "Los envíos desde el taller los crea el administrador" },
+        400,
+      ),
     );
     await show(false);
     screen.getByText("Los envíos desde el taller los crea el administrador");
@@ -144,7 +171,10 @@ describe("NewShipment", () => {
     await show(false);
     fireEvent.click(screen.getByRole("checkbox", { name: /VC-0036/ }));
     fetchMock.mockResolvedValueOnce(
-      json({ message: "No se pueden enviar: VC-0036 (Enviado al taller)" }, 400),
+      json(
+        { message: "No se pueden enviar: VC-0036 (Enviado al taller)" },
+        400,
+      ),
     );
     fireEvent.click(create());
     await act(async () => {});
