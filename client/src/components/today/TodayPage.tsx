@@ -9,7 +9,7 @@ import { PickupReminders } from "@/components/notices/PickupReminders";
 import { Button } from "@/components/ui";
 import { API_URL, apiFetch } from "@/lib/api";
 import { formatEur } from "@/lib/format";
-import { ago, dayLabel, expiresIn, longDate, sentOn, versusLastWeek, type TodaySummary } from "./today";
+import { ago, expiresIn, longDate, sentOn, versusLastWeek, type TodaySummary } from "./today";
 import styles from "./Today.module.css";
 
 interface StoreOption {
@@ -272,10 +272,6 @@ export function TodayPage() {
               </Card>
             )}
           </div>
-
-          <div className={styles.cards}>
-            <Week week={data.week} />
-          </div>
         </>
       )}
     </div>
@@ -351,37 +347,5 @@ function Row({ head, sub, action, late }: { head: string; sub: string; action?: 
       </div>
       {action}
     </li>
-  );
-}
-
-function Week({ week }: { week: TodaySummary["week"] }) {
-  const max = Math.max(1, ...week.flatMap((d) => [d.received, d.delivered]));
-  const received = week.reduce((a, d) => a + d.received, 0);
-  const delivered = week.reduce((a, d) => a + d.delivered, 0);
-  return (
-    <section className={styles.card} aria-labelledby="week">
-      <h2 id="week" className={styles.cardTitle}>
-        Actividad de la semana
-      </h2>
-      <p className={styles.legend}>
-        <span className={styles.keyIn} aria-hidden /> Entradas {received}
-        <span className={styles.keyOut} aria-hidden /> Entregas {delivered}
-        <span className={styles.muted}>
-          · Saldo taller {received - delivered >= 0 ? "+" : ""}
-          {received - delivered}
-        </span>
-      </p>
-      <ol className={styles.bars}>
-        {week.map((d, i) => (
-          <li key={d.day} aria-label={`${dayLabel(d.day, i === week.length - 1)}: ${d.received} entradas, ${d.delivered} entregas`}>
-            <div className={styles.pair}>
-              <span className={styles.barIn} style={{ height: `${(d.received / max) * 100}%` }} />
-              <span className={styles.barOut} style={{ height: `${(d.delivered / max) * 100}%` }} />
-            </div>
-            <span className={styles.muted}>{dayLabel(d.day, i === week.length - 1)}</span>
-          </li>
-        ))}
-      </ol>
-    </section>
   );
 }

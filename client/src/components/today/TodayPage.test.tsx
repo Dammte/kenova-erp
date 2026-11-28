@@ -31,7 +31,6 @@ const SUMMARY: TodaySummary = {
   },
   expiringQuotes: { total: 0, rows: [] },
   lowStock: { total: 1, rows: [{ id: "i1", sku: "PAN-IP13", name: "Pantalla iPhone 13", stock: 0, minimalStock: 2 }] },
-  week: ["23", "24", "25", "26", "27", "28", "29"].map((d) => ({ day: `2026-10-${d}`, received: 4, delivered: 3 })),
   openByStatus: { en_progreso: 12, pendiente_cliente: 4, pendiente_piezas: 3, finalizado: 5 },
 };
 
@@ -88,7 +87,6 @@ describe("TodayPage", () => {
     screen.getByText(/^44 días · debe 59,00\s€ · 2 avisos enviados$/);
     expect(screen.getByRole("link", { name: "Llamar" }).getAttribute("href")).toBe("tel:611222333");
     screen.getByText("Stock 0 · mín. 2");
-    expect(screen.getByRole("listitem", { name: "Hoy: 4 entradas, 3 entregas" })).toBeTruthy();
   });
 
   it("lets a partner look at one store", async () => {
