@@ -124,6 +124,24 @@ describe('Panel «Hoy» (GET /api/today)', () => {
     expect(s.toNotify.total).toBe(0);
   });
 
+  it('only asks to notify once a store device is back at the store', async () => {
+    const id = await intake(vc);
+    await finish(id, 1);
+    const listed = async () =>
+      (await today(vc)).toNotify.rows.some((r) => r.id === id);
+    for (const [where, shown] of [
+      ['at_workshop', false],
+      ['to_store', false],
+      ['ready_at_store', true],
+    ] as const) {
+      await t.db.query(
+        `UPDATE service_orders SET location = $1 WHERE id = $2`,
+        [where, id],
+      );
+      expect(await listed()).toBe(shown);
+    }
+  });
+
   it('flags parts waited for over 7 days, from when the order went into that status', async () => {
     const id = await intake(vc);
     await send('patch', vc, `/api/service-orders/${id}`, {

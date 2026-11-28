@@ -205,6 +205,21 @@ describe("OrderPanel", () => {
     screen.getByRole("button", { name: "Entregar…" });
   });
 
+  it("shows where a store's device is and waits for it to be back before handing it over", async () => {
+    await open({ status: "finalizado", finishedAt: "2026-10-30T10:00:00Z", location: "at_workshop" });
+    screen.getByLabelText("Ubicación: En el taller");
+    expect(screen.queryByRole("button", { name: "Avisar al cliente" })).toBeNull();
+    const deliver = screen.getByRole("button", { name: "Entregar…" });
+    expect(deliver.hasAttribute("disabled")).toBe(true);
+    screen.getByText("El equipo aún no ha vuelto a la tienda (En el taller)");
+    cleanup();
+
+    await open({ status: "finalizado", finishedAt: "2026-10-30T10:00:00Z", location: "ready_at_store" });
+    screen.getByLabelText("Ubicación: En tienda (listo para entregar)");
+    screen.getByRole("button", { name: "Avisar al cliente" });
+    expect(screen.getByRole("button", { name: "Entregar…" }).hasAttribute("disabled")).toBe(false);
+  });
+
   it("says a delivered order is read only and still offers printing", async () => {
     await open({ status: "entregado", balance: "0.00" });
     screen.getByText("Entregada · solo lectura");

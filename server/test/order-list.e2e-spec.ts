@@ -195,6 +195,16 @@ describe('Order list', () => {
     expect((await list('?view=uncollected')).body.rows).toEqual([]);
     expect((await list('?view=nope')).status).toBe(400);
 
+    // A store device still at the workshop is not ready for its client yet.
+    const move = (where: string | null) =>
+      t.db.query(`UPDATE service_orders SET location = $1 WHERE id = $2`, [
+        where,
+        finished.id,
+      ]);
+    await move('at_workshop');
+    expect((await list()).body.views.to_notify).toBe(0);
+    await move(null);
+
     // Telling the client takes it out of «Listas para avisar».
     const sent = await send(
       'post',

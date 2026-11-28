@@ -35,7 +35,8 @@ const VIEW_SQL: Record<OrderView, string> = {
   to_notify: `o.status = '${ServiceStatus.FINALIZADO}' AND NOT EXISTS (
     SELECT 1 FROM order_notices n
     WHERE n."serviceOrderId" = o.id
-      AND n."sentAt" >= coalesce(o."finishedAt", o."createdAt" AT TIME ZONE 'UTC'))`,
+      AND n."sentAt" >= coalesce(o."finishedAt", o."createdAt" AT TIME ZONE 'UTC'))
+    AND coalesce(o.location::text, 'ready_at_store') IN ('at_store', 'ready_at_store')`,
   uncollected: `o.status = '${ServiceStatus.FINALIZADO}'
     AND coalesce(o."finishedAt", o."createdAt" AT TIME ZONE 'UTC') < now() - interval '${UNCOLLECTED_DAYS} days'`,
   debt: 'coalesce(o.balance, 0) > 0',

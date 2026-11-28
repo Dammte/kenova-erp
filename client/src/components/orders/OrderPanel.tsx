@@ -13,6 +13,7 @@ import {
   FaultBlock,
   FlaggedNotes,
   HistoryList,
+  LocationBadge,
   MenuLinks,
   Message,
   MoneyTotals,
@@ -87,6 +88,7 @@ export default function OrderPanel({
               {title}
             </h2>
             {order && <StatusChip status={order.status} />}
+            {order && <LocationBadge order={order} />}
             {order && order.priority !== "medium" && order.priority !== "low" && (
               <span className={`${styles.priority} ${styles[`p_${order.priority}`]}`}>
                 {PRIORITY_LABEL[order.priority]}

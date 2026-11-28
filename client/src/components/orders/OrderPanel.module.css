@@ -64,6 +64,18 @@
 .priority {
   font: var(--k-text-xs);
 }
+/* Design R2: a bordered tag with an icon, unlike the filled status pill. */
+.location {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px var(--k-space-2);
+  border: var(--k-border-w) solid var(--k-border-strong);
+  border-radius: var(--k-radius-sm);
+  color: var(--k-text-muted);
+  font: var(--k-text-xs);
+  white-space: nowrap;
+}
 .p_urgent {
   color: var(--k-danger);
 }

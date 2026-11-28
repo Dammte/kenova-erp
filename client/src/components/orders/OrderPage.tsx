@@ -14,6 +14,7 @@ import {
   FaultBlock,
   FlaggedNotes,
   HistoryList,
+  LocationBadge,
   MenuLinks,
   Message,
   MoneyTotals,
@@ -132,6 +133,7 @@ function Loaded({ order, payments, notes, notices, onChanged }: LoadedOrder & { 
         <div className={styles.titleLine}>
           <h1 className={styles.code}>{order.code}</h1>
           <StatusChip status={order.status} />
+          <LocationBadge order={order} />
           {order.priority !== "medium" && order.priority !== "low" && (
             <span className={`${panel.priority} ${panel[`p_${order.priority}`]}`}>{PRIORITY_LABEL[order.priority]}</span>
           )}
