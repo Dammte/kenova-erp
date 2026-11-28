@@ -368,6 +368,37 @@ button.chip:focus-visible {
   outline: 2px solid var(--k-accent);
   outline-offset: -2px;
 }
+/* «Editar matriz»: the price is the field; Tab moves to the next one. */
+.editCell {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+  padding: var(--k-space-1) var(--k-space-2);
+  border-left: var(--k-border-w) solid var(--k-border);
+  background: color-mix(in srgb, var(--k-warning) 8%, var(--k-surface));
+}
+.editCell span {
+  font: var(--k-text-xs);
+}
+.priceInput {
+  width: 96px;
+  min-height: 36px;
+  padding: 0 var(--k-space-2);
+  border: var(--k-border-w) solid var(--k-border-strong);
+  border-radius: var(--k-radius-md);
+  background: var(--k-surface);
+  font: var(--k-text-base);
+  font-weight: 600;
+  text-align: right;
+}
+.priceInput:focus {
+  outline: 2px solid var(--k-accent);
+  outline-offset: 0;
+}
+.priceInput[aria-invalid="true"] {
+  border-color: var(--k-danger);
+}
+
 .matrix .empty {
   padding: var(--k-space-2) var(--k-space-3);
   border-left: var(--k-border-w) solid var(--k-border);

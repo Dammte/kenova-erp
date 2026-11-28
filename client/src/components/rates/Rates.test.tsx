@@ -193,9 +193,50 @@ describe("RatesPage", () => {
     expect(fetchMock.mock.calls.filter((c) => String(c[0]).includes("/services/rates/all")).length).toBe(2);
   });
 
+  it("lets a partner change prices in the matrix itself (decision 08)", async () => {
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) =>
+      init?.method === "PATCH" ? new Response("{}") : new Response(JSON.stringify(ALL)),
+    );
+    await show();
+    fireEvent.click(screen.getByRole("button", { name: "Editar matriz" }));
+    const field = screen.getByRole("textbox", { name: "Precio Batería Galaxy A54" }) as HTMLInputElement;
+    expect(field.value).toBe("55,00");
+    // Only the quality shown: the screen has no original, so it is not a field there.
+    fireEvent.click(screen.getByRole("radio", { name: "Original" }));
+    expect((screen.getByRole("textbox", { name: "Precio Batería Galaxy A54" }) as HTMLInputElement).value).toBe("79,00");
+    expect(screen.queryByRole("textbox", { name: "Precio Pantalla iPhone 13" })).toBeNull();
+    fireEvent.click(screen.getByRole("radio", { name: "Compatible" }));
+
+    const battery = screen.getByRole("textbox", { name: "Precio Batería Galaxy A54" });
+    fireEvent.change(battery, { target: { value: "abc" } });
+    fireEvent.blur(battery);
+    expect(screen.getByRole("alert").textContent).toBe("Precio no válido");
+    expect(fetchMock.mock.calls.some((c) => (c[1] as RequestInit | undefined)?.method === "PATCH")).toBe(false);
+
+    fireEvent.change(battery, { target: { value: "59,90" } });
+    await act(async () => {
+      fireEvent.keyDown(battery, { key: "Enter" });
+    });
+    const patch = fetchMock.mock.calls.find((c) => (c[1] as RequestInit | undefined)?.method === "PATCH");
+    expect(String(patch?.[0])).toContain("/services/r1");
+    expect(JSON.parse(String((patch?.[1] as RequestInit).body))).toEqual({ price: 59.9 });
+
+    // An untouched cell is not saved on leaving it; Esc puts the price back.
+    const screenPrice = screen.getByRole("textbox", { name: "Precio Pantalla iPhone 13" });
+    fireEvent.blur(screenPrice);
+    fireEvent.change(screenPrice, { target: { value: "1" } });
+    fireEvent.keyDown(screenPrice, { key: "Escape" });
+    expect((screenPrice as HTMLInputElement).value).toBe("149,00");
+    expect(fetchMock.mock.calls.filter((c) => (c[1] as RequestInit | undefined)?.method === "PATCH").length).toBe(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "Terminar edición" }));
+    expect(within(matrix()).getByRole("button", { name: /^Batería Galaxy A54: 59,90/ })).toBeTruthy();
+  });
+
   it("does not offer editing to a partner store", async () => {
     role = "STORE_ADMIN";
     await show([CONNECTOR]);
+    expect(screen.queryByRole("button", { name: "Editar matriz" })).toBeNull();
     fireEvent.click(within(matrix()).getByRole("button", { name: /^Conector de carga/ }));
     expect(screen.queryByRole("button", { name: /^Editar/ })).toBeNull();
   });

@@ -6,7 +6,7 @@ import { CheckCircle2, Phone } from "lucide-react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { BackupReminder } from "@/components/backup/BackupReminder";
 import { PickupReminders } from "@/components/notices/PickupReminders";
-import { Button, STATUS_LABEL } from "@/components/ui";
+import { Button } from "@/components/ui";
 import { API_URL, apiFetch } from "@/lib/api";
 import { formatEur } from "@/lib/format";
 import { ago, dayLabel, expiresIn, longDate, sentOn, versusLastWeek, type TodaySummary } from "./today";
@@ -91,26 +91,42 @@ export function TodayPage() {
       {data && c && (
         <>
           <section className={styles.stats} aria-label="Cifras de hoy">
-            <Stat label="Recibidas hoy" value={c.received} hint={versusLastWeek(c.received, c.receivedLastWeek, data.date)} />
+            <Stat
+              label="Recibidas hoy"
+              value={c.received}
+              hint={versusLastWeek(c.received, c.receivedLastWeek, data.date)}
+              href="/ordenes?tab=all"
+            />
             <Stat
               label="En progreso"
+              href="/ordenes?tab=en_progreso"
               value={c.inProgress}
               hint={c.inProgressUrgent ? `${c.inProgressUrgent} con prioridad alta o urgente` : "Ninguna urgente"}
             />
             <Stat
               label="Pendientes de piezas"
+              href="/ordenes?tab=pendiente_piezas"
               value={c.waitingParts}
               hint={c.waitingPartsLate ? `${c.waitingPartsLate} con más de 7 días` : "Ninguna retrasada"}
               alert={c.waitingPartsLate > 0}
             />
             <Stat
               label="Listas para recoger"
+              href="/ordenes?tab=finalizado"
               value={c.ready}
               hint={c.readyNotNotified ? `${c.readyNotNotified} sin aviso enviado` : "Todas avisadas"}
               alert={c.readyNotNotified > 0}
             />
-            <Stat label="Cobrado hoy" value={formatEur(c.collectedToday)} hint="Cobros menos devoluciones" />
-            <Stat label="Pendiente de cobro" value={formatEur(c.pendingBalance)} hint="En órdenes abiertas y entregadas" />
+            {/* Design R3: the day's takings are for the partner; a store sees what it is owed. */}
+            {isPartner && (
+              <Stat label="Cobrado hoy" value={formatEur(c.collectedToday)} hint="Cobros menos devoluciones" href="/dinero" />
+            )}
+            <Stat
+              label="Pendiente de cobro"
+              value={formatEur(c.pendingBalance)}
+              hint="En órdenes abiertas y entregadas"
+              href="/ordenes?vista=debt"
+            />
           </section>
 
           {isPartner && <BackupReminder />}
@@ -259,20 +275,6 @@ export function TodayPage() {
 
           <div className={styles.cards}>
             <Week week={data.week} />
-            <section className={styles.card} aria-labelledby="open-status">
-              <h2 id="open-status" className={styles.cardTitle}>
-                Abiertas por estado
-                <span className={styles.count}>{Object.values(data.openByStatus).reduce((a, b) => a + b, 0)}</span>
-              </h2>
-              <dl className={styles.statusList}>
-                {(Object.keys(data.openByStatus) as (keyof TodaySummary["openByStatus"])[]).map((s) => (
-                  <div key={s}>
-                    <dt>{STATUS_LABEL[s]}</dt>
-                    <dd>{data.openByStatus[s]}</dd>
-                  </div>
-                ))}
-              </dl>
-            </section>
           </div>
         </>
       )}
@@ -280,13 +282,26 @@ export function TodayPage() {
   );
 }
 
-function Stat({ label, value, hint, alert }: { label: string; value: ReactNode; hint: string; alert?: boolean }) {
+/** A figure of the day; the whole tile opens the list behind it. */
+function Stat({
+  label,
+  value,
+  hint,
+  alert,
+  href,
+}: {
+  label: string;
+  value: ReactNode;
+  hint: string;
+  alert?: boolean;
+  href: string;
+}) {
   return (
-    <div className={styles.stat}>
-      <p className={styles.statLabel}>{label}</p>
-      <p className={styles.statValue}>{value}</p>
-      <p className={alert ? styles.late : styles.muted}>{hint}</p>
-    </div>
+    <Link href={href} className={styles.stat}>
+      <span className={styles.statLabel}>{label}</span>
+      <span className={styles.statValue}>{value}</span>
+      <span className={alert ? styles.late : styles.muted}>{hint}</span>
+    </Link>
   );
 }
 

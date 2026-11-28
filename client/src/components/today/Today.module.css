@@ -63,6 +63,17 @@
   border-radius: var(--k-radius-lg);
   background: var(--k-surface);
 }
+.stat:hover {
+  border-color: var(--k-border-strong);
+}
+.stat:focus-visible {
+  outline: 2px solid var(--k-accent);
+  outline-offset: 2px;
+}
+a.stat {
+  color: inherit;
+  text-decoration: none;
+}
 .statLabel {
   color: var(--k-text-muted);
   font: var(--k-text-sm);
@@ -221,20 +232,4 @@
 .barOut {
   width: 10px;
   min-height: 2px;
-}
-.statusList {
-  display: flex;
-  flex-direction: column;
-  margin: 0;
-}
-.statusList div {
-  display: flex;
-  justify-content: space-between;
-  padding: var(--k-space-2) 0;
-  border-top: var(--k-border-w) solid var(--k-border);
-}
-.statusList dd {
-  margin: 0;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
 }
