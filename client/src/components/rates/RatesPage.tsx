@@ -8,19 +8,19 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { API_URL, apiFetch } from "@/lib/api";
 import { formatEur } from "@/lib/format";
 import {
+  buildMatrix,
+  cellRate,
   choicesFor,
-  groupRates,
   pushRecent,
   readRecent,
   whatsappText,
   type Choice,
+  type Quality,
   type RateGroup,
   type RateRow,
 } from "./rates";
 import { RateEditor } from "./RateEditor";
 import styles from "./Rates.module.css";
-
-const DEBOUNCE_MS = 250;
 
 const CHOICE_LABEL: Record<Choice, string> = { both: "Ambas", compatible: "Compatible", original: "Original" };
 
@@ -112,15 +112,81 @@ function WhatsApp({ group }: { group: RateGroup }) {
   );
 }
 
+const QUALITIES: [Quality, string][] = [
+  ["compatible", "Compatible"],
+  ["original", "Original"],
+];
+
+/** The chosen repair for one model: its prices, the time and the WhatsApp text. */
+function RateCard({
+  group,
+  onEdit,
+  editing,
+  onEditDone,
+}: {
+  group: RateGroup;
+  onEdit?: (id: string) => void;
+  editing: string | null;
+  onEditDone: (saved: boolean) => void;
+}) {
+  const g = group;
+  return (
+    <section className={styles.card} aria-label="Tarifa elegida">
+      <div>
+        <p className={styles.model}>
+          {g.repair} · {g.model?.name ?? "General"}
+        </p>
+        {g.model?.brand && <p className={styles.muted}>{g.model.brand}</p>}
+      </div>
+      <dl className={styles.grid}>
+        {g.single ? (
+          <div>
+            <dt>Precio</dt>
+            <dd>
+              <Price row={g.single} onEdit={onEdit} />
+            </dd>
+          </div>
+        ) : (
+          <>
+            <div>
+              <dt>Compatible</dt>
+              <dd>
+                <Price row={g.compatible} onEdit={onEdit} />
+              </dd>
+            </div>
+            <div>
+              <dt>Original</dt>
+              <dd>
+                <Price row={g.original} onEdit={onEdit} />
+              </dd>
+            </div>
+          </>
+        )}
+        <div>
+          <dt>Tiempo</dt>
+          <dd>{g.estimatedTime ?? "—"}</dd>
+        </div>
+      </dl>
+      {editing && [g.single, g.compatible, g.original].some((r) => r?.id === editing) ? (
+        <RateEditor id={editing} onCancel={() => onEditDone(false)} onSaved={() => onEditDone(true)} />
+      ) : (
+        <WhatsApp key={g.key} group={g} />
+      )}
+    </section>
+  );
+}
+
 /**
- * Design 2.3 "Tarifas": answers «¿cuánto cuesta…?» at the counter or on the
- * phone in a few seconds, and turns the answer into a WhatsApp message.
+ * Design R3 «Tarifas · matriz» (design 2.3 before it): answers «¿cuánto
+ * cuesta…?» at the counter in a few seconds. A row per model, a column per
+ * repair; the chosen cell gives the WhatsApp text, the intake and the quote.
  */
 export function RatesPage() {
-  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState("");
+  const [quality, setQuality] = useState<Quality>("compatible");
   const [rows, setRows] = useState<RateRow[] | null>(null);
   const [failed, setFailed] = useState(false);
-  const [open, setOpen] = useState<string | null>(null);
+  const [picked, setPicked] = useState<string | null>(null);
   const [recent, setRecent] = useState<string[]>([]);
   const [editing, setEditing] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
@@ -128,39 +194,42 @@ export function RatesPage() {
   // Decision: the partners keep the price list; stores only read it.
   const onEdit = user?.role === "SUPER_ADMIN" ? setEditing : undefined;
   const input = useRef<HTMLInputElement>(null);
+  const card = useRef<HTMLDivElement>(null);
 
   useEffect(() => setRecent(readRecent()), []);
 
-  const typed = query.trim();
   useEffect(() => {
-    if (typed.length < 2) {
-      setRows(null);
-      setFailed(false);
-      return;
-    }
-    const controller = new AbortController();
-    const timer = setTimeout(() => {
-      apiFetch(`${API_URL}/services/rates?q=${encodeURIComponent(typed)}`, { signal: controller.signal })
-        .then(async (res) => {
-          if (!res.ok) throw new Error(String(res.status));
-          const found = (await res.json()) as RateRow[];
-          setRows(found);
-          setFailed(false);
-          if (found.length) setRecent((list) => pushRecent(list, typed));
-        })
-        .catch(() => !controller.signal.aborted && setFailed(true));
-    }, DEBOUNCE_MS);
+    let live = true;
+    setFailed(false);
+    apiFetch(`${API_URL}/services/rates/all`)
+      .then(async (res) => {
+        if (!res.ok) throw new Error(String(res.status));
+        const all = (await res.json()) as RateRow[];
+        if (live) setRows(all);
+      })
+      .catch(() => live && setFailed(true));
     return () => {
-      clearTimeout(timer);
-      controller.abort();
+      live = false;
     };
-  }, [typed, reload]);
+  }, [reload]);
 
-  const groups = rows ? groupRates(rows) : [];
-  const search = (q: string) => {
-    setQuery(q);
-    setOpen(null);
+  const matrix = buildMatrix(rows ?? [], filter);
+  const cellKey = (rowKey: string, repair: string) => `${rowKey}|${repair}`;
+  const pickedGroup = picked
+    ? matrix.rows.flatMap((r) => Object.entries(r.cells).map(([repair, g]) => [cellKey(r.key, repair), g] as const))
+        .find(([k]) => k === picked)?.[1]
+    : undefined;
+
+  const pick = (key: string) => {
+    setPicked(key);
     setEditing(null);
+    setRecent((list) => pushRecent(list, filter));
+    // On a narrow screen the card is under the table.
+    requestAnimationFrame(() => card.current?.scrollIntoView?.({ block: "nearest" }));
+  };
+  const applyRecent = (q: string) => {
+    setFilter(q);
+    setPicked(null);
     input.current?.focus();
   };
 
@@ -168,114 +237,136 @@ export function RatesPage() {
     <div className={styles.page}>
       <h1 className={styles.title}>Tarifas</h1>
 
-      <div className={styles.searchBox}>
-        <Search size={18} aria-hidden className={styles.searchIcon} />
-        <input
-          ref={input}
-          type="search"
-          className={styles.search}
-          aria-label="Buscar tarifa"
-          placeholder="Reparación y modelo: batería a54, pantalla 12 pro…"
-          autoComplete="off"
-          autoFocus
-          value={query}
-          onChange={(e) => {
-            setQuery(e.target.value);
-            setOpen(null);
-            setEditing(null);
-          }}
-        />
+      <div className={styles.toolbar}>
+        <div className={styles.searchBox}>
+          <Search size={18} aria-hidden className={styles.searchIcon} />
+          <input
+            ref={input}
+            type="search"
+            className={styles.search}
+            aria-label="Filtrar tarifas"
+            placeholder="Modelo o reparación: a54, batería iphone 1…"
+            autoComplete="off"
+            autoFocus
+            value={filter}
+            onChange={(e) => {
+              setFilter(e.target.value);
+              setEditing(null);
+            }}
+          />
+        </div>
+        <div className={styles.segmented} role="radiogroup" aria-label="Calidad de la pieza">
+          {QUALITIES.map(([q, label]) => (
+            <label key={q} className={styles.segment}>
+              <input type="radio" name="quality" checked={quality === q} onChange={() => setQuality(q)} />
+              {label}
+            </label>
+          ))}
+        </div>
       </div>
 
       {recent.length > 0 && (
         <p className={styles.recent}>
           <span className={styles.muted}>Recientes:</span>
           {recent.map((r) => (
-            <button key={r} type="button" className={styles.chip} onClick={() => search(r)}>
+            <button key={r} type="button" className={styles.chip} onClick={() => applyRecent(r)}>
               {r}
             </button>
           ))}
         </p>
       )}
 
-      {failed && (
+      {failed ? (
         <p className={styles.error} role="alert">
           No se han podido cargar las tarifas. Prueba otra vez.
         </p>
-      )}
-      {!failed && rows && groups.length === 0 && (
+      ) : !rows ? (
+        <p className={styles.muted}>Cargando las tarifas…</p>
+      ) : rows.length === 0 ? (
+        <p className={styles.muted}>Aún no hay tarifas. Se añaden desde Servicios.</p>
+      ) : matrix.rows.length === 0 ? (
         <p className={styles.muted}>
-          Ninguna tarifa coincide con «{typed}». Prueba con menos palabras o solo el modelo.
+          Ninguna tarifa coincide con «{filter.trim()}». Prueba con menos palabras o solo el modelo.
         </p>
-      )}
-      {!rows && !failed && (
-        <p className={styles.muted}>Escribe la reparación, el modelo o ambos. No hace falta poner tildes.</p>
-      )}
-
-      <ul className={styles.results}>
-        {groups.map((g) => (
-          <li key={g.key} className={styles.card}>
-            <div className={styles.head}>
-              <div>
-                <p className={styles.model}>{g.model?.name ?? "General"}</p>
-                {g.model?.brand && <p className={styles.muted}>{g.model.brand}</p>}
-              </div>
-              <Button
-                size="sm"
-                variant={open === g.key ? "secondary" : "ghost"}
-                aria-expanded={open === g.key}
-                onClick={() => setOpen(open === g.key ? null : g.key)}
-              >
-                {open === g.key ? "Cerrar texto" : "Copiar"}
-              </Button>
-            </div>
-            <dl className={styles.grid}>
-              <div>
-                <dt>Reparación</dt>
-                <dd>{g.repair}</dd>
-              </div>
-              {g.single ? (
-                <div>
-                  <dt>Precio</dt>
-                  <dd>
-                    <Price row={g.single} onEdit={onEdit} />
-                  </dd>
-                </div>
-              ) : (
-                <>
-                  <div>
-                    <dt>Compatible</dt>
-                    <dd>
-                      <Price row={g.compatible} onEdit={onEdit} />
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Original</dt>
-                    <dd>
-                      <Price row={g.original} onEdit={onEdit} />
-                    </dd>
-                  </div>
-                </>
-              )}
-              <div>
-                <dt>Tiempo</dt>
-                <dd>{g.estimatedTime ?? "—"}</dd>
-              </div>
-            </dl>
-            {open === g.key && <WhatsApp group={g} />}
-            {editing && [g.single, g.compatible, g.original].some((r) => r?.id === editing) && (
-              <RateEditor
-                id={editing}
-                onCancel={() => setEditing(null)}
-                onSaved={() => {
+      ) : (
+        <div className={styles.layout}>
+          <div className={styles.matrixWrap}>
+            <table className={styles.matrix} aria-label="Tarifas por modelo y reparación">
+              <thead>
+                <tr>
+                  <th scope="col">Modelo</th>
+                  {matrix.repairs.map((r) => (
+                    <th key={r} scope="col">
+                      {r}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {matrix.rows.map((row) => (
+                  <tr key={row.key}>
+                    <th scope="row">
+                      <span className={styles.rowName}>
+                        <strong>{row.model?.name ?? "General"}</strong>
+                        {row.model?.brand && <span className={styles.muted}>{row.model.brand}</span>}
+                      </span>
+                    </th>
+                    {matrix.repairs.map((repair) => {
+                      const g = row.cells[repair];
+                      if (!g) {
+                        return (
+                          <td key={repair} className={styles.empty} aria-label="No se hace">
+                            —
+                          </td>
+                        );
+                      }
+                      const { rate, fallback } = cellRate(g, quality);
+                      const key = cellKey(row.key, repair);
+                      const price = rate ? formatEur(Number(rate.price)) : "—";
+                      const stock = rate?.stock;
+                      return (
+                        <td key={repair}>
+                          <button
+                            type="button"
+                            className={styles.cell}
+                            aria-pressed={picked === key}
+                            aria-label={`${repair} ${row.model?.name ?? "general"}: ${price}`}
+                            onClick={() => pick(key)}
+                          >
+                            <strong>{price}</strong>
+                            {stock ? (
+                              <span className={stock.units > 0 ? styles.stock : styles.out}>
+                                {stock.units > 0 ? `stock ${stock.units}` : "sin stock"}
+                              </span>
+                            ) : fallback ? (
+                              <span className={styles.muted}>solo {rate?.quality}</span>
+                            ) : null}
+                          </button>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div ref={card} className={styles.side}>
+            {pickedGroup ? (
+              <RateCard
+                group={pickedGroup}
+                onEdit={onEdit}
+                editing={editing}
+                onEditDone={(saved) => {
                   setEditing(null);
-                  setReload((n) => n + 1);
+                  if (saved) setReload((n) => n + 1);
                 }}
               />
+            ) : (
+              <p className={styles.muted}>Elige una celda para ver el precio, el texto para WhatsApp y dar de alta.</p>
             )}
-          </li>
-        ))}
-      </ul>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

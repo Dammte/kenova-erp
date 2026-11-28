@@ -90,6 +90,13 @@ export class ServicesController {
     );
   }
 
+  /** Design R3: every available rate, for the model × repair matrix. */
+  @Get('rates/all')
+  @ApiOperation({ summary: 'Todas las tarifas disponibles (matriz)' })
+  allRates(@CurrentUser() user: AuthUser) {
+    return this.servicesService.allRates(user.role === UserRole.SUPER_ADMIN);
+  }
+
   /** Design 3.5: the catalog with withdrawn services; the part only for partners. */
   @Get('catalog')
   @ApiOperation({ summary: 'Catálogo de servicios con modelo y pieza' })

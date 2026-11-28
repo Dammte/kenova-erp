@@ -5,7 +5,7 @@ import {
   OnApplicationBootstrap,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, ILike } from 'typeorm';
+import { Repository, ILike, SelectQueryBuilder } from 'typeorm';
 import { Service } from './entities/service.entity';
 import { CreateServiceDto } from './dto/create-service.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
@@ -41,6 +41,8 @@ export interface CatalogRow {
 
 /** Rows the search returns at most. */
 const RATES_SHOWN = 50;
+/** Rows the matrix loads at most: the whole price list of a repair shop. */
+const RATES_ALL = 3000;
 
 @Injectable()
 export class ServicesService implements OnApplicationBootstrap {
@@ -88,22 +90,38 @@ export class ServicesService implements OnApplicationBootstrap {
     const haystack = foldSql(
       `concat_ws(' ', s.name, s.category, m.name, b.name)`,
     );
+    return this.rates(withStock, RATES_SHOWN, (qb) =>
+      words.forEach((w, n) =>
+        qb.andWhere(`${haystack} LIKE :w${n}`, { [`w${n}`]: w }),
+      ),
+    );
+  }
+
+  /** Design R3: the whole price list for the model × repair matrix. */
+  allRates(withStock: boolean): Promise<RateRow[]> {
+    return this.rates(withStock, RATES_ALL);
+  }
+
+  /** The available rates, by brand, model, repair and quality. */
+  private async rates(
+    withStock: boolean,
+    limit: number,
+    filter?: (qb: SelectQueryBuilder<Service>) => void,
+  ): Promise<RateRow[]> {
     const qb = this.servicesRepository
       .createQueryBuilder('s')
       .leftJoinAndSelect('s.model', 'm')
       .leftJoinAndSelect('m.brand', 'b')
       .leftJoinAndSelect('s.inventory', 'i', 'i.deletedAt IS NULL')
       .where('s.available = true');
-    words.forEach((w, n) =>
-      qb.andWhere(`${haystack} LIKE :w${n}`, { [`w${n}`]: w }),
-    );
+    filter?.(qb);
     const rows = await qb
       .orderBy('b.name', 'ASC', 'NULLS LAST')
       .addOrderBy('m.name', 'ASC', 'NULLS LAST')
       .addOrderBy('s.category', 'ASC', 'NULLS LAST')
       .addOrderBy('s.quality', 'ASC', 'NULLS FIRST')
       .addOrderBy('s.name', 'ASC')
-      .limit(RATES_SHOWN)
+      .limit(limit)
       .getMany();
 
     return rows.map((s) => {
