@@ -31,12 +31,10 @@ export interface TodaySummary {
   }>;
   expiringQuotes: List<{ id: string; code: string; clientName: string; validUntil: string; daysLeft: number }>;
   lowStock: List<{ id: string; sku: string; name: string; stock: number; minimalStock: number }> | null;
-  week: { day: string; received: number; delivered: number }[];
   openByStatus: Record<"en_progreso" | "pendiente_cliente" | "pendiente_piezas" | "finalizado", number>;
 }
 
 const WEEKDAY = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
-const SHORT = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 const weekday = (iso: string) => new Date(`${iso}T12:00:00Z`).getUTCDay();
 
 /** «2 más que el jueves pasado», «igual que…», «1 menos que…». */
@@ -46,9 +44,6 @@ export function versusLastWeek(today: number, lastWeek: number, date: string): s
   if (diff === 0) return `Igual que ${name}`;
   return `${Math.abs(diff)} ${diff > 0 ? "más" : "menos"} que ${name}`;
 }
-
-/** «Lun» … and «Hoy» for the last day. */
-export const dayLabel = (iso: string, isToday: boolean) => (isToday ? "Hoy" : SHORT[weekday(iso)]);
 
 /** «Jueves, 29/10/2026». */
 export function longDate(iso: string): string {
