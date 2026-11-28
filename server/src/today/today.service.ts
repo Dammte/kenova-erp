@@ -21,7 +21,7 @@ export const QUOTE_WARN_DAYS_LEFT = QUOTE_VALID_DAYS - 25;
 const LIST_LIMIT = 5;
 const TZ = 'Europe/Madrid';
 
-/** Local (Spain) calendar day of a timestamptz column, for "today" and the week. */
+/** Local (Spain) calendar day of a timestamptz column, for "today". */
 const day = (col: string) => `(${col} AT TIME ZONE '${TZ}')::date`;
 /** The same for service_orders."createdAt", a timestamp without time zone. */
 const createdDay = (col: string) => `${madridOfUtcNaive(col)}::date`;
@@ -107,11 +107,6 @@ export interface TodaySummary {
     amount: string | null;
     supplierStatus: string | null;
   }> | null;
-  week: { day: string; received: number; delivered: number }[];
-  openByStatus: Record<
-    'en_progreso' | 'pendiente_cliente' | 'pendiente_piezas' | 'finalizado',
-    number
-  >;
 }
 
 /**
@@ -171,7 +166,6 @@ export class TodayService {
                             AND ${partsSince} <= now() - make_interval(days => ${LATE_PART_DAYS})) AS "waitingPartsLate",
          count(*) FILTER (WHERE o.status = 'finalizado') AS ready,
          count(*) FILTER (WHERE o.status = 'finalizado' AND NOT ${readyNotice}) AS "readyNotNotified",
-         count(*) FILTER (WHERE o.status = 'pendiente_cliente') AS "pendingClient",
          coalesce(sum(o.balance) FILTER (WHERE o.status <> 'cancelado' AND o.balance > 0), 0)::numeric(12,2)::text AS "pendingBalance"
        FROM service_orders o WHERE ${orders}`,
       p,
@@ -285,16 +279,6 @@ export class TodayService {
             [],
           )
         : null;
-    const week = await this.db.query<TodaySummary['week']>(
-      `SELECT to_char(g.d, 'YYYY-MM-DD') AS day,
-              (SELECT count(*)::int FROM service_orders o
-                WHERE ${orders} AND ${createdDay('o."createdAt"')} = g.d) AS received,
-              (SELECT count(*)::int FROM service_orders o
-                WHERE ${orders} AND o.status = 'entregado' AND ${day('o."deliveredAt"')} = g.d) AS delivered
-         FROM generate_series(${TODAY} - 6, ${TODAY}, interval '1 day') AS g(d)
-        ORDER BY g.d`,
-      p,
-    );
     const [{ date }] = await this.db.query<{ date: string }[]>(
       `SELECT to_char(${TODAY}, 'YYYY-MM-DD') AS date`,
     );
@@ -321,13 +305,6 @@ export class TodayService {
       lowStock,
       incoming,
       supplierOrders,
-      week,
-      openByStatus: {
-        en_progreso: n('inProgress'),
-        pendiente_cliente: n('pendingClient'),
-        pendiente_piezas: n('waitingParts'),
-        finalizado: n('ready'),
-      },
     };
   }
 }

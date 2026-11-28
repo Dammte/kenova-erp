@@ -26,8 +26,6 @@ interface Summary {
       amount: string | null;
     }[];
   } | null;
-  week: { day: string; received: number; delivered: number }[];
-  openByStatus: Record<string, number>;
 }
 
 describe('Panel «Hoy» (GET /api/today)', () => {
@@ -102,16 +100,13 @@ describe('Panel «Hoy» (GET /api/today)', () => {
   it('counts what came in and what is in progress today', async () => {
     await intake(vc, { priority: 'urgent' });
     await intake(vc);
-    const { counts, week, openByStatus } = await today(vc);
+    const { counts } = await today(vc);
     expect(counts).toMatchObject({
       received: 2,
       receivedLastWeek: 0,
       inProgress: 2,
       inProgressUrgent: 1,
     });
-    expect(week).toHaveLength(7);
-    expect(week[6]).toMatchObject({ received: 2, delivered: 0 });
-    expect(openByStatus.en_progreso).toBe(2);
   });
 
   it('lists finished orders without a «ready» notice until one is sent', async () => {
@@ -240,9 +235,8 @@ describe('Panel «Hoy» (GET /api/today)', () => {
       `UPDATE service_orders SET "createdAt" = ${madrid('23:30', -1)} WHERE id = $1`,
       [lastNight],
     );
-    const { counts, week } = await today(vc);
+    const { counts } = await today(vc);
     expect(counts.received).toBe(Number(before) + 1);
-    expect(week[6].received).toBe(Number(before) + 1);
   });
 
   it('lists open quotes that lapse within 5 days, soonest first', async () => {
