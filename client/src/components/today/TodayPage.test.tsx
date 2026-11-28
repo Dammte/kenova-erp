@@ -73,6 +73,15 @@ describe("TodayPage", () => {
     within(stats).getByText("2 más que el jueves pasado");
     within(stats).getByText("Todas avisadas");
     expect(within(stats).getByText("Cobrado hoy").nextSibling?.textContent).toMatch(/^612,00\s€$/);
+    // Each figure opens the list behind it.
+    const link = (label: string) => within(stats).getByText(label).closest("a")?.getAttribute("href");
+    expect(link("Recibidas hoy")).toBe("/ordenes?tab=all");
+    expect(link("En progreso")).toBe("/ordenes?tab=en_progreso");
+    expect(link("Pendientes de piezas")).toBe("/ordenes?tab=pendiente_piezas");
+    expect(link("Listas para recoger")).toBe("/ordenes?tab=finalizado");
+    expect(link("Cobrado hoy")).toBe("/dinero");
+    expect(link("Pendiente de cobro")).toBe("/ordenes?vista=debt");
+    expect(screen.queryByRole("region", { name: /Abiertas por estado/ })).toBeNull();
 
     screen.getByText("Nada pendiente. Todas las órdenes finalizadas tienen aviso.");
     screen.getByText("MP-0129 · Rubén Castro · Galaxy A54");
@@ -98,6 +107,15 @@ describe("TodayPage", () => {
     await act(async () => {});
     screen.getByText(/No se ha podido cargar el panel/);
     expect(screen.queryByRole("combobox")).toBeNull();
+  });
+
+  it("shows a store what it is owed but not the day's takings", async () => {
+    role = "STORE_ADMIN";
+    render(<TodayPage />);
+    await act(async () => {});
+    const stats = screen.getByRole("region", { name: "Cifras de hoy" });
+    expect(within(stats).queryByText("Cobrado hoy")).toBeNull();
+    within(stats).getByText("Pendiente de cobro");
   });
 
   it("warns the partners when the last backup is over 7 days old, and only then", async () => {
