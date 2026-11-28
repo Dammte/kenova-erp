@@ -42,7 +42,6 @@ export interface TodaySummary {
     amount: string | null;
     supplierStatus: string | null;
   }> | null;
-  openByStatus: Record<"en_progreso" | "pendiente_cliente" | "pendiente_piezas" | "finalizado", number>;
 }
 
 const WEEKDAY = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];

@@ -31,7 +31,6 @@ const SUMMARY: TodaySummary = {
   },
   expiringQuotes: { total: 0, rows: [] },
   lowStock: { total: 1, rows: [{ id: "i1", sku: "PAN-IP13", name: "Pantalla iPhone 13", stock: 0, minimalStock: 2 }] },
-  openByStatus: { en_progreso: 12, pendiente_cliente: 4, pendiente_piezas: 3, finalizado: 5 },
 };
 
 beforeEach(() => {
