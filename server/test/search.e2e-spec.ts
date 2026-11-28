@@ -78,7 +78,8 @@ describe('Quick search', () => {
   });
 
   it('finds clients and their orders by name, ignoring accents and case', async () => {
-    for (const q of ['jose pena', 'JOSÉ', 'peña ruiz']) {
+    // Design R3 B14: words in any order too.
+    for (const q of ['jose pena', 'JOSÉ', 'peña ruiz', 'ruiz jose']) {
       const found = await search(q);
       expect(found.clients).toEqual([
         { id: jose.id, name: 'José Peña Ruiz', phoneNumber: '+34 612 345 678' },
@@ -99,6 +100,8 @@ describe('Quick search', () => {
     expect(await ids(order.code.toLowerCase())).toEqual([order.id]);
     expect(await ids('iphone 13')).toEqual([order.id]);
     expect(await ids('3539 8765')).toEqual([order.id]);
+    expect(await ids('iphone jose')).toEqual([order.id]);
+    expect(await ids('iphone maria')).toEqual([]);
   });
 
   it('finds a client by phone however it is typed', async () => {

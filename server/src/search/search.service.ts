@@ -5,7 +5,13 @@ import type { AuthUser } from '../auth/auth.types';
 import { Client } from '../clients/entities/client.entity';
 import { clientVisibleSql, scopedStoreId } from '../common/store-scope';
 import { ServiceOrder } from '../service-order/entities/service-order.entity';
-import { digitsSql, foldSql, likeTerms } from '../common/text-search';
+import {
+  digitsSql,
+  everyWordSql,
+  foldSql,
+  likeTerms,
+  type LikeTerms,
+} from '../common/text-search';
 
 export interface OrderHit {
   id: string;
@@ -39,19 +45,25 @@ export class SearchService {
   async search(raw: string, actor: AuthUser): Promise<SearchResult> {
     const terms = likeTerms(raw);
     if (!terms) return { orders: [], clients: [] };
-    const { term, numeric } = terms;
     const [orders, clients] = await Promise.all([
-      this.orders(term, numeric, actor),
-      this.clients(term, numeric, actor),
+      this.orders(terms, actor),
+      this.clients(terms, actor),
     ]);
     return { orders, clients };
   }
 
   private async orders(
-    term: string,
-    numeric: string | null,
+    { words, numeric }: LikeTerms,
     actor: AuthUser,
   ): Promise<OrderHit[]> {
+    const each = everyWordSql(
+      [
+        foldSql('o.code'),
+        NAME,
+        `${foldSql('d.brand')} || ' ' || ${foldSql('d.model')}`,
+      ],
+      words,
+    );
     const qb = this.dataSource
       .getRepository(ServiceOrder)
       .createQueryBuilder('o')
@@ -71,17 +83,13 @@ export class SearchService {
       .where('o.deletedAt IS NULL')
       .andWhere(
         new Brackets((w) => {
-          w.where(`${foldSql('o.code')} LIKE :term`)
-            .orWhere(`${NAME} LIKE :term`)
-            .orWhere(
-              `${foldSql('d.brand')} || ' ' || ${foldSql('d.model')} LIKE :term`,
-            );
+          w.where(each.sql);
           if (numeric) {
             w.orWhere(`${digitsSql('d.imei')} LIKE :numeric`);
           }
         }),
       )
-      .setParameters({ term, numeric })
+      .setParameters({ ...each.params, numeric })
       .orderBy('o.createdAt', 'DESC')
       .take(6);
     const storeId = scopedStoreId(actor);
@@ -97,10 +105,13 @@ export class SearchService {
   }
 
   private async clients(
-    term: string,
-    numeric: string | null,
+    { words, numeric }: LikeTerms,
     actor: AuthUser,
   ): Promise<ClientHit[]> {
+    const each = everyWordSql(
+      [NAME, foldSql('c.email'), foldSql('c.dni')],
+      words,
+    );
     const qb = this.dataSource
       .getRepository(Client)
       .createQueryBuilder('c')
@@ -109,15 +120,13 @@ export class SearchService {
       .andWhere('c."isActive"')
       .andWhere(
         new Brackets((w) => {
-          w.where(`${NAME} LIKE :term`)
-            .orWhere(`${foldSql('c.email')} LIKE :term`)
-            .orWhere(`${foldSql('c.dni')} LIKE :term`);
+          w.where(each.sql);
           if (numeric) {
             w.orWhere(`${digitsSql('c."phoneNumber"')} LIKE :numeric`);
           }
         }),
       )
-      .setParameters({ term, numeric })
+      .setParameters({ ...each.params, numeric })
       .orderBy('c.firstName', 'ASC')
       .addOrderBy('c.lastName', 'ASC')
       .take(5);

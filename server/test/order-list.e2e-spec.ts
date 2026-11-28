@@ -232,6 +232,8 @@ describe('Order list', () => {
       'iphone 13',
       '612 34',
       '3539 8765',
+      // Design R3 B14: words in any order, across client and device.
+      'iphone lucia',
     ]) {
       expect(codes((await list(`?q=${encodeURIComponent(q)}`)).body)).toEqual([
         urgent.code,

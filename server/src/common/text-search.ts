@@ -28,7 +28,12 @@ export interface LikeTerms {
    * so "iPhone 13" does not match every phone with a 13 in it.
    */
   numeric: string | null;
+  /** `%word%` for each word, so «lucia iphone» finds «iPhone 13 · Lucía» (design R3 B14). */
+  words: string[];
 }
+
+/** Most words a search looks at; the rest are ignored. */
+const MAX_WORDS = 5;
 
 /** LIKE patterns for what a person typed; null when it is too short to search. */
 export function likeTerms(raw: string, minLength = 2): LikeTerms | null {
@@ -39,5 +44,25 @@ export function likeTerms(raw: string, minLength = 2): LikeTerms | null {
     term: `%${escapeLike(fold(text))}%`,
     numeric:
       /^[+\d\s().-]+$/.test(text) && digits.length >= 3 ? `%${digits}%` : null,
+    words: [...new Set(fold(text).split(/\s+/).filter(Boolean))]
+      .slice(0, MAX_WORDS)
+      .map((w) => `%${escapeLike(w)}%`),
   };
+}
+
+/**
+ * SQL that holds when every word is in at least one of `fields` (each a
+ * `foldSql` expression), in any order. Parameters are `${prefix}0`, `${prefix}1`…
+ */
+export function everyWordSql(
+  fields: string[],
+  words: string[],
+  prefix = 'word',
+): { sql: string; params: Record<string, string> } {
+  const params: Record<string, string> = {};
+  const parts = words.map((word, i) => {
+    params[`${prefix}${i}`] = word;
+    return `(${fields.map((f) => `${f} LIKE :${prefix}${i}`).join(' OR ')})`;
+  });
+  return { sql: parts.length ? `(${parts.join(' AND ')})` : 'false', params };
 }
