@@ -124,6 +124,7 @@ a.stat {
   margin-left: auto;
   color: var(--k-accent);
   font: var(--k-text-sm);
+  white-space: nowrap;
 }
 .emptyLine {
   display: flex;

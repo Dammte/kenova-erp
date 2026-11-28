@@ -166,4 +166,43 @@ describe("TodayPage", () => {
     );
     expect(within(card).getByRole("link", { name: "Ver todo" }).getAttribute("href")).toBe("/presupuestos");
   });
+
+  it("lists the shipments to receive and, for the partners, the supplier orders", async () => {
+    const incoming = {
+      total: 1,
+      rows: [{ id: "e14", code: "ENV-0014", fromStore: "Villarcayo", devices: 4, sentAt: "2026-10-28T10:00:00Z" }],
+    };
+    const supplierOrders = {
+      total: 1,
+      rows: [{ id: "p1", reference: "KQWERTY", supplier: "RPhone B2B", lines: 3, amount: "293.60", supplierStatus: "Enviado" }],
+    };
+    fetchMock.mockImplementation(async (url: string) =>
+      url.startsWith("/api/today") ? json({ ...SUMMARY, incoming, supplierOrders }) : json([]),
+    );
+    render(<TodayPage />);
+    await act(async () => {});
+    const shipments = screen.getByRole("region", { name: /Por recibir de tiendas/ });
+    within(shipments).getByText("ENV-0014 · Villarcayo · 4 equipos");
+    within(shipments).getByText("Salió el 28/10");
+    expect(within(shipments).getByRole("link", { name: "Recibir" }).getAttribute("href")).toBe("/envios?envio=e14");
+    const orders = screen.getByRole("region", { name: /Pedidos al proveedor por recibir/ });
+    within(orders).getByText(/^KQWERTY · RPhone B2B · 3 líneas · 293,60\s€$/);
+    within(orders).getByText("Enviado");
+    expect(within(orders).getByRole("link", { name: "Revisar y recibir" }).getAttribute("href")).toBe(
+      "/proveedores/pedidos?pedido=p1",
+    );
+    cleanup();
+
+    // A store waits for the workshop; nothing on the way, no card.
+    role = "STORE_ADMIN";
+    fetchMock.mockImplementation(async (url: string) =>
+      url.startsWith("/api/today")
+        ? json({ ...SUMMARY, incoming: { ...incoming, rows: [{ ...incoming.rows[0], fromStore: "Medina de Pomar" }] }, supplierOrders: null })
+        : json([]),
+    );
+    render(<TodayPage />);
+    await act(async () => {});
+    screen.getByRole("region", { name: /Por recibir del taller/ });
+    expect(screen.queryByRole("region", { name: /Pedidos al proveedor/ })).toBeNull();
+  });
 });

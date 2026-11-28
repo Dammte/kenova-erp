@@ -86,6 +86,27 @@ export interface TodaySummary {
     stock: number;
     minimalStock: number;
   }> | null;
+  /**
+   * Design R3: shipments on their way to whoever looks: to the workshop for
+   * the partners (from the chosen store, if any), to its own store for a store.
+   */
+  incoming: List<{
+    id: string;
+    code: string;
+    fromStore: string;
+    devices: number;
+    sentAt: string;
+  }>;
+  /** Partners only: supplier orders still to check and receive. */
+  supplierOrders: List<{
+    id: string;
+    reference: string;
+    supplier: string;
+    lines: number;
+    /** The order's total; «total» is the count of orders. */
+    amount: string | null;
+    supplierStatus: string | null;
+  }> | null;
   week: { day: string; received: number; delivered: number }[];
   openByStatus: Record<
     'en_progreso' | 'pendiente_cliente' | 'pendiente_piezas' | 'finalizado',
@@ -233,6 +254,37 @@ export class TodayService {
             [],
           )
         : null;
+    const own = scopedStoreId(actor);
+    const incoming = await list<TodaySummary['incoming']['rows'][number]>(
+      `SELECT s.id, 'ENV-' || lpad(s.number::text, 4, '0') AS code, f.name AS "fromStore",
+              (SELECT count(*)::int FROM shipment_lines l WHERE l."shipmentId" = s.id) AS devices,
+              s."createdAt" AS "sentAt",
+              count(*) OVER () AS total
+         FROM shipments s
+         JOIN stores f ON f.id = s."fromStoreId"
+        WHERE s.status = 'sent'
+          AND CASE WHEN $2::uuid IS NOT NULL THEN s."toStoreId" = $2
+                   ELSE s."toStoreId" IN (SELECT id FROM stores WHERE "isMain")
+                        AND ($1::uuid IS NULL OR s."fromStoreId" = $1) END
+        ORDER BY s."createdAt" ASC LIMIT ${LIST_LIMIT}`,
+      [store, own],
+    );
+    const supplierOrders =
+      actor.role === UserRole.SUPER_ADMIN
+        ? await list<
+            NonNullable<TodaySummary['supplierOrders']>['rows'][number]
+          >(
+            `SELECT o.id, o.reference, sp.name AS supplier,
+                    (SELECT count(*)::int FROM supplier_order_lines l WHERE l."orderId" = o.id) AS lines,
+                    o.total::numeric(12,2)::text AS amount, o."supplierStatus",
+                    count(*) OVER () AS total
+               FROM supplier_orders o
+               JOIN suppliers sp ON sp.id = o."supplierId"
+              WHERE o.state = 'PENDIENTE'
+              ORDER BY o."orderDate" ASC NULLS LAST, o.reference LIMIT ${LIST_LIMIT}`,
+            [],
+          )
+        : null;
     const week = await this.db.query<TodaySummary['week']>(
       `SELECT to_char(g.d, 'YYYY-MM-DD') AS day,
               (SELECT count(*)::int FROM service_orders o
@@ -267,6 +319,8 @@ export class TodayService {
       uncollected,
       expiringQuotes,
       lowStock,
+      incoming,
+      supplierOrders,
       week,
       openByStatus: {
         en_progreso: n('inProgress'),
