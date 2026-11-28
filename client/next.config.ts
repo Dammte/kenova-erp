@@ -48,6 +48,8 @@ const nextConfig: NextConfig = {
       { source: "/serviceOrders/:id/edit", destination: "/ordenes/:id", permanent: true },
       // The old dashboard: the Panel took its place.
       { source: "/dashboard", destination: "/panel", permanent: true },
+      // The old financial reports: money lives in Dinero, legal invoicing outside the ERP.
+      { source: "/finanzas", destination: "/dinero", permanent: true },
       // The old inventory screens live on in /inventario: the card and the form open in its panel.
       { source: "/inventory", destination: "/inventario", permanent: true },
       { source: "/inventory/add-part", destination: "/inventario?repuesto=nuevo", permanent: true },
